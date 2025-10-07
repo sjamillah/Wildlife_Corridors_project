@@ -298,9 +298,10 @@ The Aureynx platform includes advanced behavioral analysis using Hidden Markov M
 
 **Model Performance**:
 
-- **Accuracy**: 87.3% - reliable behavioral state identification
-- **Precision**: 85.1% - low false positive rates across categories
-- **Recall**: 88.9% - strong detection of true behavioral instances
+- **Overall Accuracy**: 71.7% - reliable behavioral state identification
+- **Macro Precision**: 80.7% - low false positive rates across categories
+- **Macro Recall**: 61.5% - good detection of true behavioral instances
+- **Macro F1-Score**: 59.2% - balanced classification performance
 
 The HMM analysis provides critical insights for corridor design and wildlife management by automatically identifying movement patterns that inform conservation strategies.
 
