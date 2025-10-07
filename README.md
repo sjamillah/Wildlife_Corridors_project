@@ -59,7 +59,7 @@ A comprehensive digital solution for wildlife corridor monitoring, incident repo
 
 ## Demo Video
 
-**[Watch Demo Video](LINK_TO_DEMO_VIDEO)** - See Aureynx in action!
+**[Watch Demo Video](https://drive.google.com/file/d/1VoWrEZWwjJ4i3N6pkcuek_DrliQv9o2C/view?usp=drive_link)**
 
 ## Description
 
@@ -699,3 +699,4 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 **Building a better future for wildlife through technology**
 
 _Aureynx - Where Conservation Meets Innovation_
+
