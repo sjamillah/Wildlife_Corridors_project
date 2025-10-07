@@ -396,7 +396,7 @@ npm start
 
 Access our complete design system and user interface mockups on Figma:
 
-🎨 **[View Aureynx Design System on Figma](https://www.figma.com/design/jHjNYsHuYPhfDhbUUX5wo6/Wildlife-Corridor-System-Mobile-App?m=auto&t=ChfekUZkf1rbcVjQ-1)**
+**[View Aureynx Design System on Figma](https://www.figma.com/design/jHjNYsHuYPhfDhbUUX5wo6/Wildlife-Corridor-System-Mobile-App?m=auto&t=ChfekUZkf1rbcVjQ-1)**
 
 **What's included:**
 
@@ -416,7 +416,7 @@ Access our complete design system and user interface mockups on Figma:
 - Wildlife conservation-focused visual language
 - Professional card-based layouts with organic shadows
 
-> 💡 **For Developers**: Design tokens and component specifications are available in the Figma file for accurate implementation.
+> **For Developers**: Design tokens and component specifications are available in the Figma file for accurate implementation.
 
 ## Available Scripts
 
@@ -647,3 +647,4 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 **Building a better future for wildlife through technology**
 
 _Aureynx - Where Conservation Meets Innovation_
+
