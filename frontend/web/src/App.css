@@ -1,3 +1,127 @@
+* {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+:root {
+  --brand-primary: #3B6B3A; /* deep olive */
+  --brand-earth: #8B5E3C; /* warm earth */
+  --brand-moss: #9CBC4A; /* moss */
+  --brand-accent: #C9E4B4; /* pale leaf */
+  --bg-warm: #F4F3EC; /* warm off-white */
+  --sandy-accent: #E7B87A; /* sandy orange accent */
+  --text-dark: #1F2D1F;
+  --brand-primary-rgb: 59,107,58;
+  --brand-moss-rgb: 156,188,74;
+}
+
+/* Brand helper utilities (small set to keep JSX readable) */
+.bg-brand-primary { background-color: var(--brand-primary) !important; }
+.bg-brand-earth { background-color: var(--brand-earth) !important; }
+.bg-brand-moss { background-color: var(--brand-moss) !important; }
+.bg-brand-accent { background-color: var(--brand-accent) !important; }
+.bg-warm { background-color: var(--bg-warm) !important; }
+.text-brand-primary { color: var(--brand-primary) !important; }
+.text-brand-earth { color: var(--brand-earth) !important; }
+.text-brand-moss { color: var(--brand-moss) !important; }
+.dot-brand-primary { background-color: var(--brand-primary) !important; }
+.dot-brand-moss { background-color: var(--brand-moss) !important; }
+.bg-brand-moss-50 { background-color: rgba(var(--brand-moss-rgb), 0.12) !important; }
+
+.text-emerald-600, .text-emerald-500, .text-emerald-700,
+.text-green-600, .text-green-500 {
+  color: var(--brand-primary) !important;
+}
+
+/* Backgrounds remap to warm palette */
+.bg-emerald-500, .bg-emerald-600, .bg-green-500, .bg-green-600 {
+  background-color: var(--brand-primary) !important;
+}
+.bg-emerald-50, .bg-emerald-100, .bg-amber-100, .bg-orange-100, .bg-red-100 {
+  background-color: var(--brand-accent) !important;
+}
+
+/* Borders */
+.border-emerald-500, .border-green-500, .border-emerald-600 {
+  border-color: var(--brand-primary) !important;
+}
+
+/* Gradient tokens (Tailwind sets these CSS variables) */
+.from-emerald-500 { --tw-gradient-from: var(--brand-primary); }
+.to-green-500 { --tw-gradient-to: var(--brand-accent); }
+.via-emerald-500 { --tw-gradient-stops: var(--brand-primary), var(--brand-accent); }
+
+/* Common utility variants (hover/peer-checked) — override the underlying classes
+   Note: Tailwind generates pseudo-class variants; matching the base utility ensures the
+   hover/checked variants will use the overridden value at runtime.
+*/
+.hover\:bg-emerald-600, .hover\:bg-emerald-500, .hover\:bg-green-600 { background-color: var(--brand-primary) !important; }
+.peer-checked\:bg-emerald-600 { background-color: var(--brand-primary) !important; }
+
+
+/* Enhanced background patterns for a more organic, human feel */
+.wildlife-background {
+  /* warmer, slightly textured background — avoid pure white */
+  background: linear-gradient(135deg, #fbf8f2 0%, #f7efe6 40%, #f1e9de 100%);
+  background-attachment: fixed;
+  position: relative;
+}
+
+.wildlife-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 25% 25%, rgba(var(--brand-1-rgb), 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(var(--brand-2-rgb), 0.02) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Enhanced card animations for more natural feel */
+.enhanced-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+}
+
+.enhanced-card:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+
+/* Subtle text enhancements */
+.enhanced-text {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Natural shadow variations */
+.organic-shadow {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.organic-shadow-lg {
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+/* Sidebar / navigation utilities */
+.sidebar-base { background-color: var(--bg-warm); }
+.nav-item-active {
+  background: linear-gradient(90deg, rgba(231,184,122,0.12), rgba(249,243,237,0.6));
+  border: 1px solid rgba(231,184,122,0.18);
+  color: var(--brand-earth);
+}
+.nav-item-inactive { color: #5b5b5b; }
+.nav-item-hover:hover { background-color: rgba(0,0,0,0.03); }
+
 .App {
   text-align: center;
 }
@@ -35,4 +159,278 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Ensure application pages use the warm background (avoid pure white) */
+body {
+  background-color: var(--bg-warm);
+  color: var(--text-dark);
+}
+
+.App {
+  background-color: var(--bg-warm);
+  min-height: 100vh;
+}
+
+/* Unique UI Shapes */
+.clip-path-hexagon {
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+.clip-path-star {
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+.clip-path-diamond {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+/* Organic card shapes */
+.organic-blob {
+  border-radius: 60% 40% 30% 70%/60% 30% 70% 40%;
+  animation: blob 7s ease-in-out infinite;
+}
+
+@keyframes blob {
+  0%, 100% { border-radius: 60% 40% 30% 70%/60% 30% 70% 40%; }
+  50% { border-radius: 30% 60% 70% 40%/50% 60% 30% 60%; }
+}
+
+/* Floating elements */
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Glitch effect for critical alerts */
+.glitch {
+  animation: glitch 2s linear infinite;
+}
+
+@keyframes glitch {
+  2%, 64% { transform: translate(2px, 0) skew(0deg); }
+  4%, 60% { transform: translate(-2px, 0) skew(0deg); }
+  62% { transform: translate(0, 0) skew(5deg); }
+}
+
+/* Neon glow effects */
+.neon-red {
+  box-shadow: 0 0 5px #ff0000, 0 0 10px #ff0000, 0 0 15px #ff0000, 0 0 20px #ff0000;
+}
+
+.neon-blue {
+  box-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff, 0 0 15px #00ffff, 0 0 20px #00ffff;
+}
+
+/* Standardized card utilities for consistent sizing across screens */
+.card-base {
+  background-color: var(--bg-warm) !important;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: none !important;
+}
+.card-sm { height: 5.5rem; }
+.card-md { height: auto; min-height: 8rem; }
+.card-lg { min-height: 14rem; }
+.card-compact { padding: 0.75rem; }
+.card-no-border { border: none !important; }
+
+/* Card visual variants (keeps size rules but changes visual treatment) */
+.card-variant-elevated { box-shadow: 0 6px 18px rgba(20,20,20,0.08); }
+.card-variant-flat { box-shadow: none; }
+.card-variant-outline { background-color: rgba(255,255,255,0.02); border: 1px solid rgba(0,0,0,0.08); }
+.card-variant-ghost { background-color: transparent; border: none; }
+
+/* Radar Sweep Animation */
+@keyframes radarSweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.radar-sweep {
+  animation: radarSweep 4s linear infinite;
+}
+
+/* Radar pulse effect */
+@keyframes radarPulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.radar-pulse {
+  animation: radarPulse 2s ease-in-out infinite;
+}
+
+/* Tactical grid background */
+.tactical-grid {
+  background-image: 
+    radial-gradient(circle at 25px 25px, rgba(59, 107, 58, 0.1) 2px, transparent 0),
+    linear-gradient(rgba(59, 107, 58, 0.05) 1px, transparent 0),
+    linear-gradient(90deg, rgba(59, 107, 58, 0.05) 1px, transparent 0);
+  background-size: 50px 50px, 25px 25px, 25px 25px;
+  background-position: 0 0, 0 0, 0 0;
+}
+
+/* Signal strength indicator */
+.signal-bars {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+}
+
+.signal-bar {
+  width: 3px;
+  background: var(--brand-moss);
+  border-radius: 1px;
+  transition: all 0.3s ease;
+}
+
+.signal-bar.active {
+  background: var(--brand-primary);
+  box-shadow: 0 0 4px var(--brand-primary);
+}
+
+/* Mission Control Styles */
+.mission-brief {
+  background: linear-gradient(135deg, rgba(139, 94, 60, 0.1) 0%, rgba(59, 107, 58, 0.05) 100%);
+  border-left: 4px solid var(--brand-earth);
+  position: relative;
+}
+
+.mission-brief::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brand-earth), transparent);
+}
+
+/* Status indicator animations */
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.status-active { animation: statusPulse 2s ease-in-out infinite; }
+
+/* Military grid background */
+.military-grid {
+  background-image: 
+    linear-gradient(rgba(139, 94, 60, 0.1) 1px, transparent 0),
+    linear-gradient(90deg, rgba(139, 94, 60, 0.1) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* Mission card variants */
+.mission-card {
+  border-left: 4px solid;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mission-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.mission-card:hover::before {
+  transform: translateX(100%);
+}
+
+/* Intelligence Center Styles */
+.data-matrix {
+  background: 
+    linear-gradient(90deg, rgba(59, 107, 58, 0.03) 50%, transparent 50%),
+    linear-gradient(rgba(59, 107, 58, 0.03) 50%, transparent 50%);
+  background-size: 40px 40px;
+}
+
+/* Holographic effect */
+.holographic {
+  background: linear-gradient(45deg, 
+    rgba(59, 107, 58, 0.1) 0%,
+    rgba(156, 188, 74, 0.1) 25%, 
+    rgba(59, 107, 58, 0.1) 50%,
+    rgba(156, 188, 74, 0.1) 75%,
+    rgba(59, 107, 58, 0.1) 100%);
+  background-size: 20px 20px;
+  animation: hologram 3s ease-in-out infinite;
+}
+
+@keyframes hologram {
+  0%, 100% { background-position: 0 0; }
+  50% { background-position: 20px 20px; }
+}
+
+/* Data visualization effects */
+@keyframes dataFlow {
+  0% { transform: translateX(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+.data-stream::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, var(--brand-moss), transparent);
+  animation: dataFlow 2s ease-in-out infinite;
+}
+
+/* Intelligence metric cards */
+.intel-metric {
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.intel-metric::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, var(--brand-primary), var(--brand-moss), var(--brand-primary));
+  background-size: 200% 200%;
+  animation: borderGlow 3s ease-in-out infinite;
+  z-index: -1;
+  border-radius: inherit;
+}
+
+@keyframes borderGlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
