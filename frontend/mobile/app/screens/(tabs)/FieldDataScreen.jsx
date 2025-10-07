@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import Icon from 'react-native-vector-icons/Feather';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAlerts } from '../../../contexts/AlertsContext';
 import { Colors } from '../../../constants/Colors';
@@ -39,7 +39,7 @@ export default function FieldDataScreen() {
     incident: {
       title: 'Log Field Data',
       primaryField: 'type',
-      icon: 'file-text',
+      icon: 'FileText',
       types: [
         'Equipment Malfunction',
         'Security Breach',
@@ -56,7 +56,7 @@ export default function FieldDataScreen() {
     obstruction: {
       title: 'Report Obstruction',
       primaryField: 'type',
-      icon: 'alert-triangle',
+      icon: 'AlertTriangle',
       types: [
         'Fallen Tree',
         'Rock Slide',
@@ -91,17 +91,17 @@ export default function FieldDataScreen() {
     wildlife: {
       title: 'New Sighting',
       primaryField: 'species',
-      icon: 'eye',
+      icon: 'Eye',
       types: [
-        { name: 'Elephant', icon: '🐘', description: 'African Elephant' },
-        { name: 'Zebra', icon: '🦓', description: 'Plains Zebra' },
-        { name: 'Wildebeest', icon: '🦬', description: 'Blue Wildebeest' },
-        { name: 'Tiger', icon: '🐅', description: 'Bengal Tiger' },
-        { name: 'Lion', icon: '🦁', description: 'African Lion' },
-        { name: 'Giraffe', icon: '🦒', description: 'Masai Giraffe' },
-        { name: 'Rhinoceros', icon: '🦏', description: 'Black Rhinoceros' },
-        { name: 'Buffalo', icon: '🐃', description: 'African Buffalo' },
-        { name: 'Other', icon: '🦌', description: 'Other Species' }
+        { name: 'Elephant', icon: 'elephant', iconColor: '#8B7355', description: 'African Elephant' },
+        { name: 'Zebra', icon: 'horse-variant', iconColor: '#4A4A4A', description: 'Plains Zebra' },
+        { name: 'Wildebeest', icon: 'cow', iconColor: '#8B4513', description: 'Blue Wildebeest' },
+        { name: 'Tiger', icon: 'tiger', iconColor: '#FF8C00', description: 'Bengal Tiger' },
+        { name: 'Lion', icon: 'lion', iconColor: '#DAA520', description: 'African Lion' },
+        { name: 'Giraffe', icon: 'giraffe', iconColor: '#DEB887', description: 'Masai Giraffe' },
+        { name: 'Rhinoceros', icon: 'rhino', iconColor: '#696969', description: 'Black Rhinoceros' },
+        { name: 'Buffalo', icon: 'water-buffalo', iconColor: '#2F4F4F', description: 'African Buffalo' },
+        { name: 'Other', icon: 'paw', iconColor: '#8FBC8F', description: 'Other Species' }
       ],
       hasSeverity: false,
       hasCount: true,
@@ -151,11 +151,11 @@ export default function FieldDataScreen() {
         title: `${formData.type} - ${formData.severity} Priority`,
         type: 'Obstruction',
         priority: formData.severity,
-        icon: '⚠️',
+        icon: 'alert-triangle',
         color: formData.severity === 'Critical' ? colors.orange :
                formData.severity === 'High' ? colors.red : colors.green,
         description: formData.notes || `${formData.type} reported via field app`,
-        location: '-1.9441° S, 30.0619° E (Kigali, Rwanda)',
+        location: '-1.4061° S, 35.0117° E (Maasai Mara, Kenya)',
         hasPhoto: formData.hasPhoto,
         reportedBy: 'Field Ranger'
       };
@@ -189,9 +189,9 @@ export default function FieldDataScreen() {
     <View style={styles.statusBar}>
       <Text style={styles.time}>9:41</Text>
       <View style={styles.statusIcons}>
-        <Icon name="signal" size={16} color="#000" />
-        <Icon name="wifi" size={16} color="#000" style={{ marginLeft: 8 }} />
-        <Icon name="battery" size={16} color="#000" style={{ marginLeft: 8 }} />
+        <MaterialCommunityIcons name="signal" size={16} color="#000" />
+        <MaterialCommunityIcons name="wifi" size={16} color="#000" style={{ marginLeft: 8 }} />
+        <MaterialCommunityIcons name="battery" size={16} color="#000" style={{ marginLeft: 8 }} />
       </View>
     </View>
   );
@@ -199,7 +199,7 @@ export default function FieldDataScreen() {
   const renderHeader = () => (
     <View style={styles.header}>
       <TouchableOpacity style={styles.backButton}>
-        <Icon name="arrow-left" size={20} color="#666" />
+        <MaterialCommunityIcons name="arrow-left" size={20} color="#666" />
         <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
       <Text style={styles.headerTitle}>{currentConfig.title}</Text>
@@ -219,11 +219,9 @@ export default function FieldDataScreen() {
               currentReportType === key && styles.switcherButtonActive
             ]}
           >
-            <Icon 
-              name={config.icon} 
-              size={16} 
-              color={currentReportType === key ? '#fff' : '#666'} 
-            />
+            {config.icon === 'FileText' && <MaterialCommunityIcons name="file-document" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
+            {config.icon === 'AlertTriangle' && <MaterialCommunityIcons name="alert-triangle" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
+            {config.icon === 'Eye' && <MaterialCommunityIcons name="eye" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
             <Text style={[
               styles.switcherButtonText,
               currentReportType === key && styles.switcherButtonTextActive
@@ -270,7 +268,12 @@ export default function FieldDataScreen() {
                     formData.species === animal.name && styles.animalButtonSelected
                   ]}
                 >
-                  <Text style={styles.animalIcon}>{animal.icon}</Text>
+                  <MaterialCommunityIcons 
+                    name={animal.icon} 
+                    size={32} 
+                    color={animal.iconColor}
+                    style={styles.animalIcon}
+                  />
                   <Text style={styles.animalName}>{animal.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -330,7 +333,7 @@ export default function FieldDataScreen() {
                 style={[styles.countButton, formData.count <= 0 && styles.countButtonDisabled]}
                 disabled={formData.count <= 0}
               >
-                <Icon name="minus" size={20} color={formData.count <= 0 ? '#ccc' : '#666'} />
+                <MaterialCommunityIcons name="minus" size={20} color={formData.count <= 0 ? '#ccc' : '#666'} />
               </TouchableOpacity>
               
               <View style={styles.countDisplay}>
@@ -346,7 +349,7 @@ export default function FieldDataScreen() {
                 onPress={() => adjustCount(1)}
                 style={styles.countButton}
               >
-                <Icon name="plus" size={20} color="#666" />
+                <MaterialCommunityIcons name="plus" size={20} color="#666" />
               </TouchableOpacity>
             </View>
           </View>
@@ -375,7 +378,7 @@ export default function FieldDataScreen() {
             formData.hasPhoto && styles.photoButtonSelected
           ]}
         >
-          <Icon 
+          <MaterialCommunityIcons 
             name="camera" 
             size={24} 
             color={formData.hasPhoto ? '#10B981' : '#666'} 
@@ -388,22 +391,45 @@ export default function FieldDataScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Map Preview */}
+        {/* Enhanced Map Preview */}
         <View style={styles.mapContainer}>
-          <Text style={styles.gpsText}>
-            GPS Tagged: -1.9441° S, 30.0619° E (Kigali, Rwanda)
-          </Text>
+          <View style={styles.gpsRow}>
+            <MaterialCommunityIcons name="earth" size={16} color="#059669" />
+            <Text style={styles.gpsText}>
+              GPS Tagged: -1.4061° S, 35.0117° E (Maasai Mara, Kenya)
+            </Text>
+          </View>
           <View style={styles.mapPreview}>
-            <View style={styles.mapGrid}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <View key={i} style={styles.gridLine} />
-              ))}
-            </View>
-            <View style={styles.locationMarker}>
-              <View style={styles.locationDot} />
-            </View>
-            <View style={styles.locationLabel}>
-              <Text style={styles.locationLabelText}>Your GPS location</Text>
+            {/* Realistic map background */}
+            <View style={styles.mapBackground}>
+              {/* Grid overlay */}
+              <View style={styles.mapGrid}>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <View key={`h-${i}`} style={[styles.gridLine, { top: `${i * 12.5}%` }]} />
+                ))}
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <View key={`v-${i}`} style={[styles.gridLineVertical, { left: `${i * 12.5}%` }]} />
+                ))}
+              </View>
+              
+              {/* Simulated landmarks */}
+              <View style={[styles.landmark, { top: '20%', left: '15%', backgroundColor: '#8B5CF6' }]} />
+              <View style={[styles.landmark, { top: '70%', right: '20%', backgroundColor: '#F59E0B' }]} />
+              <View style={[styles.landmark, { bottom: '15%', left: '30%', backgroundColor: '#EF4444' }]} />
+              
+              {/* User location with pulsing effect */}
+              <View style={styles.locationMarker}>
+                <View style={styles.locationPulse} />
+                <View style={styles.locationDot} />
+              </View>
+              
+              {/* Location label with better styling */}
+              <View style={styles.locationLabel}>
+                <View style={styles.locationLabelRow}>
+                  <MaterialCommunityIcons name="binoculars" size={12} color="#FFFFFF" />
+                  <Text style={styles.locationLabelText}>Your Location</Text>
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -574,7 +600,6 @@ const styles = StyleSheet.create({
     borderColor: '#10B981',
   },
   animalIcon: {
-    fontSize: 24,
     marginBottom: 4,
   },
   animalName: {
@@ -698,10 +723,21 @@ const styles = StyleSheet.create({
   },
   mapPreview: {
     height: 200,
-    backgroundColor: '#86efac',
-    borderRadius: 8,
+    borderRadius: 12,
     position: 'relative',
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapBackground: {
+    flex: 1,
+    backgroundColor: '#22543D',
+    position: 'relative',
   },
   mapGrid: {
     position: 'absolute',
@@ -711,40 +747,76 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   gridLine: {
-    height: '16.67%',
-    borderBottomWidth: 1,
-    borderBottomColor: '#15803d',
-    opacity: 0.3,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: '#10B981',
+    opacity: 0.2,
+  },
+  gridLineVertical: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: '#10B981',
+    opacity: 0.2,
+  },
+  landmark: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'white',
   },
   locationMarker: {
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginTop: -8,
-    marginLeft: -8,
+    marginTop: -10,
+    marginLeft: -10,
+    zIndex: 10,
+  },
+  locationPulse: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#3B82F6',
+    opacity: 0.3,
   },
   locationDot: {
     width: 16,
     height: 16,
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#3B82F6',
     borderRadius: 8,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#fff',
+    marginTop: 2,
+    marginLeft: 2,
   },
   locationLabel: {
     position: 'absolute',
     top: '25%',
     left: '50%',
-    backgroundColor: '#fbbf24',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    backgroundColor: '#1F2937',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
     transform: [{ translateX: -50 }],
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  locationLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   locationLabelText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#000',
+    color: '#FFFFFF',
   },
   summaryContainer: {
     backgroundColor: '#dbeafe',

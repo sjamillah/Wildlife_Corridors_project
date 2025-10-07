@@ -7,6 +7,7 @@ import {
   Dimensions
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Colors } from '../../../constants/Colors';
@@ -81,27 +82,66 @@ export default function DashboardScreen() {
           </Button>
         </Card>
 
+        {/* Location Overview */}
+        <Card variant="outlined">
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Location Overview</Text>
+          <View style={styles.mapOverview}>
+            <View style={styles.mapPreviewContainer}>
+              <View style={styles.miniMapBackground}>
+                {/* Grid lines */}
+                {[...Array(4)].map((_, i) => (
+                  <View key={`h-${i}`} style={[styles.miniGridLine, { top: `${i * 25}%` }]} />
+                ))}
+                {[...Array(4)].map((_, i) => (
+                  <View key={`v-${i}`} style={[styles.miniGridLineVertical, { left: `${i * 25}%` }]} />
+                ))}
+                
+                {/* Alert markers */}
+                <View style={[styles.alertMarker, { top: '30%', left: '20%', backgroundColor: '#EF4444' }]} />
+                <View style={[styles.alertMarker, { top: '70%', right: '25%', backgroundColor: '#F59E0B' }]} />
+                
+                {/* User location */}
+                <View style={styles.miniUserLocation}>
+                  <View style={styles.miniLocationDot} />
+                </View>
+              </View>
+            </View>
+            
+            <View style={styles.locationInfo}>
+              <View style={styles.locationRow}>
+                <MaterialCommunityIcons name="pine-tree" size={14} color="#059669" />
+                <Text style={[styles.locationText, { color: colors.text }]}>Maasai Mara Wildlife Reserve</Text>
+              </View>
+              <Text style={[styles.coordsText, { color: colors.textSecondary }]}>-1.4061° S, 35.0117° E</Text>
+              <View style={styles.proximityInfo}>
+                <Text style={[styles.proximityLabel, { color: colors.textSecondary }]}>Nearby:</Text>
+                <Text style={[styles.proximityValue, { color: '#EF4444' }]}>2 Critical Alerts</Text>
+              </View>
+            </View>
+          </View>
+        </Card>
+
         {/* System Status */}
         <Card variant="outlined">
           <Text style={[styles.cardTitle, { color: colors.text }]}>System Status</Text>
           <View style={styles.statusGrid}>
             <View style={styles.statusItem}>
               <View style={[styles.statusIcon, { backgroundColor: colors.accent.success }]}>
-                <Text style={styles.statusIconText}>📡</Text>
+                <MaterialCommunityIcons name="satellite-variant" size={18} color="#fff" />
               </View>
               <Text style={[styles.statusLabel, { color: colors.text }]}>GPS</Text>
               <Text style={[styles.statusValue, { color: colors.accent.success }]}>Active</Text>
             </View>
             <View style={styles.statusItem}>
               <View style={[styles.statusIcon, { backgroundColor: colors.accent.success }]}>
-                <Text style={styles.statusIconText}>🔋</Text>
+                <MaterialCommunityIcons name="battery" size={18} color="#fff" />
               </View>
               <Text style={[styles.statusLabel, { color: colors.text }]}>Battery</Text>
               <Text style={[styles.statusValue, { color: colors.accent.success }]}>85%</Text>
             </View>
             <View style={styles.statusItem}>
               <View style={[styles.statusIcon, { backgroundColor: colors.accent.secondary }]}>
-                <Text style={styles.statusIconText}>🔄</Text>
+                <MaterialCommunityIcons name="sync" size={18} color="#fff" />
               </View>
               <Text style={[styles.statusLabel, { color: colors.text }]}>Sync</Text>
               <Text style={[styles.statusValue, { color: colors.icon }]}>08:24 AM</Text>
@@ -119,7 +159,10 @@ export default function DashboardScreen() {
               style={styles.actionButton}
               onPress={() => router.push('/screens/(tabs)/MapScreen')}
             >
-              🗺️ Open Map
+              <View style={styles.buttonContent}>
+                <MaterialCommunityIcons name="map" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Open Map</Text>
+              </View>
             </Button>
             <Button 
               variant="success"
@@ -127,23 +170,32 @@ export default function DashboardScreen() {
               style={styles.actionButton}
               onPress={() => router.push('/screens/(tabs)/FieldDataScreen')}
             >
-              📝 Log Data
+              <View style={styles.buttonContent}>
+                <MaterialCommunityIcons name="file-document" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Log Data</Text>
+              </View>
             </Button>
           </View>
           <View style={styles.secondaryActions}>
             <Button 
-              variant="secondary"
+              variant="danger"
               size="medium"
               fullWidth
               onPress={() => router.push('/screens/(tabs)/AlertsScreen')}
             >
-              📢 Emergency Alert
+              <View style={styles.buttonContent}>
+                <MaterialCommunityIcons name="alert-octagon" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Emergency Alert</Text>
+              </View>
             </Button>
           </View>
         </Card>
 
         <Button style={styles.fullWidthButton}>
-          Refresh Status
+          <View style={styles.buttonContent}>
+            <MaterialCommunityIcons name="refresh" size={20} color="#fff" />
+            <Text style={styles.buttonText}>Refresh Status</Text>
+          </View>
         </Button>
       </ScrollView>
     </View>
@@ -260,5 +312,101 @@ const styles = StyleSheet.create({
   },
   secondaryActions: {
     marginTop: 8,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  mapOverview: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  mapPreviewContainer: {
+    flex: 1,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  miniMapBackground: {
+    flex: 1,
+    backgroundColor: '#22543D',
+    position: 'relative',
+  },
+  miniGridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: '#10B981',
+    opacity: 0.2,
+  },
+  miniGridLineVertical: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: '#10B981',
+    opacity: 0.2,
+  },
+  alertMarker: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: 'white',
+  },
+  miniUserLocation: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -4,
+    marginLeft: -4,
+  },
+  miniLocationDot: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#3B82F6',
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  locationInfo: {
+    flex: 1.2,
+    paddingLeft: 8,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  locationText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  coordsText: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  proximityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  proximityLabel: {
+    fontSize: 12,
+  },
+  proximityValue: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

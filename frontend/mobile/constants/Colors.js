@@ -2,52 +2,58 @@
  * Professional Wildlife Corridors color scheme with proper light/dark backgrounds
  */
 
-const tintColorLight = '#16a34a'; // Forest green - professional and nature-focused
-const tintColorDark = '#22c55e'; // Lighter green for dark mode
+// Mobile color tokens aligned to the web brand palette (warm, savanna + forest)
+const tintColorLight = '#3B6B3A'; // brand-primary
 
 export const Colors = {
   light: {
-    // Using your original colors
-    text: '#111827', // Your original primary text color
-    background: '#F9FAFB', // Your original light background
-    surface: '#ffffff', // Your original white surfaces
+    text: '#1F2D1F',
+    background: '#F4F3EC', // warm off-white
+    surface: '#F4F3EC',
+    cardBackground: '#F4F3EC',
+    headerBackground: '#F4F3EC',
     tint: tintColorLight,
-    icon: '#6B7280', // Your original icon color
-    tabIconDefault: '#9CA3AF', // Your original inactive tab color
-    tabIconSelected: tintColorLight, // Active forest green
-    tabBackground: '#ffffff', // White tab bar background
-    border: '#E5E7EB', // Your original border color
-    cardBackground: '#ffffff', // Your original white cards
-    headerBackground: '#ffffff', // White header
-    textSecondary: '#6B7280', // Your original secondary text
+    brandPrimary: '#3B6B3A',
+    brandEarth: '#8B5E3C',
+    brandMoss: '#9CBC4A',
+    brandAccent: '#C9E4B4',
+    icon: '#5B6B58',
+    tabIconDefault: '#9CA3AF',
+    tabIconSelected: tintColorLight,
+    tabBackground: '#FFFFFF',
+    border: '#E6E2DB',
+    textSecondary: '#6B7280',
     accent: {
-      primary: '#16a34a', // Forest green
-      secondary: '#0369a1', // Sky blue for secondary actions
-      warning: '#f97316', // Your original warning color
-      danger: '#ef4444', // Your original danger color
-      success: '#059669', // Your original success color
+      primary: '#3B6B3A',
+      secondary: '#8B5E3C',
+      warning: '#E7B87A',
+      danger: '#EF4444',
+      success: '#059669',
     }
   },
   dark: {
-    // Dark theme that complements your light colors
-    text: '#F9FAFB', // Light text on dark background
-    background: '#111827', // Dark background (inverted from your light text)
-    surface: '#1F2937', // Slightly lighter dark surface for cards
-    tint: tintColorDark,
-    icon: '#9CA3AF', // Light gray icons
-    tabIconDefault: '#6B7280', // Darker inactive tabs in dark mode
-    tabIconSelected: tintColorDark, // Light green for active tabs
-    tabBackground: '#1F2937', // Dark tab bar
-    border: '#374151', // Visible dark borders
-    cardBackground: '#1F2937', // Dark cards with subtle difference from background
-    headerBackground: '#1F2937', // Dark header
-    textSecondary: '#9CA3AF', // Light gray for secondary text
+    text: '#F4F3EC',
+    background: '#0F1724',
+    surface: '#111827',
+    cardBackground: '#111827',
+    headerBackground: '#0B1220',
+    tint: '#22c55e',
+    brandPrimary: '#3B6B3A',
+    brandEarth: '#8B5E3C',
+    brandMoss: '#9CBC4A',
+    brandAccent: '#C9E4B4',
+    icon: '#9CA3AF',
+    tabIconDefault: '#6B7280',
+    tabIconSelected: '#22c55e',
+    tabBackground: '#FFFFFF',
+    border: '#1F2937',
+    textSecondary: '#9CA3AF',
     accent: {
-      primary: '#22c55e', // Lighter green for dark mode visibility
-      secondary: '#3B82F6', // Brighter blue for dark mode
-      warning: '#FBBF24', // Lighter amber for dark mode
-      danger: '#F87171', // Lighter red for dark mode
-      success: '#10B981', // Lighter emerald for dark mode
+      primary: '#22c55e',
+      secondary: '#3B82F6',
+      warning: '#FBBF24',
+      danger: '#F87171',
+      success: '#10B981',
     }
   },
 };

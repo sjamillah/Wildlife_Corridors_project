@@ -1,28 +1,30 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { Svg, Path, Line } from 'react-native-svg';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { IconSymbol } from '../../../components/ui/IconSymbol';
 import { Colors } from '../../../constants/Colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const MAP_SIZE = SCREEN_WIDTH - 32; // Account for padding
+const MAP_SIZE = SCREEN_WIDTH - 32;
 
 const MapScreen = () => {
   const { theme } = useTheme();
   const colors = Colors[theme];
   
   const [isSimulating, setIsSimulating] = useState(false);
-  const [userLocation, setUserLocation] = useState({ lat: -1.9441, lng: 30.0619 }); // Kigali
+  const [userLocation, setUserLocation] = useState({ lat: -1.4061, lng: 35.0117 });
   const [markers, setMarkers] = useState([
-    { id: 1, lat: -1.9506, lng: 30.0588, type: 'alert', priority: 'critical', title: 'Equipment Malfunction', description: 'Generator failure at checkpoint Alpha', timestamp: '5 mins ago' },
-    { id: 2, lat: -1.9350, lng: 30.0740, type: 'alert', priority: 'high', title: 'High Temperature', description: 'Sensor reading 45°C in storage area', timestamp: '15 mins ago' },
-    { id: 3, lat: -1.9580, lng: 30.0450, type: 'checkpoint', title: 'Checkpoint Alpha', description: 'Main entrance security post', status: 'active' },
-    { id: 4, lat: -1.9300, lng: 30.0800, type: 'checkpoint', title: 'Checkpoint Bravo', description: 'Secondary perimeter checkpoint', status: 'active' },
-    { id: 5, lat: -1.9600, lng: 30.0500, type: 'patrol', title: 'Patrol Route 1', description: 'Northern perimeter patrol path', status: 'in-progress' },
-    { id: 6, lat: -1.9400, lng: 30.0650, type: 'vehicle', title: 'Ranger Vehicle 1', description: 'Mobile unit Delta-7', status: 'moving' },
-    { id: 7, lat: -1.9520, lng: 30.0620, type: 'camera', title: 'Security Camera 3', description: 'Perimeter surveillance', status: 'online' }
+    { id: 1, lat: -1.4100, lng: 35.0200, type: 'alert', priority: 'critical', title: 'Elephant Poaching Alert', description: 'Suspicious activity detected near elephant herd - immediate ranger response required', timestamp: '5 mins ago' },
+    { id: 2, lat: -1.3950, lng: 35.0300, type: 'alert', priority: 'high', title: 'Fence Breach', description: 'Wildlife corridor fence damaged - animals at risk of human conflict', timestamp: '15 mins ago' },
+    { id: 3, lat: -1.4150, lng: 34.9900, type: 'checkpoint', title: 'Main Gate Station', description: 'Primary entrance - anti-poaching unit stationed', status: 'active' },
+    { id: 4, lat: -1.3800, lng: 35.0500, type: 'checkpoint', title: 'Mara River Crossing', description: 'Wildebeest migration monitoring point - Kenya-Tanzania border corridor', status: 'active' },
+    { id: 5, lat: -1.4200, lng: 34.9800, type: 'patrol', title: 'Anti-Poaching Patrol Alpha', description: 'Rangers tracking black rhino population - coordinated with Serengeti teams', status: 'in-progress' },
+    { id: 6, lat: -1.3900, lng: 35.0400, type: 'vehicle', title: 'Mobile Vet Unit', description: 'Veterinary team responding to injured giraffe', status: 'moving' },
+    { id: 7, lat: -1.4050, lng: 35.0150, type: 'camera', title: 'Waterhole Cam 3', description: 'Wildlife monitoring - lion pride activity recorded', status: 'online' }
   ]);
+  
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [mapView] = useState('satellite');
   const [showGeofence, setShowGeofence] = useState(true);
@@ -34,21 +36,26 @@ const MapScreen = () => {
   const [patrolPoints, setPatrolPoints] = useState([]);
   const [isAddingMarker, setIsAddingMarker] = useState(false);
 
-  // Geofence boundaries
+  // Geofence boundaries (East Africa - Maasai Mara region)
   const geofenceBounds = {
-    north: -1.9300,
-    south: -1.9600,
-    east: 30.0850,
-    west: 30.0400
+    north: -1.3500,
+    south: -1.4500,
+    east: 35.1000,
+    west: 34.9500
   };
 
-  // Patrol routes
+  // Patrol routes (East Africa - Maasai Mara region)
   const patrolRoutes = [
     [
-      { lat: -1.9580, lng: 30.0450 },
-      { lat: -1.9520, lng: 30.0620 },
-      { lat: -1.9400, lng: 30.0650 },
-      { lat: -1.9350, lng: 30.0740 }
+      { lat: -1.4000, lng: 35.0000 },
+      { lat: -1.4100, lng: 35.0200 },
+      { lat: -1.4200, lng: 35.0300 },
+      { lat: -1.4300, lng: 35.0400 }
+    ],
+    [
+      { lat: -1.3800, lng: 35.0100 },
+      { lat: -1.3900, lng: 35.0250 },
+      { lat: -1.4000, lng: 35.0350 }
     ]
   ];
 
@@ -62,7 +69,6 @@ const MapScreen = () => {
         const newLat = prev.lat + (Math.random() - 0.5) * 0.002;
         const newLng = prev.lng + (Math.random() - 0.5) * 0.002;
         
-        // Add patrol point if tracking
         if (trackingMode) {
           setPatrolPoints(points => [...points, { lat: newLat, lng: newLng, timestamp: Date.now() }]);
         }
@@ -82,7 +88,6 @@ const MapScreen = () => {
     setNavigationTarget(targetMarker);
     setIsNavigating(true);
     
-    // Simulate navigation updates
     const navigationInterval = setInterval(() => {
       setUserLocation(prev => {
         const deltaLat = (targetMarker.lat - prev.lat) * 0.1;
@@ -93,7 +98,6 @@ const MapScreen = () => {
           lng: prev.lng + deltaLng
         };
         
-        // Check if we've arrived
         const distance = Math.sqrt(Math.pow(targetMarker.lat - newLocation.lat, 2) + Math.pow(targetMarker.lng - newLocation.lng, 2));
         if (distance < 0.001) {
           clearInterval(navigationInterval);
@@ -111,13 +115,17 @@ const MapScreen = () => {
     if (!isAddingMarker) return;
     
     const { locationX, locationY } = event.nativeEvent;
-    const x = ((locationX / MAP_SIZE - 0.5) / 1000) + 30.0619;
-    const y = -((locationY / MAP_SIZE - 0.5) / 1000) - 1.9441;
+    const centerLat = -1.4061;
+    const centerLng = 35.0117;
+    const scale = 8000;
+    
+    const lng = centerLng + ((locationX - MAP_SIZE / 2) / scale);
+    const lat = centerLat + ((locationY - MAP_SIZE / 2) / scale);
     
     const newMarker = {
       id: markers.length + 1,
-      lat: y,
-      lng: x,
+      lat: lat,
+      lng: lng,
       type: 'custom',
       title: 'Custom Waypoint',
       description: 'User-added marker',
@@ -137,9 +145,14 @@ const MapScreen = () => {
   const userOutsideGeofence = isOutsideGeofence(userLocation.lat, userLocation.lng);
 
   const convertCoordinateToPosition = (lat, lng) => {
+    // Center coordinates for Maasai Mara: -1.4061, 35.0117
+    const centerLat = -1.4061;
+    const centerLng = 35.0117;
+    const scale = 8000; // Scale factor for visibility
+    
     return {
-      x: (50 + (lng - 30.0619) * 1000) * (MAP_SIZE / 100),
-      y: (50 + (lat + 1.9441) * 1000) * (MAP_SIZE / 100)
+      x: (MAP_SIZE / 2) + ((lng - centerLng) * scale),
+      y: (MAP_SIZE / 2) + ((lat - centerLat) * scale)
     };
   };
 
@@ -221,7 +234,6 @@ const MapScreen = () => {
       {/* Map Layer Controls */}
       <View style={styles.layerControls}>
         <View style={styles.pickerContainer}>
-          {/* Map View Selector */}
           <View style={styles.picker}>
             <Text style={styles.pickerLabel}>{mapView}</Text>
             <IconSymbol name="chevron.down" size={16} color="#6B7280" />
@@ -246,14 +258,14 @@ const MapScreen = () => {
         </View>
       </View>
 
-      {/* Map Display */}
+      {/* Enhanced Map Display */}
       <View style={styles.mapContainer}>
         <TouchableOpacity
           style={[styles.mapArea, { transform: [{ scale: zoomLevel }] }]}
           onPress={addCustomMarker}
           activeOpacity={0.8}
         >
-          {/* Base Map Background */}
+          {/* Base Map Background with realistic styling */}
           <View style={[
             styles.mapBackground,
             mapView === 'satellite' && styles.satelliteView,
@@ -261,7 +273,7 @@ const MapScreen = () => {
             mapView === 'roads' && styles.roadsView,
             mapView === 'hybrid' && styles.hybridView
           ]}>
-            {/* Grid overlay */}
+            {/* Grid overlay for coordinate reference */}
             <View style={styles.gridOverlay}>
               {Array.from({ length: 20 }).map((_, i) => (
                 <View key={`grid-${i}`} style={[styles.gridLine, { top: `${i * 5}%` }]} />
@@ -280,7 +292,7 @@ const MapScreen = () => {
               </View>
             )}
 
-            {/* Patrol Routes */}
+            {/* Patrol Routes with SVG paths */}
             {showPatrolRoutes && (
               <Svg style={StyleSheet.absoluteFill} width={MAP_SIZE} height={MAP_SIZE}>
                 {patrolRoutes.map((route, routeIndex) => {
@@ -314,7 +326,6 @@ const MapScreen = () => {
                   stroke="#10B981"
                   strokeWidth="2"
                   fill="none"
-                  opacity="0.8"
                 />
               </Svg>
             )}
@@ -334,12 +345,12 @@ const MapScreen = () => {
               </Svg>
             )}
 
-            {/* User Location */}
+            {/* User Location with better visibility */}
             <View style={[
               styles.userLocation,
               {
-                left: convertCoordinateToPosition(userLocation.lat, userLocation.lng).x - 8,
-                top: convertCoordinateToPosition(userLocation.lat, userLocation.lng).y - 8,
+                left: convertCoordinateToPosition(userLocation.lat, userLocation.lng).x - 10,
+                top: convertCoordinateToPosition(userLocation.lat, userLocation.lng).y - 10,
                 backgroundColor: userOutsideGeofence ? '#EF4444' : '#3B82F6'
               }
             ]}>
@@ -347,21 +358,32 @@ const MapScreen = () => {
                 styles.userLocationPing,
                 { backgroundColor: userOutsideGeofence ? '#F87171' : '#93C5FD' }
               ]} />
-              <View style={styles.userLocationArrow} />
             </View>
 
-            {/* Markers */}
+            {/* Enhanced Markers with Icons */}
             {markers.map(marker => {
               const position = convertCoordinateToPosition(marker.lat, marker.lng);
+              const getMarkerIcon = (markerType, markerTitle) => {
+                if (markerType === 'alert') return 'alert-circle';
+                if (markerType === 'checkpoint') return 'shield-check';
+                if (markerType === 'patrol') return 'account-group';
+                if (markerType === 'vehicle') return 'car';
+                if (markerType === 'camera') return 'camera';
+                if (markerTitle.toLowerCase().includes('poaching')) return 'elephant';
+                if (markerTitle.toLowerCase().includes('fence')) return 'fence';
+                if (markerTitle.toLowerCase().includes('vet')) return 'medical-bag';
+                if (markerTitle.toLowerCase().includes('waterhole')) return 'water';
+                return 'map-marker';
+              };
+              
               return (
                 <TouchableOpacity
                   key={marker.id}
                   style={[
-                    styles.marker,
+                    styles.markerContainer,
                     {
-                      left: position.x - 8,
-                      top: position.y - 8,
-                      backgroundColor: getMarkerColor(marker)
+                      left: position.x - 15,
+                      top: position.y - 15,
                     }
                   ]}
                   onPress={(e) => {
@@ -369,6 +391,16 @@ const MapScreen = () => {
                     setSelectedMarker(marker);
                   }}
                 >
+                  <View style={[
+                    styles.marker,
+                    { backgroundColor: getMarkerColor(marker) }
+                  ]}>
+                    <MaterialCommunityIcons 
+                      name={getMarkerIcon(marker.type, marker.title)} 
+                      size={16} 
+                      color="white" 
+                    />
+                  </View>
                   <View style={[styles.markerPing, { backgroundColor: getMarkerColor(marker) }]} />
                 </TouchableOpacity>
               );
@@ -399,7 +431,7 @@ const MapScreen = () => {
             {selectedMarker.status && <Text style={styles.metaText}>Status: {selectedMarker.status}</Text>}
             {selectedMarker.timestamp && <Text style={styles.metaText}>{selectedMarker.timestamp}</Text>}
           </View>
-          
+
           <View style={styles.popupActions}>
             <TouchableOpacity
               onPress={() => startNavigation(selectedMarker)}
@@ -468,7 +500,7 @@ const MapScreen = () => {
         </ScrollView>
       </View>
 
-      {/* Simulate Location Button */}
+      {/* Enhanced Simulate Location Button */}
       <View style={styles.simulateContainer}>
         <TouchableOpacity
           onPress={simulateLocation}
@@ -493,11 +525,10 @@ const MapScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor will be set dynamically by theme
   },
   statusContainer: {
     position: 'absolute',
-    top: 16,
+    top: 60,
     left: 16,
     right: 16,
     zIndex: 20,
@@ -510,7 +541,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 16,
     gap: 4,
   },
@@ -573,12 +604,14 @@ const styles = StyleSheet.create({
   picker: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    minWidth: 80,
+    justifyContent: 'space-between',
+    minWidth: 100,
   },
   pickerLabel: {
     fontSize: 12,
     fontWeight: '500',
+    color: '#374151',
+    textTransform: 'capitalize',
   },
   checkboxContainer: {
     backgroundColor: 'white',
@@ -589,7 +622,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    gap: 4,
   },
   checkbox: {
     flexDirection: 'row',
@@ -614,8 +646,10 @@ const styles = StyleSheet.create({
   mapContainer: {
     flex: 1,
     padding: 16,
-    paddingTop: 280,
-    paddingBottom: 200,
+    paddingTop: 200,
+    paddingBottom: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mapArea: {
     width: MAP_SIZE,
@@ -625,49 +659,55 @@ const styles = StyleSheet.create({
   mapBackground: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
   },
   satelliteView: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#22543D',
   },
   terrainView: {
-    backgroundColor: '#FDE047',
+    backgroundColor: '#8B5A2B',
   },
   roadsView: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
   },
   hybridView: {
-    backgroundColor: '#A7F3D0',
+    backgroundColor: '#065F46',
   },
   gridOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.2,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   gridLine: {
-    position: 'absolute',
-    width: '100%',
-    height: 1,
-    backgroundColor: '#6B7280',
+    height: '5%',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#10B981',
+    opacity: 0.2,
   },
   gridLineVertical: {
-    position: 'absolute',
+    width: '5%',
+    borderRightWidth: 0.5,
+    borderRightColor: '#10B981',
+    opacity: 0.2,
     height: '100%',
-    width: 1,
-    backgroundColor: '#6B7280',
+    position: 'absolute',
   },
   geofence: {
     position: 'absolute',
-    left: '25%',
-    top: '20%',
-    width: '50%',
-    height: '60%',
-    borderWidth: 4,
+    top: '15%',
+    left: '15%',
+    right: '15%',
+    bottom: '15%',
+    borderWidth: 2,
     borderColor: '#EF4444',
     borderStyle: 'dashed',
     borderRadius: 8,
-    opacity: 0.6,
   },
   geofenceLabel: {
     position: 'absolute',
@@ -685,56 +725,50 @@ const styles = StyleSheet.create({
   },
   userLocation: {
     position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 3,
     borderColor: 'white',
     zIndex: 30,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 8,
   },
   userLocationPing: {
     position: 'absolute',
     inset: 0,
-    borderRadius: 8,
+    borderRadius: 10,
     opacity: 0.75,
   },
-  userLocationArrow: {
+  markerContainer: {
     position: 'absolute',
-    top: -8,
-    left: 2,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 4,
-    borderRightWidth: 4,
-    borderBottomWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#2563EB',
+    zIndex: 20,
   },
   marker: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 2,
     borderColor: 'white',
-    zIndex: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 5,
   },
   markerPing: {
     position: 'absolute',
-    inset: 0,
-    borderRadius: 8,
-    opacity: 0.5,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    left: -3,
+    top: -3,
+    opacity: 0.4,
   },
   markerPopup: {
     position: 'absolute',
@@ -816,30 +850,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  disabledButtonText: {
-    color: '#6B7280',
-  },
   legend: {
     position: 'absolute',
-    bottom: 120,
-    right: 16,
+    bottom: 80,
+    left: 16,
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 8,
+    padding: 8,
+    maxHeight: 120,
+    minWidth: 120,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    zIndex: 20,
-    maxHeight: 160,
-    width: 140,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   legendDot: {
     width: 12,
@@ -850,12 +880,11 @@ const styles = StyleSheet.create({
     width: 16,
     height: 2,
     backgroundColor: '#EF4444',
-    opacity: 0.6,
   },
   legendDashLine: {
     width: 16,
     height: 2,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#4F46E5',
   },
   legendText: {
     fontSize: 10,
@@ -873,6 +902,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   simulateButtonDisabled: {
     backgroundColor: '#9CA3AF',

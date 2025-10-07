@@ -7,18 +7,19 @@ import {
   StyleSheet,
   ScrollView,
   StatusBar,
-  ImageBackground,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Alert
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import Icon from 'react-native-vector-icons/Feather';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import auth from '../../services/auth';
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('');
@@ -27,11 +28,7 @@ export default function SignUpScreen() {
 
   const roles = [
     'Ranger',
-    'Wildlife Biologist',
-    'Conservation Officer',
-    'Field Researcher',
-    'Park Manager',
-    'Volunteer'
+    'Conservation Manager'
   ];
 
   const validateForm = () => {
@@ -39,8 +36,8 @@ export default function SignUpScreen() {
       Alert.alert('Validation Error', 'Please enter your full name');
       return false;
     }
-    if (!username.trim()) {
-      Alert.alert('Validation Error', 'Please choose a username');
+    if (!email.trim() || !email.includes('@')) {
+      Alert.alert('Validation Error', 'Please enter a valid email address');
       return false;
     }
     if (password.length < 8) {
@@ -60,11 +57,9 @@ export default function SignUpScreen() {
 
   const handleSignUp = () => {
     if (validateForm()) {
-      Alert.alert(
-        'Success',
-        'Account created successfully!',
-        [{ text: 'OK', onPress: () => router.push('/screens/(tabs)/DashboardScreen') }]
-      );
+      auth.register({ email, password, name: fullName, role })
+        .then(() => router.push('/screens/(tabs)/DashboardScreen'))
+        .catch(err => Alert.alert('Registration failed', err.message || 'Please try again'));
     }
   };
 
@@ -76,11 +71,7 @@ export default function SignUpScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.3)" translucent />
       
-      <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=1200' }}
-        style={styles.backgroundImage}
-        blurRadius={2}
-      >
+      <View style={styles.backgroundContainer}>
         <View style={styles.overlay} />
         
         <KeyboardAvoidingView
@@ -94,12 +85,17 @@ export default function SignUpScreen() {
           >
             {/* Header */}
             <View style={styles.header}>
+              <Image 
+                source={require('../../../assets/images/Aureynx_Logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
               <Text style={styles.appName}>Aureynx</Text>
               <Text style={styles.tagline}>Wildlife Conservation Platform</Text>
             </View>
 
             {/* Form Card */}
-            <View style={styles.formCard}>
+            <View style={[styles.formCard, { backgroundColor: '#F4F3EC' }]}>
               <Text style={styles.title}>Create Account</Text>
               <Text style={styles.subtitle}>Join the conservation team</Text>
 
@@ -107,7 +103,7 @@ export default function SignUpScreen() {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Full Name</Text>
                 <View style={styles.inputWrapper}>
-                  <Icon name="user" size={20} color="#6B7280" style={styles.inputIcon} />
+                  <MaterialCommunityIcons name="account" size={20} color="#6B7280" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your full name"
@@ -119,18 +115,19 @@ export default function SignUpScreen() {
                 </View>
               </View>
 
-              {/* Username */}
+              {/* Email */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Username</Text>
+                <Text style={styles.label}>Email</Text>
                 <View style={styles.inputWrapper}>
-                  <Icon name="at-sign" size={20} color="#6B7280" style={styles.inputIcon} />
+                  <MaterialCommunityIcons name="email" size={20} color="#6B7280" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Choose a username"
+                    placeholder="Enter your email address"
                     placeholderTextColor="#9CA3AF"
-                    value={username}
-                    onChangeText={setUsername}
+                    value={email}
+                    onChangeText={setEmail}
                     autoCapitalize="none"
+                    keyboardType="email-address"
                   />
                 </View>
               </View>
@@ -139,7 +136,7 @@ export default function SignUpScreen() {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.inputWrapper}>
-                  <Icon name="lock" size={20} color="#6B7280" style={styles.inputIcon} />
+                  <MaterialCommunityIcons name="lock" size={20} color="#6B7280" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="Create a strong password"
@@ -150,12 +147,11 @@ export default function SignUpScreen() {
                     autoCapitalize="none"
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Icon
-                      name={showPassword ? 'eye-off' : 'eye'}
-                      size={20}
-                      color="#6B7280"
-                      style={styles.eyeIcon}
-                    />
+                    {showPassword ? (
+                      <MaterialCommunityIcons name="eye-off" size={20} color="#6B7280" style={styles.eyeIcon} />
+                    ) : (
+                      <MaterialCommunityIcons name="eye" size={20} color="#6B7280" style={styles.eyeIcon} />
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -164,7 +160,7 @@ export default function SignUpScreen() {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Confirm Password</Text>
                 <View style={styles.inputWrapper}>
-                  <Icon name="lock" size={20} color="#6B7280" style={styles.inputIcon} />
+                  <MaterialCommunityIcons name="lock" size={20} color="#6B7280" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="Re-enter your password"
@@ -175,12 +171,11 @@ export default function SignUpScreen() {
                     autoCapitalize="none"
                   />
                   <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                    <Icon
-                      name={showConfirmPassword ? 'eye-off' : 'eye'}
-                      size={20}
-                      color="#6B7280"
-                      style={styles.eyeIcon}
-                    />
+                    {showConfirmPassword ? (
+                      <MaterialCommunityIcons name="eye-off" size={20} color="#6B7280" style={styles.eyeIcon} />
+                    ) : (
+                      <MaterialCommunityIcons name="eye" size={20} color="#6B7280" style={styles.eyeIcon} />
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -189,7 +184,7 @@ export default function SignUpScreen() {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Role</Text>
                 <View style={styles.pickerWrapper}>
-                  <Icon name="briefcase" size={20} color="#6B7280" style={styles.inputIcon} />
+                  <MaterialCommunityIcons name="briefcase" size={20} color="#6B7280" style={styles.inputIcon} />
                   <Picker
                     selectedValue={role}
                     onValueChange={setRole}
@@ -205,7 +200,7 @@ export default function SignUpScreen() {
 
               {/* Sign Up Button */}
               <TouchableOpacity
-                style={styles.signUpButton}
+                style={[styles.signUpButton, { backgroundColor: '#3B6B3A' }]}
                 onPress={handleSignUp}
                 activeOpacity={0.8}
               >
@@ -222,7 +217,7 @@ export default function SignUpScreen() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </ImageBackground>
+      </View>
     </View>
   );
 };
@@ -231,13 +226,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  backgroundImage: {
+  backgroundContainer: {
     flex: 1,
     justifyContent: 'center',
+    backgroundColor: '#f7efe6',
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: 10,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   keyboardView: {
     flex: 1,
@@ -254,29 +255,29 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    color: '#1F2937',
+    textShadowColor: 'rgba(255, 255, 255, 0.3)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
   tagline: {
     fontSize: 16,
-    color: '#E5E7EB',
+    color: '#6B7280',
     marginTop: 5,
     textAlign: 'center',
   },
   formCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(244, 243, 236, 1)',
     borderRadius: 20,
     padding: 30,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: 0,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   title: {
     fontSize: 28,
@@ -335,19 +336,12 @@ const styles = StyleSheet.create({
     height: 50,
   },
   signUpButton: {
-    backgroundColor: '#059669',
+    backgroundColor: '#8B5E3C',
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 10,
-    shadowColor: '#059669',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    elevation: 0,
   },
   signUpButtonText: {
     color: '#FFFFFF',

@@ -5,7 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export function Card({ children, style, variant = 'default', padding = 'default' }) {
+export function Card({ children, style, variant = 'flat', padding = 'default' }) {
   const { theme } = useTheme();
   const colors = Colors[theme];
   
@@ -27,8 +27,8 @@ export function Card({ children, style, variant = 'default', padding = 'default'
       case 'subtle':
         return {
           backgroundColor: colors.surface,
-          elevation: 1,
-          shadowOpacity: 0.05,
+          elevation: 0,
+          shadowOpacity: 0,
         };
       default:
         return {};
@@ -66,16 +66,14 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     marginBottom: 16,
-    // Web-compatible shadow
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-    // Mobile shadow fallback
+    // Mobile shadow fallback (kept minimal by default)
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 0,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
 });

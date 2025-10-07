@@ -22,7 +22,7 @@ export const AlertsProvider = ({ children }) => {
       status: 'New',
       timestamp: '5 mins ago',
       active: true,
-      icon: '⚠️',
+      icon: 'wrench',
       color: '#f97316',
       source: 'system'
     },
@@ -34,7 +34,7 @@ export const AlertsProvider = ({ children }) => {
       status: 'Acknowledged',
       timestamp: '1 day ago',
       active: true,
-      icon: '🛡️',
+      icon: 'shield-alert',
       color: '#ef4444',
       source: 'system'
     },
@@ -46,7 +46,7 @@ export const AlertsProvider = ({ children }) => {
       status: 'Snoozed',
       timestamp: '25 mins ago',
       active: true,
-      icon: '🌡️',
+      icon: 'thermometer',
       color: '#10b981',
       source: 'system'
     },
@@ -58,7 +58,7 @@ export const AlertsProvider = ({ children }) => {
       status: 'Resolved',
       timestamp: '15 days ago',
       active: false,
-      icon: '⚠️',
+      icon: 'wrench',
       color: '#f97316',
       source: 'system'
     }

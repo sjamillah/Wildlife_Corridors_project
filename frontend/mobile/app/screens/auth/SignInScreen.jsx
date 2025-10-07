@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,36 +7,72 @@ import {
   StyleSheet,
   ScrollView,
   StatusBar,
-  ImageBackground,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Alert
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as LocalAuthentication from 'expo-local-authentication';
+import auth from '../../services/auth';
 
 export default function SignInScreen() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mfaCode, setMfaCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricType, setBiometricType] = useState(null);
 
-  const handleSignIn = () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert('Validation Error', 'Please enter username and password');
-      return;
+  useEffect(() => {
+    checkBiometricSupport();
+  }, []);
+
+  const checkBiometricSupport = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      
+      setBiometricSupported(compatible && enrolled);
+      setBiometricType(types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION) ? 'face' : 
+                      types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT) ? 'fingerprint' : 
+                      'biometric');
+    } catch (error) {
+      console.log('Biometric check failed:', error);
     }
-
-    Alert.alert(
-      'Success',
-      'Signed in successfully!',
-      [{ text: 'OK', onPress: () => router.push('/screens/(tabs)/DashboardScreen') }]
-    );
   };
 
-  const handleBiometricSignIn = () => {
-    Alert.alert('Biometric Authentication', 'This would trigger fingerprint/face recognition');
+  const handleSignIn = () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Validation Error', 'Please enter email and password');
+      return;
+    }
+    auth.login({ email, password })
+      .then(() => router.push('/screens/(tabs)/DashboardScreen'))
+      .catch(err => Alert.alert('Login failed', err.message || 'Please try again'));
+  };
+
+  const handleBiometricSignIn = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Sign in to Aureynx Wildlife Corridors',
+        subPromptMessage: 'Use your biometric to access your account',
+        cancelLabel: 'Cancel',
+        fallbackLabel: 'Use Password',
+      });
+
+      if (result.success) {
+        // In a real app, you'd get the stored credentials here
+        // For now, we'll just navigate to dashboard
+        router.push('/screens/(tabs)/DashboardScreen');
+      } else {
+        Alert.alert('Authentication Failed', 'Biometric authentication was cancelled or failed');
+      }
+    } catch (_error) {
+      Alert.alert('Error', 'Biometric authentication failed');
+    }
   };
 
   const navigateToSignUp = () => {
@@ -47,11 +83,7 @@ export default function SignInScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.3)" translucent />
       
-      <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1564760055775-d63b17a55c44?w=1200' }}
-        style={styles.backgroundImage}
-        blurRadius={2}
-      >
+      <View style={styles.backgroundContainer}>
         <View style={styles.overlay} />
         
         <KeyboardAvoidingView
@@ -65,27 +97,33 @@ export default function SignInScreen() {
           >
             {/* Header */}
             <View style={styles.headerSignIn}>
+              <Image 
+                source={require('../../../assets/images/Aureynx_Logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
               <Text style={styles.appName}>Aureynx</Text>
-              <Text style={styles.tagline}>Protecting Wildlife Together</Text>
+              <Text style={styles.tagline}>Wildlife Conservation Platform</Text>
             </View>
 
             {/* Form Card */}
-            <View style={styles.formCard}>
+            <View style={[styles.formCard, { backgroundColor: '#F4F3EC' }]}>
               <Text style={styles.title}>Welcome Back</Text>
               <Text style={styles.subtitle}>Sign in to continue your mission</Text>
 
-              {/* Username */}
+              {/* Email */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Username</Text>
+                <Text style={styles.label}>Email</Text>
                 <View style={styles.inputWrapper}>
-                  <Icon name="user" size={20} color="#6B7280" style={styles.inputIcon} />
+                  <MaterialCommunityIcons name="email" size={20} color="#6B7280" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="ranger"
+                    placeholder="your.email@example.com"
                     placeholderTextColor="#9CA3AF"
-                    value={username}
-                    onChangeText={setUsername}
+                    value={email}
+                    onChangeText={setEmail}
                     autoCapitalize="none"
+                    keyboardType="email-address"
                   />
                 </View>
               </View>
@@ -94,7 +132,7 @@ export default function SignInScreen() {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.inputWrapper}>
-                  <Icon name="lock" size={20} color="#6B7280" style={styles.inputIcon} />
+                  <MaterialCommunityIcons name="lock" size={20} color="#6B7280" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="••••••••••••"
@@ -105,12 +143,11 @@ export default function SignInScreen() {
                     autoCapitalize="none"
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Icon
-                      name={showPassword ? 'eye-off' : 'eye'}
-                      size={20}
-                      color="#6B7280"
-                      style={styles.eyeIcon}
-                    />
+                    {showPassword ? (
+                      <MaterialCommunityIcons name="eye-off" size={20} color="#6B7280" style={styles.eyeIcon} />
+                    ) : (
+                      <MaterialCommunityIcons name="eye" size={20} color="#6B7280" style={styles.eyeIcon} />
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -122,7 +159,7 @@ export default function SignInScreen() {
                   onPress={() => setRememberMe(!rememberMe)}
                 >
                   <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                    {rememberMe && <Icon name="check" size={16} color="#fff" />}
+                    {rememberMe && <MaterialCommunityIcons name="check" size={16} color="#fff" />}
                   </View>
                   <Text style={styles.rememberMeText}>Remember me</Text>
                 </TouchableOpacity>
@@ -134,44 +171,41 @@ export default function SignInScreen() {
 
               {/* Sign In Button */}
               <TouchableOpacity
-                style={styles.signInButton}
+                style={[styles.signInButton, { backgroundColor: '#3B6B3A' }]}
                 onPress={handleSignIn}
                 activeOpacity={0.8}
               >
                 <Text style={styles.signInButtonText}>Sign In</Text>
               </TouchableOpacity>
 
-              {/* Divider */}
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.dividerLine} />
-              </View>
+              {biometricSupported && (
+                <>
+                  {/* Divider */}
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>OR</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
 
-              {/* MFA Code */}
-              <View style={styles.inputContainer}>
-                <View style={styles.inputWrapper}>
-                  <Icon name="shield" size={20} color="#6B7280" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter MFA Code"
-                    placeholderTextColor="#9CA3AF"
-                    value={mfaCode}
-                    onChangeText={setMfaCode}
-                    keyboardType="number-pad"
-                  />
-                </View>
-              </View>
-
-              {/* Biometric Sign In */}
-              <TouchableOpacity
-                style={styles.biometricButton}
-                onPress={handleBiometricSignIn}
-                activeOpacity={0.8}
-              >
-                <Icon name="smartphone" size={20} color="#10B981" />
-                <Text style={styles.biometricButtonText}>Sign In with Biometrics</Text>
-              </TouchableOpacity>
+                  {/* Biometric Sign In */}
+                  <TouchableOpacity
+                    style={styles.biometricButton}
+                    onPress={handleBiometricSignIn}
+                    activeOpacity={0.8}
+                  >
+                    {biometricType === 'face' ? (
+                      <MaterialCommunityIcons name="face-recognition" size={20} color="#10B981" />
+                    ) : biometricType === 'fingerprint' ? (
+                      <MaterialCommunityIcons name="fingerprint" size={20} color="#10B981" />
+                    ) : (
+                      <MaterialCommunityIcons name="cellphone-key" size={20} color="#10B981" />
+                    )}
+                    <Text style={styles.biometricButtonText}>
+                      Sign In with {biometricType === 'face' ? 'Face ID' : biometricType === 'fingerprint' ? 'Fingerprint' : 'Biometrics'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
               {/* Sign Up Link */}
               <View style={styles.signUpContainer}>
@@ -183,7 +217,7 @@ export default function SignInScreen() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </ImageBackground>
+      </View>
     </View>
   );
 };
@@ -192,13 +226,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  backgroundImage: {
+  backgroundContainer: {
     flex: 1,
+    backgroundColor: '#f7efe6',
     justifyContent: 'center',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   keyboardView: {
     flex: 1,
@@ -212,32 +247,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: 10,
+  },
   appName: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    color: '#1F2937',
+    textShadowColor: 'rgba(255, 255, 255, 0.3)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
   tagline: {
     fontSize: 16,
-    color: '#E5E7EB',
+    color: '#6B7280',
     marginTop: 5,
     textAlign: 'center',
   },
   formCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(244, 243, 236, 1)',
     borderRadius: 20,
     padding: 30,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: 0,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   title: {
     fontSize: 28,
@@ -316,19 +356,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   signInButton: {
-    backgroundColor: '#059669',
+    backgroundColor: '#3B6B3A',
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#059669',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    elevation: 0,
   },
   signInButtonText: {
     color: '#FFFFFF',

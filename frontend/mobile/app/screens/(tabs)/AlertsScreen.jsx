@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -131,7 +132,7 @@ export default function AlertsScreen() {
           <Card key={alert.id}>
             <View style={styles.alertHeader}>
               <View style={styles.alertIconContainer}>
-                <Text style={[styles.alertIcon, { color: alert.color }]}>{alert.icon}</Text>
+                <MaterialCommunityIcons name={alert.icon} size={24} color={alert.color} />
               </View>
               <View style={styles.alertContent}>
                 <Text style={styles.alertTitle}>{alert.title}</Text>
@@ -139,6 +140,13 @@ export default function AlertsScreen() {
                   <Text style={styles.alertType}>{alert.type}</Text>
                   <Text style={styles.metaSeparator}>•</Text>
                   <Text style={styles.timestamp}>{alert.timestamp}</Text>
+                </View>
+                <View style={styles.locationMeta}>
+                  <View style={styles.locationRow}>
+                    <MaterialCommunityIcons name="shield-account" size={12} color="#6B7280" />
+                    <Text style={styles.locationText}>{alert.location || 'Maasai Mara Wildlife Reserve'}</Text>
+                  </View>
+                  <Text style={styles.distanceText}>{alert.distance || '0.8 km away'}</Text>
                 </View>
                 <View style={styles.statusContainer}>
                   <Text style={styles.statusLabel}>Status:</Text>
@@ -362,5 +370,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  locationMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  locationText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  distanceText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
 });
