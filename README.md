@@ -31,6 +31,7 @@ A comprehensive digital solution for wildlife corridor monitoring, incident repo
 - [Design System](#design-system)
   - [Color Palette](#color-palette)
   - [UI Components](#ui-components)
+  - [Figma Design Resources](#figma-design-resources)
 - [Available Scripts](#available-scripts)
   - [Mobile Development](#mobile-development)
   - [Web Development](#web-development)
@@ -390,6 +391,32 @@ npm start
 - **Custom Icons**: Wildlife and conservation-focused iconography
 - **Responsive Design**: Adaptive layouts for all screen sizes
 - **Haptic Feedback**: Enhanced user interaction experience
+
+### Figma Design Resources
+
+Access our complete design system and user interface mockups on Figma:
+
+🎨 **[View Aureynx Design System on Figma](https://www.figma.com/design/jHjNYsHuYPhfDhbUUX5wo6/Wildlife-Corridor-System-Mobile-App?m=auto&t=ChfekUZkf1rbcVjQ-1)**
+
+**What's included:**
+
+- **UI Components Library**: Complete component system with variants and states
+- **Mobile App Screens**: All mobile application interfaces and user flows
+- **Web Application Designs**: Desktop and responsive web interface mockups
+- **Style Guide**: Typography, colors, spacing, and brand guidelines
+- **Icon Library**: Custom wildlife conservation iconography
+- **Prototypes**: Interactive user experience flows and animations
+- **Design Tokens**: Exportable design system variables for development
+
+**Design System Highlights:**
+
+- Emerald gradient theme (#3B6B3A primary color)
+- Accessibility-first approach with WCAG 2.1 compliance
+- Cross-platform consistency between mobile and web
+- Wildlife conservation-focused visual language
+- Professional card-based layouts with organic shadows
+
+> 💡 **For Developers**: Design tokens and component specifications are available in the Figma file for accurate implementation.
 
 ## Available Scripts
 
