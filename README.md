@@ -35,14 +35,9 @@ A comprehensive digital solution for wildlife corridor monitoring, incident repo
   - [Mobile Development](#mobile-development)
   - [Web Development](#web-development)
 - [Key Features](#key-features)
-- [Designs & Interface Screenshots](#designs--interface-screenshots)
-  - [Application Screenshots](#application-screenshots)
-  - [Design System](#design-system-1)
-  - [Figma Mockups](#figma-mockups)
 - [Deployment Plan](#deployment-plan)
   - [Web Application Deployment](#web-application-deployment)
   - [Mobile Application Deployment](#mobile-application-deployment)
-  - [Backend Deployment](#backend-deployment)
   - [Security & Monitoring](#security--monitoring)
 - [Development Guidelines](#development-guidelines)
   - [Code Quality Standards](#code-quality-standards)
@@ -55,7 +50,6 @@ A comprehensive digital solution for wildlife corridor monitoring, incident repo
 - [Acknowledgments](#acknowledgments)
 - [Contact & Support](#contact--support)
   - [Links](#links)
-  - [Community](#community)
 
 ## Demo Video
 
@@ -152,7 +146,6 @@ Wildlife_Corridors_project/
 │       │   └── services/         # API services
 │       └── package.json          # Web dependencies
 └── backend/                    # Server-side services
-    ├── logic/                     # Business logic and algorithms
     └── notebooks/                 # Research and ML models
         └── HMM_Model.ipynb        # Hidden Markov Model analysis
 ```
@@ -492,49 +485,6 @@ frontend/mobile/
 - Real-time data sharing across organizations
 - Comprehensive export and reporting tools
 
-## Designs & Interface Screenshots
-
-### Application Screenshots
-
-#### Mobile Application
-
-![Mobile Dashboard](screenshots/mobile-dashboard.png)
-_Mobile Dashboard - Real-time wildlife tracking overview_
-
-![Alert System](screenshots/mobile-alerts.png)
-_Alert Hub - Incident management and notifications_
-
-![Live Tracking](screenshots/mobile-tracking.png)
-_Live Tracking - Animal movement monitoring_
-
-#### Web Application
-
-![Web Dashboard](screenshots/web-dashboard.png)
-_Web Dashboard - Comprehensive analytics view_
-
-![Patrol Operations](screenshots/web-patrol.png)
-_Patrol Operations - Field team coordination_
-
-![Reports Interface](screenshots/web-reports.png)
-_Reports & Analytics - Data visualization and insights_
-
-### Design System
-
-- **Brand Colors**: Deep olive (#3B6B3A), Warm earth (#8B5E3C), Moss green (#9CBC4A)
-- **Typography**: Inter font family for modern, readable interface
-- **UI Pattern**: Card-based layouts with organic shadows
-- **Theme**: Warm, nature-inspired color palette
-- **Icons**: MaterialCommunityIcons and Lucide for consistency
-
-### Figma Mockups
-
-🔗 **[View Complete Design System](FIGMA_LINK_HERE)**
-
-- User interface mockups and wireframes
-- Component library and design tokens
-- User experience flow diagrams
-- Responsive design specifications
-
 ## Deployment Plan
 
 ### Web Application Deployment
@@ -573,30 +523,6 @@ _Reports & Analytics - Data visualization and insights_
    - Expo Updates for instant deployments
    - A/B testing capabilities
    - Progressive rollout strategies
-
-### Backend Deployment
-
-**Platform**: AWS / Digital Ocean
-
-1. **Containerization**
-   ```dockerfile
-   # Docker configuration for microservices
-   FROM node:18-alpine
-   WORKDIR /app
-   COPY package*.json ./
-   RUN npm install
-   COPY . .
-   EXPOSE 3000
-   CMD ["npm", "start"]
-   ```
-2. **Database Setup**
-   - MongoDB Atlas for wildlife data
-   - Redis for caching and sessions
-   - S3 for media file storage
-3. **API Gateway**
-   - Load balancing configuration
-   - Rate limiting and security
-   - Monitoring and logging
 
 ### Security & Monitoring
 
@@ -689,15 +615,8 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - Documentation: [Wiki & Guides](https://github.com/sjamillah/Wildlife_Corridors_project/wiki)
 - Demo: [Live Demo Video](DEMO_VIDEO_LINK)
 
-### Community
-
-- Discord: [Join our community](DISCORD_LINK)
-- Email: aureynx.wildlife@example.com
-- Twitter: [@AureynxWildlife](TWITTER_LINK)
-
 ---
 
 **Building a better future for wildlife through technology**
 
 _Aureynx - Where Conservation Meets Innovation_
-
