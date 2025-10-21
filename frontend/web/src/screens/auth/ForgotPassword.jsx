@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle } from '@/components/shared/Icons';
 
 const ForgotPassword = ({ setCurrentScreen }) => {
   const [email, setEmail] = useState('');
@@ -13,9 +13,9 @@ const ForgotPassword = ({ setCurrentScreen }) => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-primary/5 to-blue-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-          <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 bg-brand-primary rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-8 h-8 text-white" />
           </div>
           
@@ -31,7 +31,7 @@ const ForgotPassword = ({ setCurrentScreen }) => {
           
           <button
             onClick={() => setCurrentScreen('login')}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-xl font-medium transition duration-200"
+            className="w-full bg-brand-primary hover:bg-brand-secondary text-white py-3 px-6 rounded-xl font-medium transition duration-200"
           >
             Back to Sign In
           </button>
@@ -41,7 +41,7 @@ const ForgotPassword = ({ setCurrentScreen }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary/5 to-blue-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">

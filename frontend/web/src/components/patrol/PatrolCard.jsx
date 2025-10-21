@@ -1,11 +1,11 @@
 import React from 'react';
-import { MapPin, Clock, Users, Navigation } from 'lucide-react';
+import { MapPin, Clock, Users, Navigation } from '@/components/shared/Icons';
 import Card from '../shared/Card';
 
 const PatrolCard = ({ patrol, onView, onManage }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-700';
+      case 'active': return 'bg-brand-primary/10 text-brand-primary';
       case 'completed': return 'bg-blue-100 text-blue-700';
       case 'scheduled': return 'bg-yellow-100 text-yellow-700';
       case 'emergency': return 'bg-red-100 text-red-700';
@@ -18,7 +18,7 @@ const PatrolCard = ({ patrol, onView, onManage }) => {
       case 'critical': return 'border-l-red-500';
       case 'high': return 'border-l-orange-500';
       case 'medium': return 'border-l-yellow-500';
-      case 'low': return 'border-l-green-500';
+      case 'low': return 'border-l-brand-primary';
       default: return 'border-l-gray-300';
     }
   };
@@ -27,7 +27,7 @@ const PatrolCard = ({ patrol, onView, onManage }) => {
     <Card className={`p-6 border-l-4 ${getPriorityColor(patrol.priority)} hover:shadow-md transition-shadow`}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center text-white text-lg">
+          <div className="w-10 h-10 bg-brand-primary rounded-lg flex items-center justify-center text-white text-lg">
             {patrol.icon}
           </div>
           <div>
@@ -62,11 +62,11 @@ const PatrolCard = ({ patrol, onView, onManage }) => {
       <div className="bg-gray-50 rounded-lg p-3 mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">Mission Progress</span>
-          <span className="text-sm font-semibold text-emerald-600">{patrol.progress}%</span>
+          <span className="text-sm font-semibold text-brand-primary">{patrol.progress}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div 
-            className="bg-emerald-500 h-2 rounded-full transition-all"
+            className="bg-brand-primary h-2 rounded-full transition-all"
             style={{ width: `${patrol.progress}%` }}
           />
         </div>
@@ -91,7 +91,7 @@ const PatrolCard = ({ patrol, onView, onManage }) => {
           {onManage && (
             <button 
               onClick={() => onManage(patrol)}
-              className="flex-1 px-3 py-2 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition"
+              className="flex-1 px-3 py-2 text-sm bg-brand-primary text-white rounded-lg hover:bg-brand-secondary transition"
             >
               Manage
             </button>

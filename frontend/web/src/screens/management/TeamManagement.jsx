@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, Search, Filter, Mail, MapPin, Calendar, Award, Activity, CheckCircle, Clock, AlertTriangle, Phone } from 'lucide-react';
+import { Users, Plus, Search, Filter, Mail, MapPin, Calendar, Award, Activity, CheckCircle, Clock, AlertTriangle, Phone } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 
 const TeamManagement = () => {
@@ -135,7 +135,7 @@ const TeamManagement = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-white border border-green-200 text-green-700';
+      case 'active': return 'bg-white border border-brand-primary/30 text-brand-primary';
       case 'on-patrol': return 'bg-white border border-blue-200 text-blue-700';
       case 'leave': return 'bg-white border border-yellow-200 text-yellow-700';
       case 'inactive': return 'bg-white border border-red-200 text-red-700';
@@ -181,7 +181,7 @@ const TeamManagement = () => {
             <div>
               <div className="flex items-center space-x-3 mb-1">
                 <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Field Personnel</h1>
-                <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-semibold rounded-full">
+                <span className="px-3 py-1 bg-brand-primary text-white text-xs font-semibold rounded-full">
                   {teamMembers.length} Members
                 </span>
               </div>
@@ -192,7 +192,7 @@ const TeamManagement = () => {
                 <Filter className="w-4 h-4" />
                 <span>Filter</span>
               </button>
-              <button className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition flex items-center space-x-2">
+              <button className="px-5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-white font-semibold rounded-xl transition flex items-center space-x-2">
                 <Plus className="w-4 h-4" />
                 <span>Add Member</span>
               </button>
@@ -210,14 +210,14 @@ const TeamManagement = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg font-medium transition ${
                     activeTab === tab.id
-                      ? 'bg-white text-emerald-700 shadow-sm'
+                      ? 'bg-white text-brand-primary shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   <span>{tab.label}</span>
                   {tab.count && (
                     <span className={`px-2 py-0.5 text-xs rounded-full ${
-                      activeTab === tab.id ? 'bg-white border-2 border-emerald-500' : 'bg-gray-200'
+                      activeTab === tab.id ? 'bg-white border-2 border-brand-primary' : 'bg-gray-200'
                     }`}>
                       {tab.count}
                     </span>
@@ -239,7 +239,7 @@ const TeamManagement = () => {
                         placeholder="Search members..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+                        className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary"
                       />
                     </div>
                   </div>
@@ -250,7 +250,7 @@ const TeamManagement = () => {
                       <div key={member.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-semibold">
+                            <div className="w-12 h-12 bg-brand-primary rounded-full flex items-center justify-center text-white font-semibold">
                               {member.avatar}
                             </div>
                             <div>
@@ -282,11 +282,11 @@ const TeamManagement = () => {
                         <div className="bg-gray-50 rounded-lg p-3">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-gray-700">Performance</span>
-                            <span className="text-sm font-semibold text-emerald-600">{member.performance}%</span>
+                            <span className="text-sm font-semibold text-brand-primary">{member.performance}%</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
-                              className="bg-emerald-500 h-2 rounded-full transition-all"
+                              className="bg-brand-primary h-2 rounded-full transition-all"
                               style={{ width: `${member.performance}%` }}
                             />
                           </div>
@@ -338,11 +338,11 @@ const TeamManagement = () => {
                       <div className="bg-gray-50 rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-gray-700">Efficiency</span>
-                          <span className="text-sm font-semibold text-emerald-600">{team.efficiency}%</span>
+                          <span className="text-sm font-semibold text-brand-primary">{team.efficiency}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-emerald-500 h-2 rounded-full"
+                            className="bg-brand-primary h-2 rounded-full"
                             style={{ width: `${team.efficiency}%` }}
                           />
                         </div>
@@ -354,7 +354,7 @@ const TeamManagement = () => {
             )}
 
             {/* Quick Stats */}
-            <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-8 rounded-xl mt-8">
+            <div className="bg-gradient-to-r from-brand-primary to-brand-highlight px-6 py-8 rounded-xl mt-8">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
                   <div className="flex items-center justify-between">
@@ -362,11 +362,11 @@ const TeamManagement = () => {
                       <p className="text-sm font-medium text-gray-600">Total Members</p>
                       <p className="text-3xl font-semibold text-gray-900">{teamMembers.length}</p>
                     </div>
-                    <div className="p-3 bg-emerald-50 rounded-lg">
-                      <Users className="w-6 h-6 text-emerald-600" />
+                    <div className="p-3 bg-brand-primary/10 rounded-lg">
+                      <Users className="w-6 h-6 text-brand-primary" />
                     </div>
                   </div>
-                  <p className="text-sm text-green-600 mt-2">+2 this month</p>
+                  <p className="text-sm text-brand-primary mt-2">+2 this month</p>
                 </div>
                 
                 <div className="bg-white rounded-lg shadow border border-gray-200 p-6">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from '@/components/shared/Icons';
 import auth from '../../services/auth';
-import AureynxLogo from '../../assets/Aureynx_Logo.png';
+const AureynxLogo = '/assets/Aureynx_Logo.webp';
 
 const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulRegister }) => {
   const [firstName, setFirstName] = useState('');
@@ -48,7 +48,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent transition"
                 placeholder="First name"
               />
             </div>
@@ -61,7 +61,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent transition"
                 placeholder="Last name"
               />
             </div>
@@ -76,7 +76,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent transition"
               placeholder="Enter your email"
             />
           </div>
@@ -105,7 +105,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition pr-12"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent transition pr-12"
                 placeholder="Create password"
               />
               <button

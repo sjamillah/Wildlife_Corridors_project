@@ -11,10 +11,10 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary/5 via-brand-primary/10 to-teal-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-600 rounded-full mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary rounded-full mb-4">
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
@@ -30,7 +30,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                 <input
                   type="text"
                   placeholder="Jane Doe"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent"
                 />
               </div>
             </div>
@@ -42,14 +42,14 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                 <input
                   type="email"
                   placeholder="manager@ecowatch.org"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-              <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+              <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent">
                 <option>Conservation Manager</option>
                 <option>Field Ranger</option>
                 <option>Data Analyst</option>
@@ -63,7 +63,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
               <input
                 type="text"
                 placeholder="Your conservation organization"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent"
               />
             </div>
 
@@ -74,7 +74,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a strong password"
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent"
                 />
                 <button
                   type="button"
@@ -94,21 +94,21 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                 <input
                   type="password"
                   placeholder="Confirm your password"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent"
                 />
               </div>
             </div>
 
             <div className="flex items-start">
-              <input type="checkbox" className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 mt-1" />
+              <input type="checkbox" className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-secondary mt-1" />
               <span className="ml-2 text-sm text-gray-600">
-                I agree to the <button type="button" className="text-green-600 hover:text-green-700 underline">Terms of Service</button> and <button type="button" className="text-green-600 hover:text-green-700 underline">Privacy Policy</button>
+                I agree to the <button type="button" className="text-brand-primary hover:text-brand-primary underline">Terms of Service</button> and <button type="button" className="text-brand-primary hover:text-brand-primary underline">Privacy Policy</button>
               </span>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-200 flex items-center justify-center space-x-2"
+              className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-semibold py-3 rounded-lg transition duration-200 flex items-center justify-center space-x-2"
             >
               <span>Create Account</span>
               <ArrowRight className="w-5 h-5" />
@@ -120,7 +120,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
           Already have an account? 
           <button 
             onClick={() => setCurrentScreen('login')} 
-            className="text-green-600 hover:text-green-700 font-semibold ml-1"
+            className="text-brand-primary hover:text-brand-primary font-semibold ml-1"
           >
             Sign In
           </button>

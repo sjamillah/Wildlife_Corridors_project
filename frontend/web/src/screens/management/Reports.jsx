@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Download, Calendar, Filter, Search, TrendingUp, Users, Activity, AlertTriangle, Eye, Clock, BarChart } from 'lucide-react';
+import { FileText, Download, Calendar, Filter, Search, TrendingUp, Users, Activity, AlertTriangle, Eye, Clock, BarChart, MapPin } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 
 const Reports = () => {
@@ -32,7 +32,10 @@ const Reports = () => {
         status: 'completed',
         type: 'monthly',
         fileSize: '2.4 MB',
-        downloads: 156
+        downloads: 156,
+        location: { lat: -1.2921, lng: 36.8219, area: 'Nairobi National Park' },
+        species: 'elephant',
+        riskLevel: 'medium'
       },
       {
         id: 'WR-2024-002', 
@@ -43,7 +46,10 @@ const Reports = () => {
         status: 'completed',
         type: 'weekly',
         fileSize: '1.8 MB',
-        downloads: 89
+        downloads: 89,
+        location: { lat: -2.1540, lng: 37.9083, area: 'Amboseli Ecosystem' },
+        species: 'elephant',
+        riskLevel: 'high'
       },
       {
         id: 'WR-2024-003',
@@ -54,7 +60,10 @@ const Reports = () => {
         status: 'draft',
         type: 'quarterly',
         fileSize: '3.1 MB',
-        downloads: 23
+        downloads: 23,
+        location: { lat: -1.5678, lng: 36.0582, area: 'Maasai Mara Reserve' },
+        species: 'wildebeest',
+        riskLevel: 'low'
       }
     ],
     patrol: [
@@ -67,7 +76,10 @@ const Reports = () => {
         status: 'completed',
         type: 'weekly',
         fileSize: '1.2 MB',
-        downloads: 67
+        downloads: 67,
+        location: { lat: -1.4518, lng: 36.9560, area: 'Kajiado County' },
+        species: 'patrol',
+        riskLevel: 'medium'
       },
       {
         id: 'PR-2024-002',
@@ -78,7 +90,10 @@ const Reports = () => {
         status: 'completed',
         type: 'monthly',
         fileSize: '2.7 MB',
-        downloads: 134
+        downloads: 134,
+        location: { lat: -0.0917, lng: 37.9062, area: 'Laikipia Plateau' },
+        species: 'patrol',
+        riskLevel: 'high'
       }
     ],
     incident: [
@@ -91,7 +106,10 @@ const Reports = () => {
         status: 'completed',
         type: 'incident',
         fileSize: '1.5 MB',
-        downloads: 78
+        downloads: 78,
+        location: { lat: -0.7893, lng: 37.0184, area: 'Nyeri County' },
+        species: 'alert',
+        riskLevel: 'high'
       }
     ],
     monitoring: [
@@ -104,17 +122,20 @@ const Reports = () => {
         status: 'completed',
         type: 'monthly',
         fileSize: '4.2 MB',
-        downloads: 92
+        downloads: 92,
+        location: { lat: -1.8707, lng: 37.3560, area: 'Tsavo East National Park' },
+        species: 'wildlife',
+        riskLevel: 'low'
       }
     ]
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'bg-white border border-green-200 text-green-700';
-      case 'draft': return 'bg-white border border-yellow-200 text-yellow-700';
-      case 'pending': return 'bg-white border border-blue-200 text-blue-700';
-      default: return 'bg-white border border-gray-200 text-gray-700';
+      case 'completed': return 'bg-brand-success border border-brand-success/40 text-brand-text';
+      case 'draft': return 'bg-brand-warning border border-brand-warning/40 text-brand-text-secondary';
+      case 'pending': return 'bg-brand-info border border-brand-info/40 text-brand-text';
+      default: return 'bg-brand-card border border-brand-card/40 text-brand-text-secondary';
     }
   };
 
@@ -152,14 +173,14 @@ const Reports = () => {
               <select 
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-xl text-gray-700 bg-white focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+                className="px-4 py-2 border border-gray-200 rounded-xl text-gray-700 bg-white focus:ring-2 focus:ring-brand-secondary focus:border-brand-accent"
               >
                 <option value="7d">Last 7 days</option>
                 <option value="30d">Last 30 days</option>
                 <option value="90d">Last 3 months</option>
                 <option value="1y">Last year</option>
               </select>
-              <button className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition flex items-center space-x-2">
+              <button className="px-5 py-2.5 bg-brand-primary hover:bg-brand-highlight text-white font-semibold rounded-xl transition flex items-center space-x-2">
                 <FileText className="w-4 h-4" />
                 <span>Generate Report</span>
               </button>
@@ -177,31 +198,123 @@ const Reports = () => {
                   onClick={() => setSelectedReport(category.id)}
                   className={`p-6 rounded-xl border-2 transition-all ${
                     selectedReport === category.id
-                      ? 'border-2 border-emerald-500 bg-white'
-                      : 'border-gray-200 bg-white hover:border-emerald-200'
+                      ? 'border-2 border-brand-primary bg-brand-card'
+                      : 'border-brand-card bg-brand-card hover:border-brand-primary'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                      selectedReport === category.id ? 'bg-emerald-500' : 'bg-gray-100'
+                      selectedReport === category.id ? 'bg-brand-primary' : 'bg-brand-secondary/20'
                     }`}>
                       <category.icon className={`w-6 h-6 ${
-                        selectedReport === category.id ? 'text-white' : 'text-gray-600'
+                        selectedReport === category.id ? 'text-white' : 'text-brand-primary'
                       }`} />
                     </div>
                     <span className={`text-2xl font-bold ${
-                      selectedReport === category.id ? 'text-emerald-600' : 'text-gray-900'
+                      selectedReport === category.id ? 'text-brand-primary' : 'text-brand-text'
                     }`}>
                       {category.count}
                     </span>
                   </div>
                   <h3 className={`font-semibold ${
-                    selectedReport === category.id ? 'text-emerald-900' : 'text-gray-900'
+                    selectedReport === category.id ? 'text-brand-text' : 'text-brand-text-secondary'
                   }`}>
                     {category.label}
                   </h3>
                 </button>
               ))}
+            </div>
+
+            {/* Report Analytics Dashboard */}
+            <div className="bg-white rounded-xl p-8 mb-8 border border-gray-100 shadow-lg">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+                    <BarChart className="w-5 h-5 text-brand-primary" />
+                    <span>Report Analytics</span>
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">Statistical overview of {reportCategories.find(cat => cat.id === selectedReport)?.label.toLowerCase()}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {/* Total Reports */}
+                <div className="bg-brand-card rounded-lg p-6 border border-brand-card">
+                  <div className="flex items-center justify-between mb-3">
+                    <FileText className="w-8 h-8 text-brand-primary" />
+                    <span className="text-xs font-medium text-brand-text bg-brand-secondary/20 px-2 py-1 rounded-full">Total</span>
+                  </div>
+                  <div className="text-3xl font-bold text-brand-primary">{reports[selectedReport].length}</div>
+                  <div className="text-sm text-brand-text font-medium">Active Reports</div>
+                </div>
+
+                {/* Completed Reports */}
+                <div className="bg-brand-success/10 rounded-lg p-6 border border-brand-success/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <TrendingUp className="w-8 h-8 text-brand-success" />
+                    <span className="text-xs font-medium text-brand-success bg-brand-success/10 px-2 py-1 rounded-full">Status</span>
+                  </div>
+                  <div className="text-3xl font-bold text-brand-success">
+                    {reports[selectedReport].filter(r => r.status === 'completed').length}
+                  </div>
+                  <div className="text-sm text-brand-success font-medium">Completed</div>
+                </div>
+
+                {/* Average Size */}
+                <div className="bg-brand-warning/10 rounded-lg p-6 border border-brand-warning/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <Download className="w-8 h-8 text-brand-warning" />
+                    <span className="text-xs font-medium text-brand-warning bg-brand-warning/10 px-2 py-1 rounded-full">Size</span>
+                  </div>
+                  <div className="text-3xl font-bold text-brand-warning">
+                    {(reports[selectedReport].reduce((acc, r) => acc + parseFloat(r.fileSize), 0) / reports[selectedReport].length).toFixed(1)}MB
+                  </div>
+                  <div className="text-sm text-brand-warning font-medium">Avg Size</div>
+                </div>
+
+                {/* Total Downloads */}
+                <div className="bg-brand-info/10 rounded-lg p-6 border border-brand-info/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <Users className="w-8 h-8 text-brand-info" />
+                    <span className="text-xs font-medium text-brand-info bg-brand-info/10 px-2 py-1 rounded-full">Usage</span>
+                  </div>
+                  <div className="text-3xl font-bold text-brand-info">
+                    {reports[selectedReport].reduce((acc, r) => acc + r.downloads, 0)}
+                  </div>
+                  <div className="text-sm text-brand-info font-medium">Total Downloads</div>
+                </div>
+              </div>
+
+              {/* Report Timeline */}
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <h4 className="text-md font-semibold text-gray-900 mb-4">Recent Activity Timeline</h4>
+                <div className="space-y-4">
+                  {reports[selectedReport].slice(0, 3).map((report) => (
+                    <div key={report.id} className="flex items-start space-x-4 p-4 bg-brand-card/40 rounded-lg">
+                      <div className={`p-2 rounded-lg ${
+                        report.status === 'completed' ? 'bg-brand-success/20 text-brand-success' :
+                        report.status === 'draft' ? 'bg-brand-warning/20 text-brand-warning' :
+                        'bg-brand-info/20 text-brand-info'
+                      }`}>
+                        {getTypeIcon(report.type)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <h5 className="font-semibold text-brand-text">{report.title}</h5>
+                          <span className="text-xs text-brand-text-secondary">{report.date}</span>
+                        </div>
+                        <p className="text-sm text-brand-text-secondary mb-2">{report.description}</p>
+                        <div className="flex items-center space-x-4 text-xs text-brand-text-secondary">
+                          <span>By {report.author}</span>
+                          <span>{report.fileSize}</span>
+                          <span>{report.downloads} downloads</span>
+                          <span className="text-brand-primary font-medium">{report.location.area}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Search and Filter */}
@@ -216,7 +329,7 @@ const Reports = () => {
                     <input
                       type="text"
                       placeholder="Search reports..."
-                      className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+                      className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-brand-accent"
                     />
                   </div>
                   <button className="px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
@@ -229,32 +342,43 @@ const Reports = () => {
               {/* Reports List */}
               <div className="space-y-4">
                 {reports[selectedReport].map((report) => (
-                  <div key={report.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div key={report.id} className="border border-brand-card/40 rounded-lg p-6 hover:shadow-md transition-shadow bg-brand-card">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
-                          <h4 className="text-lg font-semibold text-gray-900">{report.title}</h4>
+                          <h4 className="text-lg font-semibold text-brand-text">{report.title}</h4>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
                             {report.status}
                           </span>
-                          <div className="flex items-center space-x-1 text-gray-500">
+                          <div className="flex items-center space-x-1 text-brand-text-secondary">
                             {getTypeIcon(report.type)}
                             <span className="text-xs">{report.type}</span>
                           </div>
                         </div>
-                        <p className="text-gray-600 mb-3">{report.description}</p>
-                        <div className="flex items-center space-x-6 text-sm text-gray-500">
+                        <p className="text-brand-text-secondary mb-3">{report.description}</p>
+                        <div className="flex items-center space-x-6 text-sm text-brand-text-secondary mb-2">
                           <span>By {report.author}</span>
                           <span>{report.date}</span>
                           <span>{report.fileSize}</span>
                           <span>{report.downloads} downloads</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-600">{report.location.area}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            report.riskLevel === 'low' ? 'bg-brand-secondary/10 text-brand-secondary' :
+                            report.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {report.riskLevel} risk
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3 ml-4">
                         <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
                           <Eye className="w-5 h-5" />
                         </button>
-                        <button className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition flex items-center space-x-2">
+                        <button className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-white rounded-lg transition flex items-center space-x-2">
                           <Download className="w-4 h-4" />
                           <span>Download</span>
                         </button>
@@ -266,7 +390,7 @@ const Reports = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-8 rounded-xl">
+            <div className="bg-gradient-to-r from-brand-primary to-brand-highlight px-6 py-8 rounded-xl">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
                   <div className="flex items-center justify-between">
@@ -274,11 +398,11 @@ const Reports = () => {
                       <p className="text-sm font-medium text-gray-600">Total Reports</p>
                       <p className="text-3xl font-semibold text-gray-900">152</p>
                     </div>
-                    <div className="p-3 bg-emerald-50 rounded-lg">
-                      <TrendingUp className="w-6 h-6 text-emerald-600" />
+                    <div className="p-3 bg-brand-primary/10 rounded-lg">
+                      <TrendingUp className="w-6 h-6 text-brand-primary" />
                     </div>
                   </div>
-                  <p className="text-sm text-green-600 mt-2">+12% from last month</p>
+                  <p className="text-sm text-brand-primary mt-2">+12% from last month</p>
                 </div>
                 
                 <div className="bg-white rounded-lg shadow border border-gray-200 p-6">

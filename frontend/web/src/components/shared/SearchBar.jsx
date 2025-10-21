@@ -17,7 +17,7 @@ const SearchBar = ({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400`}
+        className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary`}
       />
     </div>
   );

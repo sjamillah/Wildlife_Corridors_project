@@ -29,7 +29,7 @@ const Input = ({
           value={value}
           onChange={onChange}
           required={required}
-          className={`w-full ${Icon ? 'pl-10' : 'pl-4'} ${RightIcon ? 'pr-12' : 'pr-4'} py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${className}`}
+          className={`w-full ${Icon ? 'pl-10' : 'pl-4'} ${RightIcon ? 'pr-12' : 'pr-4'} py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent ${className}`}
         />
         {RightIcon && (
           <button

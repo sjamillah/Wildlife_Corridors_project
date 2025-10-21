@@ -12,9 +12,9 @@ const Button = ({
   const baseClasses = 'font-semibold rounded-lg transition duration-200 flex items-center justify-center';
   
   const variants = {
-    primary: 'bg-green-600 hover:bg-green-700 text-white',
-    secondary: 'bg-gray-600 hover:bg-gray-700 text-white',
-    outline: 'border-2 border-green-600 text-green-600 hover:bg-green-600 hover:text-white'
+    primary: 'bg-brand-primary hover:bg-brand-highlight text-white',
+    secondary: 'bg-brand-secondary hover:bg-brand-accent text-brand-text',
+    outline: 'border-2 border-brand-accent text-brand-text hover:bg-brand-secondary'
   };
   
   const sizes = {

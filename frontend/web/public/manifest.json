@@ -3,18 +3,18 @@
   "name": "Aureynx Wildlife Conservation Platform",
   "icons": [
     {
-      "src": "Aureynx_Logo.png",
+      "src": "assets/Aureynx_Logo.webp",
       "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/png"
+      "type": "image/webp"
     },
     {
-      "src": "Aureynx_Logo.png",
-      "type": "image/png",
+      "src": "assets/Aureynx_Logo.webp",
+      "type": "image/webp",
       "sizes": "192x192"
     },
     {
-      "src": "Aureynx_Logo.png",
-      "type": "image/png",
+      "src": "assets/Aureynx_Logo.webp",
+      "type": "image/webp",
       "sizes": "512x512"
     }
   ],

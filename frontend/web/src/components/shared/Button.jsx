@@ -11,15 +11,15 @@ const Button = ({
   const getVariantClasses = () => {
     switch (variant) {
       case 'primary':
-        return 'bg-brand-2 hover:bg-brand-2 text-white';
+        return 'bg-brand-primary hover:bg-brand-highlight text-white';
       case 'secondary':
-        return 'bg-gray-100 hover:bg-gray-200 text-gray-700';
+        return 'bg-brand-secondary hover:bg-brand-accent text-brand-text';
       case 'outline':
-        return 'border border-gray-200 hover:bg-gray-50 text-gray-700';
+        return 'border border-brand-accent hover:bg-brand-secondary text-brand-text';
       case 'danger':
         return 'bg-red-500 hover:bg-red-600 text-white';
       default:
-        return 'bg-emerald-500 hover:bg-emerald-600 text-white';
+        return 'bg-brand-primary hover:bg-brand-highlight text-white';
     }
   };
 

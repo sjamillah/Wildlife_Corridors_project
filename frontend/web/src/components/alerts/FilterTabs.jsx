@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Globe } from 'lucide-react';
+import { Search, Globe } from '@/components/shared/Icons';
 import { 
   GiElephant,
   GiBuffaloHead
@@ -20,7 +20,7 @@ const FilterTabs = ({ filterSpecies, setFilterSpecies, speciesCount }) => {
           <input
             type="text"
             placeholder="Search by ID, species, or location..."
-            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
+            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary transition"
           />
         </div>
       </div>
@@ -32,7 +32,7 @@ const FilterTabs = ({ filterSpecies, setFilterSpecies, speciesCount }) => {
             onClick={() => setFilterSpecies(tab.key)}
             className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-medium transition ${
               filterSpecies === tab.key
-                ? 'bg-emerald-500 text-white shadow-md'
+                ? 'bg-brand-primary text-white shadow-md'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >

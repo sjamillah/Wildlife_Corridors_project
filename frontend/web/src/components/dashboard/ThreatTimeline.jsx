@@ -1,68 +1,123 @@
 import React from 'react';
+import { AlertTriangle, Activity, Brain, ChevronRight, MapPin, Clock } from '@/components/shared/Icons';
 
 const ThreatTimeline = () => {
   const alerts = [
-    { time: '10:30', type: 'GEOFENCE', message: 'Elephant Herd #12 - Village X perimeter breach', severity: 'CRITICAL', color: 'red' },
-    { time: '12:05', type: 'HEALTH', message: 'Elephant calf #3 - Distress signals detected', severity: 'HIGH', color: 'amber' },
-    { time: '14:20', type: 'PREDICTIVE', message: 'AI Alert - Elevated predator activity Waterhole Y', severity: 'MEDIUM', color: 'yellow' }
+    { 
+      id: 1,
+      time: '10:30 AM', 
+      type: 'GEOFENCE', 
+      message: 'Elephant Herd #12 approaching Village X perimeter', 
+      severity: 'CRITICAL', 
+      icon: AlertTriangle,
+      location: 'Grid C4-7',
+      timeAgo: '23m ago'
+    },
+    { 
+      id: 2,
+      time: '12:05 PM', 
+      type: 'HEALTH', 
+      message: 'Elephant calf #3 showing distress signals', 
+      severity: 'HIGH', 
+      icon: Activity,
+      location: 'Grid B2-5',
+      timeAgo: '1h ago'
+    },
+    { 
+      id: 3,
+      time: '2:20 PM', 
+      type: 'PREDICTIVE', 
+      message: 'AI detected elevated predator activity near Waterhole Y', 
+      severity: 'MEDIUM', 
+      icon: Brain,
+      location: 'Grid A3-8',
+      timeAgo: '3h ago'
+    }
   ];
 
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'CRITICAL': return 'bg-red-500';
+      case 'HIGH': return 'bg-orange-500';
+      case 'MEDIUM': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getSeverityBadge = (severity) => {
+    switch (severity) {
+      case 'CRITICAL': return 'bg-red-100 text-red-700 border-red-200';
+      case 'HIGH': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'MEDIUM': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-sm font-semibold text-gray-900">Active Threat Timeline</h3>
-        <button className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition">
-          View All Alerts
-        </button>
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      {/* Simple Header */}
+      <div className="px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Active Threats</h3>
+          <button className="text-brand-primary hover:text-brand-primary text-sm font-medium flex items-center gap-1">
+            View All <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      <div className="relative">
-        {/* SVG Timeline */}
-        <svg viewBox="0 0 100 300" className="absolute left-0 top-0 w-16 h-full">
-          <defs>
-            <linearGradient id="timelineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#ef4444" />
-              <stop offset="50%" stopColor="#f59e0b" />
-              <stop offset="100%" stopColor="#10b981" />
-            </linearGradient>
-          </defs>
-          <line x1="50" y1="0" x2="50" y2="300" stroke="url(#timelineGradient)" strokeWidth="2" />
-          
-          {[0, 100, 200].map((y, idx) => (
-            <circle
-              key={idx}
-              cx="50"
-              cy={y + 20}
-              r="6"
-              fill={idx === 0 ? '#ef4444' : idx === 1 ? '#f59e0b' : '#eab308'}
-              stroke="white"
-              strokeWidth="3"
-            />
-          ))}
-        </svg>
-
-        <div className="space-y-6 pl-16">
-          {alerts.map((alert, idx) => (
-            <div key={idx} className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition cursor-pointer">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <span className={`px-2.5 py-1 bg-${alert.color}-50 text-${alert.color}-700 text-xs font-semibold rounded-lg border border-${alert.color}-200`}>
-                      {alert.type}
-                    </span>
-                    <span className="text-xs text-gray-500 font-medium">{alert.time}</span>
-                    <span className={`px-2.5 py-1 bg-${alert.color}-500 text-white text-xs font-semibold rounded-lg`}>
+      {/* Mobile-style Alert Cards */}
+      <div className="p-4 space-y-3">
+        {alerts.map((alert) => {
+          const IconComponent = alert.icon;
+          return (
+            <div key={alert.id} className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors cursor-pointer">
+              {/* Alert Header */}
+              <div className="flex items-start gap-3 mb-3">
+                {/* Icon Circle */}
+                <div className={`w-10 h-10 ${getSeverityColor(alert.severity)} rounded-full flex items-center justify-center flex-shrink-0`}>
+                  <IconComponent className="w-5 h-5 text-white" />
+                </div>
+                
+                {/* Alert Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-semibold text-gray-900">{alert.type}</span>
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getSeverityBadge(alert.severity)}`}>
                       {alert.severity}
                     </span>
                   </div>
-                  <p className="text-gray-900 font-medium">{alert.message}</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">{alert.message}</p>
                 </div>
-                <button className="ml-4 px-4 py-2 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-lg hover:bg-emerald-100 transition border border-emerald-200">
+                
+                {/* Time Badge */}
+                <div className="text-right flex-shrink-0">
+                  <div className="text-xs text-gray-500 font-medium">{alert.timeAgo}</div>
+                </div>
+              </div>
+
+              {/* Alert Footer */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <MapPin className="w-3 h-3" />
+                  <span>{alert.location}</span>
+                  <span className="mx-1">•</span>
+                  <Clock className="w-3 h-3" />
+                  <span>{alert.time}</span>
+                </div>
+                <button className="px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-white text-xs font-medium rounded-lg transition-colors">
                   Respond
                 </button>
               </div>
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      {/* Simple Footer */}
+      <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+        <div className="flex items-center justify-between text-xs text-gray-600">
+          <span>{alerts.length} active alerts</span>
+          <span>Last updated: just now</span>
         </div>
       </div>
     </div>

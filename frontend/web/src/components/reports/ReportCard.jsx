@@ -1,11 +1,11 @@
 import React from 'react';
-import { Download, Eye, FileText, Calendar, Clock, BarChart } from 'lucide-react';
+import { Download, Eye, FileText, Calendar, Clock, BarChart } from '@/components/shared/Icons';
 import Card from '../shared/Card';
 
 const ReportCard = ({ report, onDownload, onView }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-700';
+      case 'completed': return 'bg-brand-primary/10 text-brand-primary';
       case 'draft': return 'bg-yellow-100 text-yellow-700';
       case 'pending': return 'bg-blue-100 text-blue-700';
       default: return 'bg-gray-100 text-gray-700';
@@ -55,7 +55,7 @@ const ReportCard = ({ report, onDownload, onView }) => {
           {onDownload && (
             <button 
               onClick={() => onDownload(report)}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition flex items-center space-x-2"
+              className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-white rounded-lg transition flex items-center space-x-2"
             >
               <Download className="w-4 h-4" />
               <span>Download</span>

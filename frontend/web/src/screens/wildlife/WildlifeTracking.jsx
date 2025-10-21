@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  GiElephant,
-  GiBuffaloHead
-} from 'react-icons/gi';
+import { Users, MapPin } from '@/components/shared/Icons';
+import { GiElephant, GiBuffaloHead } from 'react-icons/gi';
 import Sidebar from '../../components/shared/Sidebar';
-import TrackingHeader from '../../components/alerts/TrackingHeader';
+import { WildlifeHeader } from '../../components/shared/HeaderVariants';
 import StatsBar from '../../components/alerts/StatsBar';
 import FilterTabs from '../../components/alerts/FilterTabs';
 import TrackingMap from '../../components/alerts/TrackingMap';
@@ -34,7 +32,7 @@ const WildlifeTracking = () => {
       health: 'Good',
       speed: 2.3,
       collarDate: '2023-08-15',
-      icon: GiElephant,
+  icon: GiElephant,
       movementHistory: [
         [34.8432, -2.0991],
         [34.8482, -2.0941],
@@ -56,7 +54,7 @@ const WildlifeTracking = () => {
       health: 'Excellent',
       speed: 1.2,
       collarDate: '2023-09-20',
-      icon: GiElephant,
+  icon: GiElephant,
       movementHistory: [
         [34.8621, -2.1245],
         [34.8671, -2.1195],
@@ -78,7 +76,7 @@ const WildlifeTracking = () => {
       health: 'Good',
       speed: 3.1,
       collarDate: '2024-01-15',
-      icon: GiElephant,
+  icon: GiElephant,
       movementHistory: [
         [34.8134, -2.0889],
         [34.8184, -2.0839],
@@ -100,7 +98,7 @@ const WildlifeTracking = () => {
       health: 'Good',
       speed: 6.2,
       collarDate: '2024-02-10',
-      icon: GiBuffaloHead,
+  icon: GiBuffaloHead,
       movementHistory: [
         [34.805, -2.105],
         [34.8075, -2.1025],
@@ -122,7 +120,7 @@ const WildlifeTracking = () => {
       health: 'Excellent',
       speed: 0.8,
       collarDate: '2024-03-05',
-      icon: GiBuffaloHead,
+  icon: GiBuffaloHead,
       movementHistory: [
         [34.8345, -2.0756],
         [34.8395, -2.0706],
@@ -144,7 +142,7 @@ const WildlifeTracking = () => {
       health: 'Monitoring',
       speed: 8.5,
       collarDate: '2023-12-18',
-      icon: GiBuffaloHead,
+  icon: GiBuffaloHead,
       movementHistory: [
         [34.7856, -2.1034],
         [34.7906, -2.0984],
@@ -177,6 +175,11 @@ const WildlifeTracking = () => {
     navigate('/auth');
   };
 
+  const handleRefresh = () => {
+    // Simulate refresh
+    console.log('Refreshing wildlife data...');
+  };
+
   const speciesCount = {
     all: animals.length,
     elephant: animals.filter(a => a.species.includes('Elephant')).length,
@@ -191,7 +194,7 @@ const WildlifeTracking = () => {
     : animals.filter(a => a.species.toLowerCase().includes(filterSpecies.toLowerCase()));
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-brand-bg overflow-hidden">
       <Sidebar 
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
@@ -199,27 +202,33 @@ const WildlifeTracking = () => {
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TrackingHeader animals={animals} />
+        <WildlifeHeader animals={animals} onRefresh={handleRefresh} />
         
         <div className="flex-1 overflow-y-auto">
           <StatsBar animals={animals} />
 
-          <div className="p-8">
-            <FilterTabs 
-              filterSpecies={filterSpecies}
-              setFilterSpecies={setFilterSpecies}
-              speciesCount={speciesCount}
-            />
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="animate-fade-in">
+              <FilterTabs 
+                filterSpecies={filterSpecies}
+                setFilterSpecies={setFilterSpecies}
+                speciesCount={speciesCount}
+              />
+            </div>
 
-            <TrackingMap 
-              animals={filteredAnimals}
-              onAnimalSelect={setSelectedAnimal}
-            />
+            <div className="mt-4 sm:mt-6 animate-slide-up">
+              <TrackingMap 
+                animals={filteredAnimals}
+                onAnimalSelect={setSelectedAnimal}
+              />
+            </div>
 
-            <AnimalGrid 
-              animals={filteredAnimals}
-              onAnimalSelect={setSelectedAnimal}
-            />
+            <div className="mt-4 sm:mt-6 animate-fade-in">
+              <AnimalGrid 
+                animals={filteredAnimals}
+                onAnimalSelect={setSelectedAnimal}
+              />
+            </div>
           </div>
         </div>
       </div>

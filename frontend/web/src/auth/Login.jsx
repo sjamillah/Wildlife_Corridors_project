@@ -1,6 +1,6 @@
 import React from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
-import AureynxLogo from '../assets/Aureynx_Logo.png';
+import AureynxLogo from '../assets/Aureynx_Logo.webp';
 
 const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLogin }) => {
   const handleSubmit = (e) => {
@@ -11,7 +11,7 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
     }
   };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary/5 via-brand-primary/10 to-teal-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
@@ -34,7 +34,7 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
                 <input
                   type="email"
                   placeholder="manager@aurenyx.org"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent"
                 />
               </div>
             </div>
@@ -46,7 +46,7 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent"
                 />
                 <button
                   type="button"
@@ -60,13 +60,13 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
             
             <div className="flex items-center justify-between">
               <label className="flex items-center">
-                <input type="checkbox" className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500" />
+                <input type="checkbox" className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-secondary" />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
               <button 
                 type="button"
                 onClick={() => setCurrentScreen('forgot')}
-                className="text-sm text-green-600 hover:text-green-700"
+                className="text-sm text-brand-primary hover:text-brand-secondary"
               >
                 Forgot password?
               </button>
@@ -74,7 +74,7 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
             
             <button
               type="submit"
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-200 flex items-center justify-center space-x-2"
+              className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-semibold py-3 rounded-lg transition duration-200 flex items-center justify-center space-x-2"
             >
               <span>Sign In</span>
               <ArrowRight className="w-5 h-5" />
@@ -86,7 +86,7 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
           Don't have an account? 
           <button 
             onClick={() => setCurrentScreen('register')} 
-            className="text-green-600 hover:text-green-700 font-semibold ml-1"
+            className="text-brand-primary hover:text-brand-secondary font-semibold ml-1"
           >
             Register
           </button>

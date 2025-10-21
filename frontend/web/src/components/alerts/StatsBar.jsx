@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Navigation, AlertTriangle, Battery, Heart } from 'lucide-react';
+import { Activity, Navigation, AlertTriangle, Battery, Heart } from '@/components/shared/Icons';
 
 const StatsBar = ({ animals }) => {
   const stats = [
@@ -31,15 +31,15 @@ const StatsBar = ({ animals }) => {
   ];
 
   return (
-    <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-8 py-6">
+    <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-8 py-6">
       <div className="grid grid-cols-5 gap-4">
         {stats.map((stat, idx) => (
-          <div key={idx} className="bg-warm rounded-xl p-6 border border-gray-100 h-28 flex flex-col justify-between">
+          <div key={idx} className="bg-brand-primary rounded-xl p-6 border border-brand-primary h-28 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <stat.icon className="w-5 h-5 text-brand-primary" />
-              <span className="text-3xl font-bold text-gray-900">{stat.value}</span>
+              <stat.icon className="w-5 h-5 text-brand-accent" />
+              <span className="text-3xl font-bold text-white">{stat.value}</span>
             </div>
-            <p className="text-sm text-gray-600 font-medium">{stat.label}</p>
+            <p className="text-sm text-brand-accent font-medium">{stat.label}</p>
           </div>
         ))}
       </div>

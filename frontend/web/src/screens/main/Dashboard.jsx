@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, AlertTriangle, Users, Activity, Globe } from 'lucide-react';
+import { Bell, AlertTriangle, Users, Activity, Globe } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
+import { DashboardHeader } from '../../components/shared/HeaderVariants';
 import ThreatRadar from '../../components/dashboard/ThreatRadar';
 import OperationsMap from '../../components/dashboard/OperationsMap';
 import ThreatTimeline from '../../components/dashboard/ThreatTimeline';
@@ -21,107 +22,87 @@ const Dashboard = () => {
     navigate('/auth');
   };
 
-  const Header = () => (
-    <div className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-600 mt-1">Aureynx Conservation Operations Center</p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 text-green-800 rounded-full">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-sm font-medium">System Online</span>
-          </div>
-          <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
-            <Bell className="w-5 h-5" />
-            {stats.activeAlerts > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {stats.activeAlerts}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  const handleNotificationClick = () => {
+    // Handle notification click
+    console.log('Notification clicked');
+  };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-brand-bg overflow-hidden">
       <Sidebar 
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         onLogout={handleLogout}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
+        <DashboardHeader stats={stats} onNotificationClick={handleNotificationClick} />
         
         <div className="flex-1 overflow-y-auto">
           {/* Stats Cards */}
-          <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Active Alerts</p>
-                  <p className="text-3xl font-semibold text-gray-900">{stats.activeAlerts}</p>
-                </div>
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
+          <div className="bg-gradient-to-r from-brand-primary to-brand-highlight px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-brand-text-secondary">Active Alerts</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-brand-text">{stats.activeAlerts}</p>
+                  </div>
+                  <div className="p-3 bg-brand-accent/20 rounded-xl">
+                    <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Rangers On Duty</p>
-                  <p className="text-3xl font-semibold text-gray-900">{stats.rangersOnDuty}</p>
-                </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <Users className="w-6 h-6 text-green-600" />
+              <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-brand-text-secondary">Rangers On Duty</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-brand-text">{stats.rangersOnDuty}</p>
+                  </div>
+                  <div className="p-3 bg-brand-secondary/20 rounded-xl">
+                    <Users className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">System Health</p>
-                  <p className="text-3xl font-semibold text-gray-900">{stats.systemHealth}%</p>
-                </div>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <Activity className="w-6 h-6 text-blue-600" />
+              <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-brand-text-secondary">System Health</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-brand-text">{stats.systemHealth}%</p>
+                  </div>
+                  <div className="p-3 bg-brand-accent/20 rounded-xl">
+                    <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Tracked Animals</p>
-                  <p className="text-3xl font-semibold text-gray-900">{stats.trackedAnimals}</p>
-                </div>
-                <div className="p-3 bg-yellow-50 rounded-lg">
-                  <Globe className="w-6 h-6 text-yellow-600" />
+              <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-brand-text-secondary">Tracked Animals</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-brand-text">{stats.trackedAnimals}</p>
+                  </div>
+                  <div className="p-3 bg-brand-accent/20 rounded-xl">
+                    <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                  </div>
                 </div>
               </div>
-            </div>
             </div>
           </div>
 
           {/* Main Content Grid */}
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+              <div className="animate-fade-in">
                 <ThreatRadar />
               </div>
-              <div>
+              <div className="animate-fade-in">
                 <OperationsMap />
               </div>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-4 sm:mt-6 animate-slide-up">
               <ThreatTimeline />
             </div>
           </div>

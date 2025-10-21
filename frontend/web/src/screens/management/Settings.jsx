@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Bell, Shield, Database, Save, RotateCcw } from 'lucide-react';
+import { User, Bell, Shield, Database, Save, RotateCcw } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 
 const Settings = () => {
@@ -67,51 +67,51 @@ const Settings = () => {
 
   const ProfileSettings = () => (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
+      <div className="bg-brand-card rounded-xl p-6 border border-brand-card">
+        <h3 className="text-lg font-semibold text-brand-text mb-4">Personal Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+            <label className="block text-sm font-medium text-brand-text-secondary mb-2">First Name</label>
             <input
               type="text"
               value={settings.profile.firstName}
               onChange={(e) => handleSettingChange('profile', 'firstName', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-brand-card rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary text-brand-text"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+            <label className="block text-sm font-medium text-brand-text-secondary mb-2">Last Name</label>
             <input
               type="text"
               value={settings.profile.lastName}
               onChange={(e) => handleSettingChange('profile', 'lastName', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-brand-card rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary text-brand-text"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <label className="block text-sm font-medium text-brand-text-secondary mb-2">Email</label>
             <input
               type="email"
               value={settings.profile.email}
               onChange={(e) => handleSettingChange('profile', 'email', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-brand-card rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary text-brand-text"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+            <label className="block text-sm font-medium text-brand-text-secondary mb-2">Phone</label>
             <input
               type="tel"
               value={settings.profile.phone}
               onChange={(e) => handleSettingChange('profile', 'phone', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-brand-card rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary text-brand-text"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+            <label className="block text-sm font-medium text-brand-text-secondary mb-2">Role</label>
             <select
               value={settings.profile.role}
               onChange={(e) => handleSettingChange('profile', 'role', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-brand-card rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary text-brand-text"
             >
               <option value="Conservation Manager">Conservation Manager</option>
               <option value="Field Coordinator">Field Coordinator</option>
@@ -120,11 +120,11 @@ const Settings = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+            <label className="block text-sm font-medium text-brand-text-secondary mb-2">Department</label>
             <select
               value={settings.profile.department}
               onChange={(e) => handleSettingChange('profile', 'department', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-brand-card rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary text-brand-text"
             >
               <option value="Field Operations">Field Operations</option>
               <option value="Research & Analytics">Research & Analytics</option>
@@ -162,7 +162,7 @@ const Settings = () => {
                   onChange={(e) => handleSettingChange('notifications', setting.key, e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-accent/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"></div>
               </label>
             </div>
           ))}
@@ -188,7 +188,7 @@ const Settings = () => {
                 onChange={(e) => handleSettingChange('security', 'twoFactorAuth', e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-accent/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"></div>
             </label>
           </div>
           
@@ -197,7 +197,7 @@ const Settings = () => {
             <select
               value={settings.security.sessionTimeout}
               onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value))}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary"
             >
               <option value={15}>15 minutes</option>
               <option value={30}>30 minutes</option>
@@ -211,7 +211,7 @@ const Settings = () => {
             <select
               value={settings.security.passwordExpiry}
               onChange={(e) => handleSettingChange('security', 'passwordExpiry', parseInt(e.target.value))}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary"
             >
               <option value={30}>30 days</option>
               <option value={90}>90 days</option>
@@ -234,7 +234,7 @@ const Settings = () => {
             <select
               value={settings.system.language}
               onChange={(e) => handleSettingChange('system', 'language', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary"
             >
               <option value="en">English</option>
               <option value="sw">Kiswahili</option>
@@ -247,7 +247,7 @@ const Settings = () => {
             <select
               value={settings.system.timezone}
               onChange={(e) => handleSettingChange('system', 'timezone', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary"
             >
               <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
               <option value="UTC">UTC</option>
@@ -260,7 +260,7 @@ const Settings = () => {
             <select
               value={settings.system.dateFormat}
               onChange={(e) => handleSettingChange('system', 'dateFormat', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary"
             >
               <option value="DD/MM/YYYY">DD/MM/YYYY</option>
               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -273,7 +273,7 @@ const Settings = () => {
             <select
               value={settings.system.theme}
               onChange={(e) => handleSettingChange('system', 'theme', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary"
             >
               <option value="light">Light</option>
               <option value="dark">Dark</option>
@@ -298,7 +298,7 @@ const Settings = () => {
                 onChange={(e) => handleSettingChange('system', 'autoBackup', e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-accent/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"></div>
             </label>
           </div>
           
@@ -307,7 +307,7 @@ const Settings = () => {
             <select
               value={settings.system.dataRetention}
               onChange={(e) => handleSettingChange('system', 'dataRetention', parseInt(e.target.value))}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-secondary"
             >
               <option value={90}>90 days</option>
               <option value={365}>1 year</option>
@@ -331,7 +331,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+  <div className="flex h-screen bg-brand-bg overflow-hidden">
       <Sidebar 
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
@@ -344,19 +344,19 @@ const Settings = () => {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center space-x-3 mb-1">
-                <h1 className="text-xl font-semibold text-gray-900 tracking-tight">System Settings</h1>
-                <span className="px-2 py-0.5 bg-white border border-blue-200 text-blue-700 text-xs font-medium rounded">
+                <h1 className="text-xl font-semibold text-brand-text tracking-tight">System Settings</h1>
+                <span className="px-2 py-0.5 bg-brand-card border border-brand-primary text-brand-primary text-xs font-medium rounded">
                   Admin
                 </span>
               </div>
-              <p className="text-sm text-gray-500">Configure platform preferences and user settings</p>
+              <p className="text-sm text-brand-text-secondary">Configure platform preferences and user settings</p>
             </div>
             <div className="flex items-center space-x-3">
-              <button className="px-4 py-2 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition flex items-center space-x-2">
+              <button className="px-4 py-2 border border-brand-card text-brand-text-secondary font-medium rounded-xl hover:bg-brand-card/60 transition flex items-center space-x-2">
                 <RotateCcw className="w-4 h-4" />
                 <span>Reset</span>
               </button>
-              <button className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition flex items-center space-x-2">
+              <button className="px-5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-white font-semibold rounded-xl transition flex items-center space-x-2">
                 <Save className="w-4 h-4" />
                 <span>Save Changes</span>
               </button>
@@ -369,15 +369,15 @@ const Settings = () => {
             <div className="flex space-x-8">
               {/* Sidebar */}
               <div className="w-64 flex-shrink-0">
-                <div className="bg-white rounded-xl border border-gray-200 p-2">
+                <div className="bg-brand-card rounded-xl border border-brand-card p-2">
                   {tabs.map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
                         activeTab === tab.id
-                          ? 'bg-white text-emerald-700 border-2 border-emerald-500'
-                          : 'text-gray-600 hover:bg-gray-50'
+                          ? 'bg-brand-card text-brand-primary border-2 border-brand-primary'
+                          : 'text-brand-text-secondary hover:bg-brand-card/60'
                       }`}
                     >
                       <tab.icon className="w-5 h-5" />

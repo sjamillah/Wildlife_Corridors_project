@@ -7,20 +7,27 @@
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.544.0",
+    "mapbox-gl": "^3.15.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-icons": "^5.5.0",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.9.3",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "watch:dev": "nodemon --watch src --ext js,jsx,ts,tsx,css --exec \"npm run start\"",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "craco start",
+    "dev": "npm start",
+    "watch:dev": "nodemon",
+    "build": "craco build",
+    "test": "craco test",
+    "eject": "react-scripts eject",
+    "analyze": "source-map-explorer 'build/static/js/*.js' --only-mapped",
+    "analyze:html": "source-map-explorer 'build/static/js/*.js' --html > build/bundle-analysis.html",
+    "build:analyze": "npm run build && npm run analyze"
   },
   "eslintConfig": {
     "extends": [
@@ -41,9 +48,11 @@
     ]
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "autoprefixer": "^10.4.21",
     "nodemon": "^3.0.3",
     "postcss": "^8.5.6",
+    "source-map-explorer": "^2.5.3",
     "tailwindcss": "^3.4.17"
   }
 }

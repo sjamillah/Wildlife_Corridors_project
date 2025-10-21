@@ -3,10 +3,10 @@ import { Mail, Lock } from 'lucide-react';
 
 const ForgotPassword = ({ setCurrentScreen }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary/5 via-brand-primary/10 to-teal-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-600 rounded-full mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary rounded-full mb-4">
             <Lock className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
@@ -22,14 +22,14 @@ const ForgotPassword = ({ setCurrentScreen }) => {
                 <input
                   type="email"
                   placeholder="manager@ecowatch.org"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-secondary focus:border-transparent"
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-200"
+              className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-semibold py-3 rounded-lg transition duration-200"
             >
               Send Reset Link
             </button>
@@ -39,7 +39,7 @@ const ForgotPassword = ({ setCurrentScreen }) => {
         <div className="mt-6 text-center">
           <button 
             onClick={() => setCurrentScreen('login')} 
-            className="text-sm text-green-600 hover:text-green-700 font-semibold"
+            className="text-sm text-brand-primary hover:text-brand-secondary font-semibold"
           >
             ← Back to Sign In
           </button>

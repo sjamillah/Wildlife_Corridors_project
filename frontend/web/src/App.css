@@ -3,29 +3,59 @@
 }
 
 :root {
-  --brand-primary: #3B6B3A; /* deep olive */
-  --brand-earth: #8B5E3C; /* warm earth */
-  --brand-moss: #9CBC4A; /* moss */
-  --brand-accent: #C9E4B4; /* pale leaf */
-  --bg-warm: #F4F3EC; /* warm off-white */
-  --sandy-accent: #E7B87A; /* sandy orange accent */
-  --text-dark: #1F2D1F;
-  --brand-primary-rgb: 59,107,58;
-  --brand-moss-rgb: 156,188,74;
+  /* Consistent brand palette aligned with Tailwind config */
+  --brand-primary: #D76B27;
+  --brand-secondary: #EECFAF; 
+  --brand-accent: #A7A87A;
+  --brand-highlight: #E67E22;
+  --brand-text: #3A2E1E;
+  --brand-text-secondary: #6B5E52;
+  --brand-bg: #FFF9F3;
+  --brand-surface: #FFFFFF;
+  --brand-border: #E5E7EB;
+  --brand-muted: #F9FAFB;
+  /* Status colors */
+  --status-success: #10B981;
+  --status-warning: #F59E0B; 
+  --status-error: #EF4444;
+  --status-info: #3B82F6;
+  /* RGB values for opacity variants */
+  --brand-primary-rgb: 215,107,39;
+  --brand-moss-rgb: 167,168,122;
 }
 
-/* Brand helper utilities (small set to keep JSX readable) */
+/* Brand helper utilities */
 .bg-brand-primary { background-color: var(--brand-primary) !important; }
-.bg-brand-earth { background-color: var(--brand-earth) !important; }
-.bg-brand-moss { background-color: var(--brand-moss) !important; }
+.bg-brand-secondary { background-color: var(--brand-secondary) !important; }
 .bg-brand-accent { background-color: var(--brand-accent) !important; }
-.bg-warm { background-color: var(--bg-warm) !important; }
+.bg-brand-highlight { background-color: var(--brand-highlight) !important; }
+.bg-brand-bg { background-color: var(--brand-bg) !important; }
+.bg-brand-surface { background-color: var(--brand-surface) !important; }
+.bg-brand-border { background-color: var(--brand-border) !important; }
+.bg-brand-muted { background-color: var(--brand-muted) !important; }
+
 .text-brand-primary { color: var(--brand-primary) !important; }
-.text-brand-earth { color: var(--brand-earth) !important; }
-.text-brand-moss { color: var(--brand-moss) !important; }
-.dot-brand-primary { background-color: var(--brand-primary) !important; }
-.dot-brand-moss { background-color: var(--brand-moss) !important; }
-.bg-brand-moss-50 { background-color: rgba(var(--brand-moss-rgb), 0.12) !important; }
+.text-brand-secondary { color: var(--brand-secondary) !important; }
+.text-brand-accent { color: var(--brand-accent) !important; }
+.text-brand-highlight { color: var(--brand-highlight) !important; }
+.text-brand-text { color: var(--brand-text) !important; }
+.text-brand-text-secondary { color: var(--brand-text-secondary) !important; }
+
+.border-brand-primary { border-color: var(--brand-primary) !important; }
+.border-brand-secondary { border-color: var(--brand-secondary) !important; }
+.border-brand-accent { border-color: var(--brand-accent) !important; }
+.border-brand-border { border-color: var(--brand-border) !important; }
+
+/* Status color utilities */
+.text-status-success { color: var(--status-success) !important; }
+.text-status-warning { color: var(--status-warning) !important; }
+.text-status-error { color: var(--status-error) !important; }
+.text-status-info { color: var(--status-info) !important; }
+
+.bg-status-success { background-color: var(--status-success) !important; }
+.bg-status-warning { background-color: var(--status-warning) !important; }
+.bg-status-error { background-color: var(--status-error) !important; }
+.bg-status-info { background-color: var(--status-info) !important; }
 
 .text-emerald-600, .text-emerald-500, .text-emerald-700,
 .text-green-600, .text-green-500 {
@@ -56,7 +86,6 @@
 */
 .hover\:bg-emerald-600, .hover\:bg-emerald-500, .hover\:bg-green-600 { background-color: var(--brand-primary) !important; }
 .peer-checked\:bg-emerald-600 { background-color: var(--brand-primary) !important; }
-
 
 /* Enhanced background patterns for a more organic, human feel */
 .wildlife-background {
@@ -161,14 +190,14 @@
   }
 }
 
-/* Ensure application pages use the warm background (avoid pure white) */
+/* Ensure application pages use the brand background */
 body {
-  background-color: var(--bg-warm);
-  color: var(--text-dark);
+  background-color: var(--brand-bg);
+  color: var(--brand-text);
 }
 
 .App {
-  background-color: var(--bg-warm);
+  background-color: var(--brand-bg);
   min-height: 100vh;
 }
 
@@ -228,7 +257,7 @@ body {
 
 /* Standardized card utilities for consistent sizing across screens */
 .card-base {
-  background-color: var(--bg-warm) !important;
+  background-color: #ffffff !important;
   border: 1px solid rgba(0,0,0,0.06);
   border-radius: 12px;
   padding: 1.5rem;

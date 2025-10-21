@@ -1,25 +1,38 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 
-// Import screens and components
-import Auth from './screens/auth/Auth';
-import Dashboard from './screens/main/Dashboard';
-import WildlifeTracking from './screens/wildlife/WildlifeTracking';
-import AlertHub from './screens/wildlife/AlertHub';
-import LiveTracking from './screens/operations/LiveTracking';
-import PatrolOperations from './screens/operations/PatrolOperations';
-import Analytics from './screens/operations/Analytics';
-import Settings from './screens/management/Settings';
-import Reports from './screens/management/Reports';
-import TeamManagement from './screens/management/TeamManagement';
+// Import only the essential components needed immediately
 import ProtectedRoute from './components/ProtectedRoute';
+
+// Lazy load all screens for code splitting
+const Auth = lazy(() => import('./screens/auth/Auth'));
+const Dashboard = lazy(() => import('./screens/main/Dashboard'));
+const WildlifeTracking = lazy(() => import('./screens/wildlife/WildlifeTracking'));
+const AlertHub = lazy(() => import('./screens/wildlife/AlertHub'));
+const LiveTracking = lazy(() => import('./screens/operations/LiveTracking'));
+const PatrolOperations = lazy(() => import('./screens/operations/PatrolOperations'));
+const Analytics = lazy(() => import('./screens/operations/Analytics'));
+const Settings = lazy(() => import('./screens/management/Settings'));
+const Reports = lazy(() => import('./screens/management/Reports'));
+const TeamManagement = lazy(() => import('./screens/management/TeamManagement'));
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary"></div>
+      <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+    </div>
+  </div>
+);
 
 function App() {
   return (
     <Router>
       <div className="App">
-        <Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
           {/* Default route - send unauthenticated users to signup/login */}
           <Route
             path="/"
@@ -51,6 +64,8 @@ function App() {
               </ProtectedRoute>
             } 
           />
+
+
           
           {/* Live Tracking Route */}
           <Route 
@@ -126,6 +141,7 @@ function App() {
             } 
           />
         </Routes>
+        </Suspense>
       </div>
     </Router>
   );

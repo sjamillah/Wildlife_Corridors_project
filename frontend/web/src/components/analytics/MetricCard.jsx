@@ -6,7 +6,7 @@ const MetricCard = ({
   value, 
   change, 
   icon: Icon, 
-  color = 'emerald' 
+  color = 'brand' 
 }) => {
   return (
     <Card className="p-6">
@@ -16,7 +16,7 @@ const MetricCard = ({
         </div>
         {change && (
           <span className={`text-sm font-semibold ${
-            change.startsWith('+') ? 'text-green-600' : 
+            change.startsWith('+') ? 'text-brand-primary' : 
             change.startsWith('-') ? 'text-red-600' : 'text-gray-600'
           }`}>
             {change}

@@ -1,14 +1,14 @@
 import React from 'react';
-import { MapPin, Clock, Navigation, Heart, Battery, Eye, Edit, Activity, Moon } from 'lucide-react';
+import { MapPin, Clock, Navigation, Heart, Battery, Eye, Edit, Activity, Moon } from '@/components/shared/Icons';
 
 const AnimalGrid = ({ animals, onAnimalSelect }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {animals.map((animal) => (
         <div
           key={animal.id}
           onClick={() => onAnimalSelect(animal)}
-          className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 overflow-hidden group"
+              className="bg-brand-card rounded-lg shadow border border-brand-card p-6 hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden group"
         >
           <div className={`h-2 ${
             animal.risk === 'Critical' ? 'bg-red-500' : 
@@ -20,51 +20,51 @@ const AnimalGrid = ({ animals, onAnimalSelect }) => {
           <div className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center space-x-3">
-                {React.createElement(animal.icon, { className: "w-10 h-10 text-brand-earth" })}
+                {React.createElement(animal.icon, { className: "w-12 h-12 text-brand-earth" })}
                 <div>
-                  <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-600 transition">{animal.name}</h3>
-                  <p className="text-sm text-gray-500">{animal.species}</p>
-                  <p className="text-xs text-gray-400 font-mono">{animal.id}</p>
+                  <h3 className="font-bold text-brand-text text-xl sm:text-2xl group-hover:text-brand-primary transition">{animal.name}</h3>
+                  <p className="text-base text-brand-text-secondary">{animal.species}</p>
+                  <p className="text-sm text-brand-text-secondary font-mono">{animal.id}</p>
                 </div>
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold flex items-center space-x-2">
-                {animal.status === 'Moving' && <Activity className="w-4 h-4 text-brand-primary" />}
-                {animal.status === 'Resting' && <Moon className="w-4 h-4 text-brand-earth" />}
-                {animal.status === 'Feeding' && <Heart className="w-4 h-4 text-brand-moss" />}
-                <span className="text-sm text-gray-700">{animal.status}</span>
+              <span className="px-3 py-1 rounded-full text-base font-semibold flex items-center space-x-2">
+                {animal.status === 'Moving' && <Activity className="w-5 h-5 text-brand-primary" />}
+                {animal.status === 'Resting' && <Moon className="w-5 h-5 text-brand-earth" />}
+                {animal.status === 'Feeding' && <Heart className="w-5 h-5 text-brand-moss" />}
+                <span className="text-lg">{animal.status}</span>
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-brand-accent rounded-lg p-3 border border-brand-moss">
+              <div className="bg-brand-surface rounded-lg p-3 border border-brand-border">
                 <div className="flex items-center space-x-2 mb-1">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs text-brand-primary font-medium">Location</span>
+                  <MapPin className="w-5 h-5 text-brand-primary" />
+                  <span className="text-sm text-brand-primary font-semibold">Location</span>
                 </div>
-                <p className="text-sm font-semibold text-gray-900 truncate">{animal.location}</p>
+                <p className="text-base font-bold text-brand-text truncate">{animal.location}</p>
               </div>
-              <div className="bg-brand-accent rounded-lg p-3 border border-brand-moss">
+              <div className="bg-brand-surface rounded-lg p-3 border border-brand-border">
                 <div className="flex items-center space-x-2 mb-1">
-                  <Clock className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs text-brand-primary font-medium">Last Seen</span>
+                  <Clock className="w-5 h-5 text-brand-primary" />
+                  <span className="text-sm text-brand-primary font-semibold">Last Seen</span>
                 </div>
-                <p className="text-sm font-semibold text-gray-900">{animal.lastSeen}</p>
+                <p className="text-base font-bold text-brand-text">{animal.lastSeen}</p>
               </div>
-              <div className="bg-brand-accent rounded-lg p-3 border border-brand-moss">
+              <div className="bg-brand-surface rounded-lg p-3 border border-brand-border">
                 <div className="flex items-center space-x-2 mb-1">
-                  <Navigation className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs text-brand-primary font-medium">Speed</span>
+                  <Navigation className="w-5 h-5 text-brand-primary" />
+                  <span className="text-sm text-brand-primary font-semibold">Speed</span>
                 </div>
-                <p className="text-sm font-semibold text-gray-900">{animal.speed} km/h</p>
+                <p className="text-base font-bold text-brand-text">{animal.speed} km/h</p>
               </div>
-              <div className="bg-brand-accent rounded-lg p-3 border border-brand-moss">
+              <div className="bg-brand-surface rounded-lg p-3 border border-brand-border">
                 <div className="flex items-center space-x-2 mb-1">
-                  <Heart className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs text-brand-primary font-medium">Health</span>
+                  <Heart className="w-5 h-5 text-brand-primary" />
+                  <span className="text-sm text-brand-primary font-semibold">Health</span>
                 </div>
-                <p className={`text-sm font-semibold ${
-                  animal.health === 'Excellent' ? 'text-green-600' :
-                  animal.health === 'Good' ? 'text-emerald-600' :
+                <p className={`text-base font-bold ${
+                  animal.health === 'Excellent' ? 'text-brand-primary' :
+                  animal.health === 'Good' ? 'text-brand-primary' :
                   'text-orange-600'
                 }`}>{animal.health}</p>
               </div>
@@ -72,13 +72,13 @@ const AnimalGrid = ({ animals, onAnimalSelect }) => {
 
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-emerald-700 font-medium flex items-center space-x-1">
-                  <Battery className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm text-brand-primary font-semibold flex items-center space-x-1">
+                  <Battery className="w-5 h-5 text-brand-primary" />
                   <span>Collar Battery</span>
                 </span>
-                <span className="text-xs font-bold text-gray-900">{animal.battery}%</span>
+                <span className="text-base font-bold text-brand-text">{animal.battery}%</span>
               </div>
-              <div className="w-full bg-brand-accent rounded-full h-2">
+              <div className="w-full bg-brand-surface rounded-full h-2 border border-brand-border">
                 <div 
                   className={`h-2 rounded-full transition-all ${
                     animal.battery > 50 ? 'bg-brand-primary' : 
@@ -91,12 +91,12 @@ const AnimalGrid = ({ animals, onAnimalSelect }) => {
             </div>
 
             <div className="flex space-x-2">
-              <button className="flex-1 bg-brand-primary hover:bg-brand-earth text-white py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-center space-x-2">
-                <Eye className="w-4 h-4" />
+              <button className="flex-1 bg-brand-primary hover:bg-brand-earth text-white py-3 rounded-xl text-lg font-bold transition flex items-center justify-center space-x-2">
+                <Eye className="w-5 h-5" />
                 <span>Track Live</span>
               </button>
-              <button className="px-4 py-2.5 border-2 border-brand-moss hover:border-brand-primary rounded-xl transition">
-                <Edit className="w-4 h-4 text-brand-primary" />
+              <button className="px-5 py-3 border-2 border-brand-moss hover:border-brand-primary rounded-xl transition">
+                <Edit className="w-5 h-5 text-brand-primary" />
               </button>
             </div>
           </div>

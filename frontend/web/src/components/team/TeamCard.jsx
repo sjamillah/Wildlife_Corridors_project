@@ -4,7 +4,7 @@ import Card from '../shared/Card';
 const TeamCard = ({ team, onManage, onView }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-700';
+      case 'active': return 'bg-brand-primary/10 text-brand-primary';
       case 'inactive': return 'bg-red-100 text-red-700';
       case 'deployed': return 'bg-blue-100 text-blue-700';
       default: return 'bg-gray-100 text-gray-700';
@@ -42,11 +42,11 @@ const TeamCard = ({ team, onManage, onView }) => {
       <div className="bg-gray-50 rounded-lg p-3 mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">Efficiency</span>
-          <span className="text-sm font-semibold text-emerald-600">{team.efficiency}%</span>
+          <span className="text-sm font-semibold text-brand-primary">{team.efficiency}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div 
-            className="bg-emerald-500 h-2 rounded-full"
+            className="bg-brand-primary h-2 rounded-full"
             style={{ width: `${team.efficiency}%` }}
           />
         </div>
@@ -65,7 +65,7 @@ const TeamCard = ({ team, onManage, onView }) => {
           {onManage && (
             <button 
               onClick={() => onManage(team)}
-              className="flex-1 px-3 py-2 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition"
+              className="flex-1 px-3 py-2 text-sm bg-brand-primary text-white rounded-lg hover:bg-brand-secondary transition"
             >
               Manage
             </button>

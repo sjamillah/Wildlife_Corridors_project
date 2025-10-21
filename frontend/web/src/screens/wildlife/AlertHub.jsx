@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, Zap, Shield, Clock, AlertTriangle, CheckCircle, Users, MapPin, Activity, Eye, Battery, Heart, Wrench } from 'lucide-react';
+import { Bell, Search, Zap, Shield, Clock, AlertTriangle, CheckCircle, Users, MapPin, Activity, Eye, Battery, Heart, Wrench } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
+import { AlertHubHeader } from '../../components/shared/HeaderVariants';
 
 const AlertHub = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -97,6 +98,14 @@ const AlertHub = () => {
     navigate('/auth');
   };
 
+  const handleNewAlert = () => {
+    console.log('Creating new alert...');
+  };
+
+  const handleExport = () => {
+    console.log('Exporting report...');
+  };
+
   const filteredAlerts = filterStatus === 'all' 
     ? alerts 
     : alerts.filter(alert => alert.status === filterStatus);
@@ -117,7 +126,7 @@ const AlertHub = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-brand-bg overflow-hidden">
       <Sidebar 
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
@@ -125,71 +134,59 @@ const AlertHub = () => {
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Alert Management</h1>
-              <p className="text-sm text-gray-600 mt-1">Monitor and respond to wildlife incidents</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition">
-                Export Report
-              </button>
-              <button className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">
-                New Alert
-              </button>
-            </div>
-          </div>
-        </div>
+        <AlertHubHeader 
+          alerts={alerts} 
+          onNewAlert={handleNewAlert}
+          onExport={handleExport}
+        />
 
         {/* Status Overview */}
-        <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+  <div className="bg-gradient-to-r from-brand-primary to-brand-highlight px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Critical Alerts</p>
-                  <p className="text-3xl font-semibold text-gray-900">{priorityCounts.critical}</p>
+                  <p className="text-sm font-medium text-brand-text-secondary">Critical Alerts</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-brand-text">{priorityCounts.critical}</p>
                 </div>
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                <div className="p-3 bg-status-error/10 rounded-xl">
+                  <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-status-error" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">High Priority</p>
-                  <p className="text-3xl font-semibold text-gray-900">{priorityCounts.high}</p>
+                  <p className="text-sm font-medium text-brand-text-secondary">High Priority</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-brand-text">{priorityCounts.high}</p>
                 </div>
-                <div className="p-3 bg-orange-50 rounded-lg">
-                  <Zap className="w-6 h-6 text-orange-600" />
+                <div className="p-3 bg-status-warning/10 rounded-xl">
+                  <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-status-warning" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Investigating</p>
-                  <p className="text-3xl font-semibold text-gray-900">{alertCounts.investigating}</p>
+                  <p className="text-sm font-medium text-brand-text-secondary">Investigating</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-brand-text">{alertCounts.investigating}</p>
                 </div>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <Search className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-status-info/10 rounded-xl">
+                  <Search className="w-5 h-5 sm:w-6 sm:h-6 text-status-info" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Resolved</p>
-                  <p className="text-3xl font-semibold text-gray-900">{alertCounts.resolved}</p>
+                  <p className="text-sm font-medium text-brand-text-secondary">Resolved</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-brand-text">{alertCounts.resolved}</p>
                 </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
+                <div className="p-3 bg-status-success/10 rounded-xl">
+                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-status-success" />
                 </div>
               </div>
             </div>
@@ -197,9 +194,9 @@ const AlertHub = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="p-8 mt-6">
+          <div className="p-4 sm:p-6 lg:p-8">
             {/* Filter Tabs */}
-            <div className="bg-white rounded-2xl p-8 mb-8 border border-gray-100 shadow-lg">
+            <div className="bg-brand-surface rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 border border-brand-border shadow-lg animate-fade-in">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex-1 relative max-w-md">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -252,7 +249,7 @@ const AlertHub = () => {
                     alert.priority === 'critical' ? 'bg-red-500' : 
                     alert.priority === 'high' ? 'bg-orange-500' : 
                     alert.priority === 'medium' ? 'bg-yellow-500' : 
-                    'bg-green-500'
+                    'bg-brand-primary'
                   }`} />
 
                   <div className="p-6">
@@ -290,9 +287,9 @@ const AlertHub = () => {
                       <div className="flex items-center space-x-3">
                         <span className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold">
                           {alert.status === 'active' && <AlertTriangle className="w-4 h-4 text-red-600" />}
-                          {alert.status === 'acknowledged' && <Eye className="w-4 h-4 text-blue-600" />}
+                          {alert.status === 'acknowledged' && <Eye className="w-4 h-4 text-brand-primary" />}
                           {alert.status === 'investigating' && <Search className="w-4 h-4 text-yellow-600" />}
-                          {alert.status === 'resolved' && <CheckCircle className="w-4 h-4 text-green-600" />}
+                          {alert.status === 'resolved' && <CheckCircle className="w-4 h-4 text-brand-primary" />}
                           <span className="text-gray-700">{alert.status.charAt(0).toUpperCase() + alert.status.slice(1)}</span>
                         </span>
                         <span className={`px-2 py-1 rounded text-xs font-bold ${

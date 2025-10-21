@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from '@/components/shared/Icons';
 import auth from '../../services/auth';
-import AureynxLogo from '../../assets/Aureynx_Logo.png';
+// Use public assets path for the logo
+const AureynxLogo = '/assets/Aureynx_Logo.webp';
 
 const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLogin }) => {
   const [email, setEmail] = useState('');
@@ -44,7 +45,7 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-secondary focus:border-transparent transition"
               placeholder="Enter your email"
             />
           </div>
@@ -59,7 +60,7 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition pr-12"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-secondary focus:border-transparent transition pr-12"
                 placeholder="Enter your password"
               />
               <button
