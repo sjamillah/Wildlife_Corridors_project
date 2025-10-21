@@ -12,13 +12,13 @@ export function WildlifeGrid({ types, selectedSpecies, onSelect }) {
           onPress={() => onSelect(animal.name)}
           className={`flex-1 aspect-square rounded-lg items-center justify-center p-2 border-2 ${
             selectedSpecies === animal.name
-              ? 'bg-emerald-50 border-emerald-500'
+              ? 'bg-brand-secondary border-brand-primary'
               : 'bg-gray-100 border-gray-200'
           }`}
         >
           <Text className="text-2xl mb-1">{animal.icon}</Text>
           <Text className={`text-xs font-medium text-center ${
-            selectedSpecies === animal.name ? 'text-emerald-600' : 'text-gray-700'
+            selectedSpecies === animal.name ? 'text-brand-primary' : 'text-gray-700'
           }`}>
             {animal.name}
           </Text>

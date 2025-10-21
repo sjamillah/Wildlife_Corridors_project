@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LogoHeader } from '../../../components/ui/LogoHeader';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAlerts } from '../../../contexts/AlertsContext';
-import { Colors } from '../../../constants/Colors';
+import { Colors, BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
 
 export default function FieldDataScreen() {
   const { theme } = useTheme();
@@ -56,7 +57,7 @@ export default function FieldDataScreen() {
     obstruction: {
       title: 'Report Obstruction',
       primaryField: 'type',
-      icon: 'AlertTriangle',
+      icon: 'RoadBlock',
       types: [
         'Fallen Tree',
         'Rock Slide',
@@ -73,17 +74,17 @@ export default function FieldDataScreen() {
       severityLevels: [
         { 
           level: 'Critical', 
-          color: '#F97316', 
+          color: STATUS_COLORS.WARNING, 
           description: 'Complete blockage, immediate action required' 
         },
         { 
           level: 'High', 
-          color: '#EF4444', 
+          color: STATUS_COLORS.ERROR, 
           description: 'Major obstruction, affects operations' 
         },
         { 
           level: 'Medium', 
-          color: '#10B981', 
+          color: STATUS_COLORS.SUCCESS, 
           description: 'Partial obstruction, manageable' 
         }
       ]
@@ -93,15 +94,9 @@ export default function FieldDataScreen() {
       primaryField: 'species',
       icon: 'Eye',
       types: [
-        { name: 'Elephant', icon: 'elephant', iconColor: '#8B7355', description: 'African Elephant' },
-        { name: 'Zebra', icon: 'horse-variant', iconColor: '#4A4A4A', description: 'Plains Zebra' },
-        { name: 'Wildebeest', icon: 'cow', iconColor: '#8B4513', description: 'Blue Wildebeest' },
-        { name: 'Tiger', icon: 'tiger', iconColor: '#FF8C00', description: 'Bengal Tiger' },
-        { name: 'Lion', icon: 'lion', iconColor: '#DAA520', description: 'African Lion' },
-        { name: 'Giraffe', icon: 'giraffe', iconColor: '#DEB887', description: 'Masai Giraffe' },
-        { name: 'Rhinoceros', icon: 'rhino', iconColor: '#696969', description: 'Black Rhinoceros' },
-        { name: 'Buffalo', icon: 'water-buffalo', iconColor: '#2F4F4F', description: 'African Buffalo' },
-        { name: 'Other', icon: 'paw', iconColor: '#8FBC8F', description: 'Other Species' }
+        { name: 'Elephant', icon: 'elephant', iconColor: BRAND_COLORS.ACCENT, description: 'African Elephant' },
+        { name: 'Wildebeest', icon: 'cow', iconColor: BRAND_COLORS.TEXT, description: 'Blue Wildebeest' },
+        { name: 'Other Animal', icon: 'paw', iconColor: BRAND_COLORS.TEXT_SECONDARY, description: 'Other Wildlife Species' }
       ],
       hasSeverity: false,
       hasCount: true,
@@ -152,8 +147,8 @@ export default function FieldDataScreen() {
         type: 'Obstruction',
         priority: formData.severity,
         icon: 'alert-triangle',
-        color: formData.severity === 'Critical' ? colors.orange :
-               formData.severity === 'High' ? colors.red : colors.green,
+        color: formData.severity === 'Critical' ? STATUS_COLORS.ERROR :
+               formData.severity === 'High' ? STATUS_COLORS.WARNING : STATUS_COLORS.SUCCESS,
         description: formData.notes || `${formData.type} reported via field app`,
         location: '-1.4061° S, 35.0117° E (Maasai Mara, Kenya)',
         hasPhoto: formData.hasPhoto,
@@ -184,28 +179,6 @@ export default function FieldDataScreen() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Render functions
-  const renderStatusBar = () => (
-    <View style={styles.statusBar}>
-      <Text style={styles.time}>9:41</Text>
-      <View style={styles.statusIcons}>
-        <MaterialCommunityIcons name="signal" size={16} color="#000" />
-        <MaterialCommunityIcons name="wifi" size={16} color="#000" style={{ marginLeft: 8 }} />
-        <MaterialCommunityIcons name="battery" size={16} color="#000" style={{ marginLeft: 8 }} />
-      </View>
-    </View>
-  );
-
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.backButton}>
-        <MaterialCommunityIcons name="arrow-left" size={20} color="#666" />
-        <Text style={styles.backText}>Back</Text>
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>{currentConfig.title}</Text>
-      <View style={styles.headerSpacer} />
-    </View>
-  );
 
   const renderReportTypeSwitcher = () => (
     <View style={styles.reportTypeSwitcher}>
@@ -220,7 +193,7 @@ export default function FieldDataScreen() {
             ]}
           >
             {config.icon === 'FileText' && <MaterialCommunityIcons name="file-document" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
-            {config.icon === 'AlertTriangle' && <MaterialCommunityIcons name="alert-triangle" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
+            {config.icon === 'RoadBlock' && <MaterialCommunityIcons name="gate-alert" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
             {config.icon === 'Eye' && <MaterialCommunityIcons name="eye" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
             <Text style={[
               styles.switcherButtonText,
@@ -236,10 +209,9 @@ export default function FieldDataScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="light-content" />
+      <LogoHeader />
       
-      {renderStatusBar()}
-      {renderHeader()}
       {renderReportTypeSwitcher()}
       
       <ScrollView 
@@ -381,7 +353,7 @@ export default function FieldDataScreen() {
           <MaterialCommunityIcons 
             name="camera" 
             size={24} 
-            color={formData.hasPhoto ? '#10B981' : '#666'} 
+            color={formData.hasPhoto ? STATUS_COLORS.SUCCESS : '#666'} 
           />
           <Text style={[
             styles.photoButtonText,
@@ -394,7 +366,7 @@ export default function FieldDataScreen() {
         {/* Enhanced Map Preview */}
         <View style={styles.mapContainer}>
           <View style={styles.gpsRow}>
-            <MaterialCommunityIcons name="earth" size={16} color="#059669" />
+            <MaterialCommunityIcons name="earth" size={16} color={STATUS_COLORS.SUCCESS} />
             <Text style={styles.gpsText}>
               GPS Tagged: -1.4061° S, 35.0117° E (Maasai Mara, Kenya)
             </Text>
@@ -488,51 +460,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
-  statusBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  time: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-  },
-  statusIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#666',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-  },
-  headerSpacer: {
-    width: 64,
-  },
   reportTypeSwitcher: {
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -556,7 +483,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   switcherButtonActive: {
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND_COLORS.PRIMARY,
   },
   switcherButtonText: {
     fontSize: 14,
@@ -595,9 +522,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   animalButtonSelected: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: BRAND_COLORS.SECONDARY + '40',
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: BRAND_COLORS.PRIMARY,
   },
   animalIcon: {
     marginBottom: 4,
@@ -611,12 +538,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   pickerContainer: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: BRAND_COLORS.SURFACE,
     borderRadius: 8,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.BORDER,
   },
   picker: {
     height: 60,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderWidth: 0,
   },
   severityContainer: {
     marginBottom: 24,
@@ -627,10 +558,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   severityButtonSelected: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
     elevation: 8,
   },
   severityLevel: {
@@ -701,8 +628,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   photoButtonSelected: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#10B981',
+    backgroundColor: BRAND_COLORS.SECONDARY + '40',
+    borderColor: BRAND_COLORS.PRIMARY,
   },
   photoButtonText: {
     fontSize: 18,
@@ -710,7 +637,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   photoButtonTextSelected: {
-    color: '#10B981',
+    color: BRAND_COLORS.PRIMARY,
   },
   mapContainer: {
     marginBottom: 24,
@@ -728,15 +655,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 3,
   },
   mapBackground: {
     flex: 1,
-    backgroundColor: '#22543D',
+    backgroundColor: '#2d5a3d',
     position: 'relative',
   },
   mapGrid: {
@@ -751,7 +674,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND_COLORS.ACCENT,
     opacity: 0.2,
   },
   gridLineVertical: {
@@ -759,7 +682,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 1,
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND_COLORS.ACCENT,
     opacity: 0.2,
   },
   landmark: {
@@ -840,7 +763,7 @@ const styles = StyleSheet.create({
     color: '#1d4ed8',
   },
   submitButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND_COLORS.PRIMARY,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',

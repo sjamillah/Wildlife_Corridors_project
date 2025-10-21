@@ -12,7 +12,7 @@ export function ReportTypeSwitch({ reportTypes, currentReportType, onSwitch }) {
             onPress={() => onSwitch(key)}
             className={`flex-1 flex-row items-center justify-center py-3 px-2 rounded-lg gap-1.5 ${
               currentReportType === key 
-                ? 'bg-emerald-500' 
+                ? 'bg-brand-primary' 
                 : 'bg-gray-100'
             }`}
           >

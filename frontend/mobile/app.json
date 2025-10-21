@@ -9,12 +9,17 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aureynx.wildlifecorridors",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to show wildlife corridor data and nearby alerts.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location to track patrol routes and wildlife movements."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/Aureynx_Logo.png",
-        "backgroundColor": "#3B6B3A"
+        "backgroundColor": "#D76B27"
       },
       "edgeToEdgeEnabled": true
     },
@@ -32,7 +37,14 @@
           "image": "./assets/images/Aureynx_Logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#3B6B3A"
+          "backgroundColor": "#D76B27"
+        }
+      ],
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsImpl": "mapbox",
+          "RNMAPBOX_MAPS_DOWNLOAD_TOKEN": "pk.eyJ1IjoiamFtbXktbCIsImEiOiJjbWd0YWRmNnAwMjZwMmpyN252a2d2ajd1In0.M0mjFFqLPLGPfz2mEFNBKA"
         }
       ]
     ],

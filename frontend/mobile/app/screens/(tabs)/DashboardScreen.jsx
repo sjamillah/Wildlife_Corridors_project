@@ -4,20 +4,21 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Dimensions
+  TouchableOpacity
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { Colors } from '../../../constants/Colors';
+import { LogoHeader } from '../../../components/ui/LogoHeader';
+import SmartMap from '../../../components/maps/SmartMap';
+import { Colors, BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
+import { WILDLIFE_ICONS, ICON_SIZES } from '../../../constants/Icons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { router } from 'expo-router';
 
 export default function DashboardScreen() {
   const { theme } = useTheme();
   const colors = Colors[theme];
-  const screenWidth = Dimensions.get('window').width;
   
   const [alertCounts] = useState({
     Critical: 2,
@@ -25,178 +26,153 @@ export default function DashboardScreen() {
     Medium: 1
   });
 
+  // Sample data for dashboard map
+  const [dashboardMarkers] = useState([
+    { id: 1, lat: -1.4061, lng: 35.0117, type: 'alert', priority: 'critical', title: 'Elephant Conflict' },
+    { id: 2, lat: -1.3950, lng: 35.0300, type: 'checkpoint', title: 'Main Gate Station' },
+    { id: 3, lat: -1.4150, lng: 34.9900, type: 'patrol', title: 'Anti-Poaching Patrol' },
+    { id: 4, lat: -1.3800, lng: 35.0500, type: 'vehicle', title: 'Mobile Vet Unit' }
+  ]);
+
+  const [animalMovements] = useState([
+    {
+      animalType: 'elephant',
+      color: STATUS_COLORS.WARNING,
+      path: [
+        { lat: -1.4000, lng: 35.0000 },
+        { lat: -1.4050, lng: 35.0100 },
+        { lat: -1.4061, lng: 35.0117 }
+      ],
+      timestamp: Date.now() - 300000 // 5 minutes ago
+    },
+    {
+      animalType: 'lion',
+      color: BRAND_COLORS.PRIMARY,
+      path: [
+        { lat: -1.4100, lng: 35.0200 },
+        { lat: -1.4080, lng: 35.0150 },
+        { lat: -1.4050, lng: 35.0100 }
+      ],
+      timestamp: Date.now() - 600000 // 10 minutes ago
+    }
+  ]);
+
+  const [userLocation] = useState({ lat: -1.4061, lng: 35.0117 });
+
   const handleViewAlerts = () => {
     router.push('/screens/(tabs)/AlertsScreen');
   };
 
-  // Professional header component
-  const renderHeader = () => (
-    <View style={[styles.header, { 
-      borderBottomColor: colors.border,
-      backgroundColor: colors.headerBackground || colors.surface
-    }]}>
-      <Text style={[styles.headerTitle, { color: colors.text }]}>
-        Wildlife Corridor Monitor
-      </Text>
-      <Text style={[styles.headerSubtitle, { color: colors.textSecondary || colors.icon }]}>
-        Dashboard Overview
-      </Text>
-    </View>
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-      
-      {renderHeader()}
+      <StatusBar style="light" />
+      <LogoHeader />
       
       <ScrollView 
         style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Alerts Summary */}
-        <Card variant="elevated">
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Critical Alerts</Text>
-          <View style={styles.alertsGrid}>
-            <View style={[styles.alertCard, styles.criticalAlert]}>
-              <Text style={styles.alertNumber}>{alertCounts.Critical}</Text>
-              <Text style={styles.alertType}>Critical</Text>
-            </View>
-            <View style={[styles.alertCard, styles.highAlert]}>
-              <Text style={styles.alertNumber}>{alertCounts.High}</Text>
-              <Text style={styles.alertType}>High</Text>
-            </View>
-            <View style={[styles.alertCard, styles.mediumAlert]}>
-              <Text style={styles.alertNumber}>{alertCounts.Medium}</Text>
-              <Text style={styles.alertType}>Medium</Text>
-            </View>
+        {/* Alerts Summary - Interactive Clean Cards */}
+        <Card variant="elevated" style={styles.alertsCard}>
+          <View style={styles.cardHeaderSimple}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Active Alerts</Text>
+            <TouchableOpacity onPress={handleViewAlerts}>
+              <Text style={[styles.viewAllLink, { color: BRAND_COLORS.PRIMARY }]}>View All →</Text>
+            </TouchableOpacity>
           </View>
-          <Button 
-            onPress={handleViewAlerts}
-            variant="primary"
-            size="medium"
-            fullWidth={screenWidth < 400}
-          >
-            View All Alerts
-          </Button>
+          
+          <View style={styles.alertsGrid}>
+            <TouchableOpacity 
+              style={[styles.alertCardClean, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={handleViewAlerts}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.alertNumber, { color: STATUS_COLORS.ERROR }]}>{alertCounts.Critical}</Text>
+              <Text style={[styles.alertLabel, { color: colors.textSecondary }]}>Critical</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.alertCardClean, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={handleViewAlerts}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.alertNumber, { color: STATUS_COLORS.WARNING }]}>{alertCounts.High}</Text>
+              <Text style={[styles.alertLabel, { color: colors.textSecondary }]}>High</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.alertCardClean, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={handleViewAlerts}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.alertNumber, { color: STATUS_COLORS.INFO }]}>{alertCounts.Medium}</Text>
+              <Text style={[styles.alertLabel, { color: colors.textSecondary }]}>Medium</Text>
+            </TouchableOpacity>
+          </View>
         </Card>
 
         {/* Location Overview */}
         <Card variant="outlined">
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Location Overview</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Location</Text>
           <View style={styles.mapOverview}>
             <View style={styles.mapPreviewContainer}>
-              <View style={styles.miniMapBackground}>
-                {/* Grid lines */}
-                {[...Array(4)].map((_, i) => (
-                  <View key={`h-${i}`} style={[styles.miniGridLine, { top: `${i * 25}%` }]} />
-                ))}
-                {[...Array(4)].map((_, i) => (
-                  <View key={`v-${i}`} style={[styles.miniGridLineVertical, { left: `${i * 25}%` }]} />
-                ))}
-                
-                {/* Alert markers */}
-                <View style={[styles.alertMarker, { top: '30%', left: '20%', backgroundColor: '#EF4444' }]} />
-                <View style={[styles.alertMarker, { top: '70%', right: '25%', backgroundColor: '#F59E0B' }]} />
-                
-                {/* User location */}
-                <View style={styles.miniUserLocation}>
-                  <View style={styles.miniLocationDot} />
-                </View>
-              </View>
+              <SmartMap
+                markers={dashboardMarkers}
+                userLocation={userLocation}
+                animalMovements={animalMovements}
+                corridorBounds={{
+                  north: -1.3500,
+                  south: -1.4500,
+                  east: 35.1000,
+                  west: 34.9500
+                }}
+                showGeofence={true}
+                showPatrolRoutes={false}
+                height={120}
+              />
             </View>
             
             <View style={styles.locationInfo}>
-              <View style={styles.locationRow}>
-                <MaterialCommunityIcons name="pine-tree" size={14} color="#059669" />
-                <Text style={[styles.locationText, { color: colors.text }]}>Maasai Mara Wildlife Reserve</Text>
-              </View>
+              <Text style={[styles.locationName, { color: colors.text }]}>Maasai Mara Reserve</Text>
               <Text style={[styles.coordsText, { color: colors.textSecondary }]}>-1.4061° S, 35.0117° E</Text>
-              <View style={styles.proximityInfo}>
-                <Text style={[styles.proximityLabel, { color: colors.textSecondary }]}>Nearby:</Text>
-                <Text style={[styles.proximityValue, { color: '#EF4444' }]}>2 Critical Alerts</Text>
-              </View>
             </View>
           </View>
         </Card>
 
-        {/* System Status */}
-        <Card variant="outlined">
-          <Text style={[styles.cardTitle, { color: colors.text }]}>System Status</Text>
-          <View style={styles.statusGrid}>
-            <View style={styles.statusItem}>
-              <View style={[styles.statusIcon, { backgroundColor: colors.accent.success }]}>
-                <MaterialCommunityIcons name="satellite-variant" size={18} color="#fff" />
-              </View>
-              <Text style={[styles.statusLabel, { color: colors.text }]}>GPS</Text>
-              <Text style={[styles.statusValue, { color: colors.accent.success }]}>Active</Text>
-            </View>
-            <View style={styles.statusItem}>
-              <View style={[styles.statusIcon, { backgroundColor: colors.accent.success }]}>
-                <MaterialCommunityIcons name="battery" size={18} color="#fff" />
-              </View>
-              <Text style={[styles.statusLabel, { color: colors.text }]}>Battery</Text>
-              <Text style={[styles.statusValue, { color: colors.accent.success }]}>85%</Text>
-            </View>
-            <View style={styles.statusItem}>
-              <View style={[styles.statusIcon, { backgroundColor: colors.accent.secondary }]}>
-                <MaterialCommunityIcons name="sync" size={18} color="#fff" />
-              </View>
-              <Text style={[styles.statusLabel, { color: colors.text }]}>Sync</Text>
-              <Text style={[styles.statusValue, { color: colors.icon }]}>08:24 AM</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Quick Actions */}
+        {/* Quick Actions - Organized Grid */}
         <Card>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            <Button 
-              variant="primary"
-              size="large"
-              style={styles.actionButton}
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+          
+          <View style={styles.actionsGridClean}>
+            <TouchableOpacity 
+              style={[styles.actionCard, { backgroundColor: BRAND_COLORS.PRIMARY }]}
               onPress={() => router.push('/screens/(tabs)/MapScreen')}
+              activeOpacity={0.8}
             >
-              <View style={styles.buttonContent}>
-                <MaterialCommunityIcons name="map" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Open Map</Text>
-              </View>
-            </Button>
-            <Button 
-              variant="success"
-              size="large"
-              style={styles.actionButton}
+              <Icon name={WILDLIFE_ICONS.MAP} size={ICON_SIZES.lg} color={BRAND_COLORS.SURFACE} />
+              <Text style={styles.actionLabel}>Map</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.actionCard, { backgroundColor: STATUS_COLORS.SUCCESS }]}
               onPress={() => router.push('/screens/(tabs)/FieldDataScreen')}
+              activeOpacity={0.8}
             >
-              <View style={styles.buttonContent}>
-                <MaterialCommunityIcons name="file-document" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Log Data</Text>
-              </View>
-            </Button>
+              <Icon name={WILDLIFE_ICONS.DOCUMENT} size={ICON_SIZES.lg} color={BRAND_COLORS.SURFACE} />
+              <Text style={styles.actionLabel}>Log Data</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.secondaryActions}>
-            <Button 
-              variant="danger"
-              size="medium"
-              fullWidth
-              onPress={() => router.push('/screens/(tabs)/AlertsScreen')}
-            >
-              <View style={styles.buttonContent}>
-                <MaterialCommunityIcons name="alert-octagon" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Emergency Alert</Text>
-              </View>
-            </Button>
-          </View>
+          
+          <TouchableOpacity 
+            style={[styles.emergencyButton, { backgroundColor: STATUS_COLORS.ERROR }]}
+            onPress={() => router.push('/screens/(tabs)/AlertsScreen')}
+            activeOpacity={0.8}
+          >
+            <Icon name={WILDLIFE_ICONS.ALERT_OCTAGON} size={ICON_SIZES.md} color="#fff" />
+            <Text style={styles.emergencyText}>Emergency Alert</Text>
+          </TouchableOpacity>
         </Card>
-
-        <Button style={styles.fullWidthButton}>
-          <View style={styles.buttonContent}>
-            <MaterialCommunityIcons name="refresh" size={20} color="#fff" />
-            <Text style={styles.buttonText}>Refresh Status</Text>
-          </View>
-        </Button>
       </ScrollView>
     </View>
   );
@@ -206,70 +182,54 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    backgroundColor: '#ffffff',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    marginTop: 2,
-    fontWeight: '500',
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100, // Space for tab bar
+    paddingBottom: 100,
   },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 20,
-    letterSpacing: -0.3,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  alertsCard: {
+    marginBottom: 16,
+  },
+  cardHeaderSimple: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewAllLink: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   alertsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
     gap: 12,
   },
-  alertCard: {
+  alertCardClean: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
     alignItems: 'center',
-    minHeight: 80,
     justifyContent: 'center',
-  },
-  criticalAlert: {
-    backgroundColor: '#fee2e2',
-  },
-  highAlert: {
-    backgroundColor: '#fed7aa',
-  },
-  mediumAlert: {
-    backgroundColor: '#fef3c7',
+    minHeight: 70,
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.BORDER,
   },
   alertNumber: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#374151',
+    fontSize: 32,
+    fontWeight: '700',
     marginBottom: 4,
   },
-  alertType: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
+  alertLabel: {
+    fontSize: 11,
+    fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   statusGrid: {
     flexDirection: 'row',
@@ -290,13 +250,6 @@ const styles = StyleSheet.create({
   },
   statusIconText: {
     fontSize: 18,
-  },
-  statusLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   statusValue: {
     fontSize: 14,
@@ -324,20 +277,60 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   mapOverview: {
-    flexDirection: 'row',
     gap: 12,
-    marginTop: 12,
-    alignItems: 'center',
   },
   mapPreviewContainer: {
-    flex: 1,
-    height: 80,
+    width: '100%',
+    height: 120,
     borderRadius: 8,
     overflow: 'hidden',
+    marginBottom: 12,
+  },
+  locationInfo: {
+    gap: 6,
+  },
+  locationName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  coordsText: {
+    fontSize: 13,
+  },
+  actionsGridClean: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  actionCard: {
+    flex: 1,
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  actionLabel: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  emergencyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  emergencyText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   miniMapBackground: {
     flex: 1,
-    backgroundColor: '#22543D',
+    backgroundColor: '#2d5a3d',
     position: 'relative',
   },
   miniGridLine: {
@@ -345,7 +338,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND_COLORS.ACCENT,
     opacity: 0.2,
   },
   miniGridLineVertical: {
@@ -353,7 +346,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 1,
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND_COLORS.ACCENT,
     opacity: 0.2,
   },
   alertMarker: {
@@ -374,39 +367,9 @@ const styles = StyleSheet.create({
   miniLocationDot: {
     width: 8,
     height: 8,
-    backgroundColor: '#3B82F6',
+    backgroundColor: BRAND_COLORS.PRIMARY,
     borderRadius: 4,
     borderWidth: 2,
     borderColor: '#fff',
-  },
-  locationInfo: {
-    flex: 1.2,
-    paddingLeft: 8,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  locationText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  coordsText: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  proximityInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  proximityLabel: {
-    fontSize: 12,
-  },
-  proximityValue: {
-    fontSize: 12,
-    fontWeight: '600',
   },
 });

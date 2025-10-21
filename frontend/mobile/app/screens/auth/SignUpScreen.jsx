@@ -15,7 +15,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import auth from '../../services/auth';
+import { BRAND_COLORS, UI_COLORS } from '../../../constants/Colors';
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
@@ -57,9 +57,8 @@ export default function SignUpScreen() {
 
   const handleSignUp = () => {
     if (validateForm()) {
-      auth.register({ email, password, name: fullName, role })
-        .then(() => router.push('/screens/(tabs)/DashboardScreen'))
-        .catch(err => Alert.alert('Registration failed', err.message || 'Please try again'));
+      // TODO: Implement actual registration
+      router.push('/screens/(tabs)/DashboardScreen');
     }
   };
 
@@ -95,7 +94,7 @@ export default function SignUpScreen() {
             </View>
 
             {/* Form Card */}
-            <View style={[styles.formCard, { backgroundColor: '#F4F3EC' }]}>
+            <View style={[styles.formCard, { backgroundColor: BRAND_COLORS.BACKGROUND }]}>
               <Text style={styles.title}>Create Account</Text>
               <Text style={styles.subtitle}>Join the conservation team</Text>
 
@@ -200,7 +199,7 @@ export default function SignUpScreen() {
 
               {/* Sign Up Button */}
               <TouchableOpacity
-                style={[styles.signUpButton, { backgroundColor: '#3B6B3A' }]}
+                style={[styles.signUpButton, { backgroundColor: BRAND_COLORS.PRIMARY }]}
                 onPress={handleSignUp}
                 activeOpacity={0.8}
               >
@@ -270,13 +269,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244, 243, 236, 1)',
     borderRadius: 20,
     padding: 30,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 0,
     elevation: 0,
   },
   title: {
@@ -336,7 +328,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
   signUpButton: {
-    backgroundColor: '#8B5E3C',
+    backgroundColor: BRAND_COLORS.ACCENT,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
@@ -360,7 +352,7 @@ const styles = StyleSheet.create({
   },
   signInLink: {
     fontSize: 16,
-    color: '#059669',
+    color: BRAND_COLORS.PRIMARY,
     fontWeight: '600',
   },
 });

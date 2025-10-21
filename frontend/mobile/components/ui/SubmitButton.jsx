@@ -22,7 +22,7 @@ export function SubmitButton({
       className={`py-4 rounded-lg items-center justify-center mb-8 ${
         isSubmitting || disabled 
           ? 'bg-gray-400' 
-          : 'bg-emerald-500'
+          : 'bg-brand-primary'
       }`}
     >
       {isSubmitting ? (

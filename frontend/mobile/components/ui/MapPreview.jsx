@@ -7,13 +7,13 @@ export function MapPreview({ gpsLocation }) {
       <Text className="text-lg font-semibold text-gray-900 mb-3">
         GPS Tagged: {gpsLocation || '-1.9441° S, 30.0619° E (Kigali, Rwanda)'}
       </Text>
-      <View className="h-50 bg-emerald-200 rounded-lg relative overflow-hidden">
+      <View className="h-50 bg-brand-accent rounded-lg relative overflow-hidden">
         {/* Grid lines */}
         <View className="absolute inset-0">
           {Array.from({ length: 6 }).map((_, i) => (
             <View 
               key={i} 
-              className="h-1/6 border-b border-emerald-700 opacity-30" 
+              className="h-1/6 border-b border-brand-accent opacity-30" 
             />
           ))}
         </View>

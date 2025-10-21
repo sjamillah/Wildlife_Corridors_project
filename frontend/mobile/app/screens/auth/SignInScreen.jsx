@@ -15,7 +15,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
-import auth from '../../services/auth';
+import { BRAND_COLORS } from '../../../constants/Colors';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -49,9 +49,8 @@ export default function SignInScreen() {
       Alert.alert('Validation Error', 'Please enter email and password');
       return;
     }
-    auth.login({ email, password })
-      .then(() => router.push('/screens/(tabs)/DashboardScreen'))
-      .catch(err => Alert.alert('Login failed', err.message || 'Please try again'));
+    // TODO: Implement actual authentication
+    router.push('/screens/(tabs)/DashboardScreen');
   };
 
   const handleBiometricSignIn = async () => {
@@ -107,7 +106,7 @@ export default function SignInScreen() {
             </View>
 
             {/* Form Card */}
-            <View style={[styles.formCard, { backgroundColor: '#F4F3EC' }]}>
+            <View style={[styles.formCard, { backgroundColor: BRAND_COLORS.BACKGROUND }]}>
               <Text style={styles.title}>Welcome Back</Text>
               <Text style={styles.subtitle}>Sign in to continue your mission</Text>
 
@@ -171,7 +170,7 @@ export default function SignInScreen() {
 
               {/* Sign In Button */}
               <TouchableOpacity
-                style={[styles.signInButton, { backgroundColor: '#3B6B3A' }]}
+                style={[styles.signInButton, { backgroundColor: BRAND_COLORS.PRIMARY }]}
                 onPress={handleSignIn}
                 activeOpacity={0.8}
               >
@@ -194,11 +193,11 @@ export default function SignInScreen() {
                     activeOpacity={0.8}
                   >
                     {biometricType === 'face' ? (
-                      <MaterialCommunityIcons name="face-recognition" size={20} color="#10B981" />
+                      <MaterialCommunityIcons name="face-recognition" size={20} color={BRAND_COLORS.PRIMARY} />
                     ) : biometricType === 'fingerprint' ? (
-                      <MaterialCommunityIcons name="fingerprint" size={20} color="#10B981" />
+                      <MaterialCommunityIcons name="fingerprint" size={20} color={BRAND_COLORS.PRIMARY} />
                     ) : (
-                      <MaterialCommunityIcons name="cellphone-key" size={20} color="#10B981" />
+                      <MaterialCommunityIcons name="cellphone-key" size={20} color={BRAND_COLORS.PRIMARY} />
                     )}
                     <Text style={styles.biometricButtonText}>
                       Sign In with {biometricType === 'face' ? 'Face ID' : biometricType === 'fingerprint' ? 'Fingerprint' : 'Biometrics'}
@@ -270,13 +269,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244, 243, 236, 1)',
     borderRadius: 20,
     padding: 30,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 0,
     elevation: 0,
   },
   title: {
@@ -343,8 +335,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    borderColor: BRAND_COLORS.PRIMARY,
   },
   rememberMeText: {
     fontSize: 14,
@@ -352,11 +344,11 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     fontSize: 14,
-    color: '#059669',
+    color: BRAND_COLORS.PRIMARY,
     fontWeight: '600',
   },
   signInButton: {
-    backgroundColor: '#3B6B3A',
+    backgroundColor: BRAND_COLORS.PRIMARY,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
@@ -392,11 +384,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 15,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: BRAND_COLORS.PRIMARY,
     marginBottom: 20,
   },
   biometricButtonText: {
-    color: '#059669',
+    color: BRAND_COLORS.PRIMARY,
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
@@ -412,7 +404,7 @@ const styles = StyleSheet.create({
   },
   signUpLink: {
     fontSize: 16,
-    color: '#059669',
+    color: BRAND_COLORS.PRIMARY,
     fontWeight: '600',
   },
 });

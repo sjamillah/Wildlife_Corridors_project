@@ -41,12 +41,12 @@ export function TypeSelector({
               onPress={() => config.hasSpecies ? onSpeciesSelect(itemName) : onTypeSelect(itemName)}
               className={`flex-row items-center justify-between p-4 rounded-lg border ${
                 isSelected 
-                  ? 'border-emerald-500 bg-emerald-50' 
+                  ? 'border-brand-primary bg-brand-secondary' 
                   : 'border-gray-200 bg-gray-50'
               }`}
             >
               <Text className={`flex-1 text-base ${
-                isSelected ? 'text-emerald-600' : 'text-gray-700'
+                isSelected ? 'text-brand-primary' : 'text-gray-700'
               }`}>
                 {typeof item === 'string' ? item : `${item.name} - ${item.description}`}
               </Text>

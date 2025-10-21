@@ -14,21 +14,17 @@ export function Card({ children, style, variant = 'flat', padding = 'default' })
       case 'elevated':
         return {
           elevation: 8,
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
         };
       case 'outlined':
         return {
           borderWidth: 1,
           borderColor: colors.border,
           elevation: 0,
-          shadowOpacity: 0,
         };
       case 'subtle':
         return {
           backgroundColor: colors.surface,
           elevation: 0,
-          shadowOpacity: 0,
         };
       default:
         return {};
@@ -66,14 +62,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     marginBottom: 16,
-    // Mobile shadow fallback (kept minimal by default)
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 0,
     elevation: 0,
   },
 });

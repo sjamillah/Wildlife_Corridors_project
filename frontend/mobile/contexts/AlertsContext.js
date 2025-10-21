@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { STATUS_COLORS } from '../constants/Colors';
 // Temporarily comment out AsyncStorage for web compatibility testing
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -47,7 +48,7 @@ export const AlertsProvider = ({ children }) => {
       timestamp: '25 mins ago',
       active: true,
       icon: 'thermometer',
-      color: '#10b981',
+      color: STATUS_COLORS.SUCCESS,
       source: 'system'
     },
     {

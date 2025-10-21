@@ -2,3 +2,112 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Mobile App Brand Color System - Consistent with Web App */
+:root {
+  /* Consistent brand palette aligned with web app */
+  --brand-primary: #D76B27;
+  --brand-secondary: #EECFAF; 
+  --brand-accent: #A7A87A;
+  --brand-highlight: #E67E22;
+  --brand-text: #3A2E1E;
+  --brand-text-secondary: #6B5E52;
+  --brand-bg: #FFF9F3;
+  --brand-surface: #FFFFFF;
+  --brand-border: #E5E7EB;
+  --brand-muted: #F9FAFB;
+  
+  /* Status colors */
+  --status-success: #10B981;
+  --status-warning: #F59E0B; 
+  --status-error: #EF4444;
+  --status-info: #3B82F6;
+  
+  /* RGB values for opacity variants */
+  --brand-primary-rgb: 215,107,39;
+  --brand-accent-rgb: 167,168,122;
+}
+
+/* Brand helper utilities for mobile */
+.bg-brand-primary { background-color: var(--brand-primary) !important; }
+.bg-brand-secondary { background-color: var(--brand-secondary) !important; }
+.bg-brand-accent { background-color: var(--brand-accent) !important; }
+.bg-brand-highlight { background-color: var(--brand-highlight) !important; }
+.bg-brand-bg { background-color: var(--brand-bg) !important; }
+.bg-brand-surface { background-color: var(--brand-surface) !important; }
+.bg-brand-border { background-color: var(--brand-border) !important; }
+.bg-brand-muted { background-color: var(--brand-muted) !important; }
+
+.text-brand-primary { color: var(--brand-primary) !important; }
+.text-brand-secondary { color: var(--brand-secondary) !important; }
+.text-brand-accent { color: var(--brand-accent) !important; }
+.text-brand-highlight { color: var(--brand-highlight) !important; }
+.text-brand-text { color: var(--brand-text) !important; }
+.text-brand-text-secondary { color: var(--brand-text-secondary) !important; }
+
+.border-brand-primary { border-color: var(--brand-primary) !important; }
+.border-brand-secondary { border-color: var(--brand-secondary) !important; }
+.border-brand-accent { border-color: var(--brand-accent) !important; }
+.border-brand-border { border-color: var(--brand-border) !important; }
+
+/* Status color utilities */
+.text-status-success { color: var(--status-success) !important; }
+.text-status-warning { color: var(--status-warning) !important; }
+.text-status-error { color: var(--status-error) !important; }
+.text-status-info { color: var(--status-info) !important; }
+
+.bg-status-success { background-color: var(--status-success) !important; }
+.bg-status-warning { background-color: var(--status-warning) !important; }
+.bg-status-error { background-color: var(--status-error) !important; }
+.bg-status-info { background-color: var(--status-info) !important; }
+
+/* Mobile-specific utility classes */
+.mobile-card {
+  background-color: var(--brand-surface);
+  border-color: var(--brand-border);
+  border-width: 1px;
+  border-radius: 12px;
+}
+
+.mobile-button-primary {
+  background-color: var(--brand-primary);
+  color: white;
+  border-radius: 8px;
+  padding: 12px 24px;
+}
+
+.mobile-button-secondary {
+  background-color: var(--brand-secondary);
+  color: var(--brand-text);
+  border-radius: 8px;
+  padding: 12px 24px;
+}
+
+.mobile-input {
+  background-color: var(--brand-surface);
+  border-color: var(--brand-border);
+  border-width: 1px;
+  border-radius: 8px;
+  color: var(--brand-text);
+}
+
+/* Mobile app background */
+.mobile-app-bg {
+  background-color: var(--brand-bg);
+  min-height: 100vh;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-primary: #E67E22;
+    --brand-secondary: #C3541A;
+    --brand-accent: #FFB347;
+    --brand-text: #FFF9F3;
+    --brand-text-secondary: #EECFAF;
+    --brand-bg: #1C1C1C;
+    --brand-surface: #2A1F18;
+    --brand-border: #374151;
+    --brand-muted: #1F2937;
+  }
+}
