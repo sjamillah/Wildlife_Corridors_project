@@ -5,6 +5,7 @@ export {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ArrowLeft,
   ArrowRight,
   Plus,
@@ -27,6 +28,7 @@ export {
   User,
   Mail,
   Phone,
+  Smartphone,
   Award,
   
   // Location & Navigation
@@ -49,13 +51,17 @@ export {
   TrendingUp,
   TrendingDown,
   BarChart,
+  BarChart3,
   
   // Media & Actions
   Download,
   Camera,
   Edit,
   Play,
+  Pause,
   Square,
+  SkipBack,
+  SkipForward,
   
   // Files & Documents
   FileText,
@@ -69,5 +75,12 @@ export {
   Save,
   Wrench,
   Radio,
+  Layers,
+  Info,
+  AlertCircle,
+  Check,
+  RefreshCw,
+  Trash2,
+  Menu
   
 } from 'lucide-react';

@@ -1,112 +1,144 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Wifi, Battery, MapPin, Signal, Play, Square, Route, Bell } from '@/components/shared/Icons';
+import { useNavigate } from 'react-router-dom';
+import { Search, Filter, Plus, Wifi, Settings } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
-import { LiveTrackingHeader } from '../../components/shared/HeaderVariants';
-import auth from '../../services/auth';
+import { COLORS, rgba } from '../../constants/Colors';
 
 const LiveTracking = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedDevice, setSelectedDevice] = useState(null);
+  const navigate = useNavigate();
+  
+  const [, setSelectedDevice] = useState(null);
   const [devices, setDevices] = useState([]);
-  const [trackingMode, setTrackingMode] = useState({}); // Track which devices are being actively tracked
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
 
   const handleLogout = () => {
-    auth.logout();
-  };
-
-  const handleStartTracking = (deviceId) => {
-    setTrackingMode(prev => ({ ...prev, [deviceId]: true }));
-    // In a real app, this would start live GPS tracking
-    console.log(`Started live tracking for device: ${deviceId}`);
-  };
-
-  const handleStopTracking = (deviceId) => {
-    setTrackingMode(prev => ({ ...prev, [deviceId]: false }));
-    // In a real app, this would stop live GPS tracking
-    console.log(`Stopped live tracking for device: ${deviceId}`);
-  };
-
-  const handleViewOnMap = (device) => {
-    // In a real app, this would open the map view
-    alert(`📍 Opening map view for ${device.animalName}\nLocation: ${device.location}\nCoordinates: ${device.coordinates[0].toFixed(4)}, ${device.coordinates[1].toFixed(4)}`);
-  };
-
-  const handleViewRoute = (device) => {
-    // In a real app, this would show historical route
-    alert(`🛤️ Viewing route history for ${device.animalName}\nLast 24 hours of movement data would be displayed here.`);
-  };
-
-  const handleSetAlert = (device) => {
-    // In a real app, this would set up geo-fence alerts
-    alert(`🔔 Setting up alerts for ${device.animalName}\nYou can configure:\n• Geo-fence boundaries\n• Speed alerts\n• Battery low warnings\n• Signal loss notifications`);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('token');
+    navigate('/auth');
   };
 
   useEffect(() => {
-    // Mock data for live tracking devices
+    // Mock data for tracking devices - Animals and Rangers
     const mockDevices = [
+      // Animal devices
       {
         id: 'WC-001',
-        animalName: 'Luna',
-        speciesName: 'Gray Wolf',
-        type: 'GPS Collar',
+        name: 'Elephant #001',
+        deviceId: 'WC-001',
         status: 'Active',
         battery: 78,
         signalStrength: 85,
-        coordinates: [40.7128, -74.0060],
-        location: 'Northern Reserve, Zone A',
         lastPing: Date.now() - 300000, // 5 minutes ago
-        speed: 4.2,
-        heading: 'Northeast',
-        altitude: 1205,
-        temperature: 8
+        location: 'Northern Reserve, Zone A',
+        type: 'GPS Collar',
+        category: 'animal',
+        species: 'Elephant'
       },
       {
         id: 'WC-002',
-        animalName: 'Atlas',
-        speciesName: 'Mountain Lion',
-        type: 'Satellite Collar',
+        name: 'Wildebeest #002',
+        deviceId: 'WC-002',
         status: 'Active',
         battery: 92,
         signalStrength: 72,
-        coordinates: [40.7580, -73.9855],
-        location: 'Eastern Ridge Trail',
         lastPing: Date.now() - 120000, // 2 minutes ago
-        speed: 0,
-        heading: 'Stationary',
-        altitude: 1450,
-        temperature: 12
+        location: 'Eastern Ridge Trail',
+        type: 'Satellite Collar',
+        category: 'animal',
+        species: 'Wildebeest'
       },
       {
         id: 'WC-003',
-        animalName: 'Nova',
-        speciesName: 'Black Bear',
-        type: 'GPS Collar',
+        name: 'Zebra #003',
+        deviceId: 'WC-003',
         status: 'Critical',
         battery: 23,
         signalStrength: 41,
-        coordinates: [40.7831, -73.9712],
-        location: 'Southern Valley',
         lastPing: Date.now() - 900000, // 15 minutes ago
-        speed: 1.8,
-        heading: 'Southwest',
-        altitude: 980,
-        temperature: 6
+        location: 'Southern Valley',
+        type: 'GPS Collar',
+        category: 'animal',
+        species: 'Zebra'
       },
       {
         id: 'WC-004',
-        animalName: 'Echo',
-        speciesName: 'Lynx',
-        type: 'Light Collar',
+        name: 'Elephant #004',
+        deviceId: 'WC-004',
         status: 'Low Battery',
         battery: 15,
         signalStrength: 38,
-        coordinates: [40.7489, -73.9680],
-        location: 'Western Forest Edge',
         lastPing: Date.now() - 1800000, // 30 minutes ago
-        speed: 0.5,
-        heading: 'North',
-        altitude: 1100,
-        temperature: 4
+        location: 'Western Forest Edge',
+        type: 'Light Collar',
+        category: 'animal',
+        species: 'Elephant'
+      },
+      {
+        id: 'WC-005',
+        name: 'Lion #005',
+        deviceId: 'WC-005',
+        status: 'Offline',
+        battery: 0,
+        signalStrength: 0,
+        lastPing: Date.now() - 3600000, // 1 hour ago
+        location: 'Unknown',
+        type: 'GPS Collar',
+        category: 'animal',
+        species: 'Lion'
+      },
+      // Ranger devices
+      {
+        id: 'RG-001',
+        name: 'Ranger Team Alpha',
+        deviceId: 'RG-001',
+        status: 'Active',
+        battery: 95,
+        signalStrength: 92,
+        lastPing: Date.now() - 60000, // 1 minute ago
+        location: 'Northern Sector Patrol',
+        type: 'Ranger Device',
+        category: 'ranger',
+        team: 'Alpha Team'
+      },
+      {
+        id: 'RG-002',
+        name: 'Ranger Team Bravo',
+        deviceId: 'RG-002',
+        status: 'Active',
+        battery: 88,
+        signalStrength: 78,
+        lastPing: Date.now() - 180000, // 3 minutes ago
+        location: 'Eastern Corridor',
+        type: 'Ranger Device',
+        category: 'ranger',
+        team: 'Bravo Team'
+      },
+      {
+        id: 'RG-003',
+        name: 'Ranger Team Charlie',
+        deviceId: 'RG-003',
+        status: 'Offline',
+        battery: 45,
+        signalStrength: 0,
+        lastPing: Date.now() - 7200000, // 2 hours ago
+        location: 'Last seen: Command Center',
+        type: 'Ranger Device',
+        category: 'ranger',
+        team: 'Charlie Team'
+      },
+      {
+        id: 'RG-004',
+        name: 'Ranger Team Delta',
+        deviceId: 'RG-004',
+        status: 'Active',
+        battery: 72,
+        signalStrength: 65,
+        lastPing: Date.now() - 240000, // 4 minutes ago
+        location: 'Southern Valley Patrol',
+        type: 'Ranger Device',
+        category: 'ranger',
+        team: 'Delta Team'
       }
     ];
 
@@ -116,15 +148,14 @@ const LiveTracking = () => {
     const interval = setInterval(() => {
       setDevices(prevDevices => 
         prevDevices.map(device => {
-          // Simulate small changes in data
-          const batteryDelta = Math.random() * 2 - 1; // -1 to +1
-          const signalDelta = Math.random() * 10 - 5; // -5 to +5
+          const batteryDelta = Math.random() * 2 - 1;
+          const signalDelta = Math.random() * 10 - 5;
           
           return {
             ...device,
             battery: Math.max(0, Math.min(100, device.battery + batteryDelta)),
             signalStrength: Math.max(0, Math.min(100, device.signalStrength + signalDelta)),
-            lastPing: Math.random() > 0.7 ? Date.now() : device.lastPing // 30% chance of new ping
+            lastPing: Math.random() > 0.7 ? Date.now() : device.lastPing
           };
         })
       );
@@ -144,305 +175,516 @@ const LiveTracking = () => {
   };
 
   // Calculate stats
+  const totalDevices = devices.length;
   const activeDevices = devices.filter(d => d.status === 'Active').length;
   const lowBatteryDevices = devices.filter(d => d.battery < 30).length;
   const weakSignalDevices = devices.filter(d => d.signalStrength < 50).length;
   const offlineDevices = devices.filter(d => d.status === 'Offline').length;
 
+  // Filter devices
+  const filteredDevices = devices.filter(device => {
+    const matchesSearch = device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         device.deviceId.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesFilter = activeFilter === 'all' || 
+                         (activeFilter === 'active' && device.status === 'Active') ||
+                         (activeFilter === 'low-battery' && device.battery < 30) ||
+                         (activeFilter === 'weak-signal' && device.signalStrength < 50) ||
+                         (activeFilter === 'offline' && device.status === 'Offline') ||
+                         (activeFilter === 'animals' && device.category === 'animal') ||
+                         (activeFilter === 'rangers' && device.category === 'ranger');
+    
+    return matchesSearch && matchesFilter;
+  });
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Active': return COLORS.success;
+      case 'Warning': return COLORS.ochre;
+      case 'Critical': return COLORS.error;
+      case 'Low Battery': return COLORS.ochre;
+      default: return COLORS.textSecondary;
+    }
+  };
+
+  const getStatusBg = (status) => {
+    switch (status) {
+      case 'Active': return COLORS.tintSuccess;
+      case 'Warning': return COLORS.tintWarning;
+      case 'Critical': return COLORS.tintCritical;
+      case 'Low Battery': return COLORS.tintWarning;
+      default: return COLORS.creamBg;
+    }
+  };
+
+  const getBatteryColor = (battery) => {
+    if (battery > 70) return COLORS.success;
+    if (battery > 30) return COLORS.ochre;
+    return COLORS.error;
+  };
+
   return (
-    <>
-      <div className="flex h-screen bg-brand-bg overflow-hidden">
-        <Sidebar 
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          onLogout={handleLogout}
-        />
-        
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <LiveTrackingHeader 
-            devices={devices} 
-            lastSync={new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}
-          />
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", background: COLORS.creamBg, minHeight: '100vh' }}>
+      <Sidebar onLogout={handleLogout} />
+      
+      {/* Main Content */}
+      <div style={{ marginLeft: '260px', minHeight: '100vh' }}>
+        {/* Page Header */}
+        <section style={{ background: COLORS.forestGreen, padding: '28px 40px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'white', marginBottom: '6px', letterSpacing: '-0.6px' }}>
+              Device Tracking
+            </h1>
+            <p style={{ fontSize: '14px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.9)' }}>
+              Monitor all tracking devices in real-time
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* Live indicator */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '8px 16px', borderRadius: '6px', color: 'white', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS.success, animation: 'pulse 2s ease-in-out infinite' }}></div>
+              Live
+            </div>
+            {/* Filters button */}
+            <button style={{ 
+              background: 'transparent', 
+              border: '2px solid rgba(255, 255, 255, 0.3)', 
+              color: 'white', 
+              padding: '8px 16px', 
+              borderRadius: '6px', 
+              fontSize: '13px', 
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.5)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'; }}
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+            </button>
+            {/* Add Device button */}
+            <button style={{ 
+              background: COLORS.burntOrange, 
+              border: `2px solid ${COLORS.burntOrange}`, 
+              color: 'white', 
+              padding: '10px 20px', 
+              borderRadius: '6px', 
+              fontSize: '14px', 
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; e.currentTarget.style.borderColor = COLORS.terracotta; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; e.currentTarget.style.borderColor = COLORS.burntOrange; }}
+            >
+              <Plus className="w-4 h-4" />
+              Add Device
+            </button>
+          </div>
+        </section>
 
-          <div className="flex-1 overflow-y-auto">
-            {/* Status Cards Section */}
-            <div className="bg-gradient-to-r from-brand-primary to-brand-highlight px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {/* Active Signals Card */}
-                <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-brand-text-secondary">Active Signals</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-brand-text">{activeDevices}</p>
-                    </div>
-                    <div className="p-3 bg-brand-primary/10 rounded-xl">
-                      <Signal className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Low Power Card */}
-                <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-brand-text-secondary">Low Power</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-brand-text">{lowBatteryDevices}</p>
-                    </div>
-                    <div className="p-3 bg-status-warning/10 rounded-xl">
-                      <Battery className="w-5 h-5 sm:w-6 sm:h-6 text-status-warning" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Weak Signals Card */}
-                <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-brand-text-secondary">Weak Signals</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-brand-text">{weakSignalDevices}</p>
-                    </div>
-                    <div className="p-3 bg-status-error/10 rounded-xl">
-                      <Wifi className="w-5 h-5 sm:w-6 sm:h-6 text-status-error" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Offline Card */}
-                <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-brand-text-secondary">Offline</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-brand-text">{offlineDevices}</p>
-                    </div>
-                    <div className="p-3 bg-brand-accent/20 rounded-xl">
-                      <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
-                    </div>
-                  </div>
-                </div>
+        {/* Status Overview Bar */}
+        <section style={{ background: COLORS.secondaryBg, padding: '20px 40px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+          <div style={{ display: 'flex', gap: '2px', background: COLORS.borderLight, borderRadius: '8px', overflow: 'hidden', height: '70px' }}>
+            {/* Total */}
+            <div 
+              style={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: COLORS.tintRangers,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.forestGreen, marginBottom: '4px' }}>
+                {totalDevices}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Total
               </div>
             </div>
 
-            {/* Device List */}
-            <div className="p-4 sm:p-6 lg:p-8">
-              <h2 className="text-lg sm:text-xl font-semibold text-brand-text mb-4 sm:mb-6 animate-slide-up">Device Status</h2>
-              <div className="bg-brand-surface rounded-xl border border-brand-border shadow-lg overflow-hidden animate-fade-in" style={{fontFamily: 'Inter, system-ui, -apple-system, sans-serif'}}>
-                <div className="px-6 py-3 border-b bg-gray-50">
-                  <h3 className="text-sm font-medium text-gray-700">Connected Devices ({devices.length})</h3>
-                </div>
-                <div className="divide-y">
-                  {devices.map((device) => (
-                    <div 
-                      key={device.id} 
-                      className="px-6 py-4 hover:bg-gray-50 transition-colors group"
+            {/* Active */}
+            <div 
+              style={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: rgba('burntOrange', 0.1),
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.burntOrange, marginBottom: '4px' }}>
+                {activeDevices}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Active
+              </div>
+            </div>
+
+            {/* Battery Low */}
+            <div 
+              style={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: COLORS.tintWarning,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.ochre, marginBottom: '4px' }}>
+                {lowBatteryDevices}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Battery Low
+              </div>
+            </div>
+
+            {/* Signal Weak */}
+            <div 
+              style={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: rgba('statusInfo', 0.1),
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.info, marginBottom: '4px' }}>
+                {weakSignalDevices}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Signal Weak
+              </div>
+            </div>
+
+            {/* Offline */}
+            <div 
+              style={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: COLORS.tintCritical,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.error, marginBottom: '4px' }}>
+                {offlineDevices}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Offline
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Devices Section */}
+        <section style={{ padding: '32px 40px' }}>
+          {/* Section Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, color: COLORS.textPrimary }}>Devices</h2>
+            {/* Search and Filters Row */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, maxWidth: '600px', marginLeft: 'auto' }}>
+              {/* Search Box */}
+              <div style={{ flex: 1, maxWidth: '400px', position: 'relative' }}>
+                <Search className="w-4 h-4" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: COLORS.textSecondary }} />
+                <input
+                  type="text"
+                  placeholder="Search devices..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px 12px 42px',
+                    border: `1px solid ${COLORS.borderLight}`,
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    background: COLORS.whiteCard,
+                    outline: 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = COLORS.forestGreen; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = COLORS.borderLight; }}
+                />
+              </div>
+              {/* Filter Tabs */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {['all', 'animals', 'rangers', 'active', 'low-battery', 'weak-signal', 'offline'].map((filter) => {
+                  const isActive = activeFilter === filter;
+                  
+                  const label = filter === 'all' ? 'All' :
+                               filter === 'animals' ? 'Animals' :
+                               filter === 'rangers' ? 'Rangers' :
+                               filter === 'active' ? 'Active' :
+                               filter === 'low-battery' ? 'Low Battery' :
+                               filter === 'weak-signal' ? 'Weak Signal' : 'Offline';
+
+                  return (
+                    <button
+                      key={filter}
+                      onClick={() => setActiveFilter(filter)}
+                      style={{
+                        padding: '8px 16px',
+                        border: `1px solid ${isActive ? COLORS.forestGreen : COLORS.borderLight}`,
+                        background: isActive ? COLORS.forestGreen : COLORS.whiteCard,
+                        color: isActive ? COLORS.white : COLORS.textSecondary,
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.borderColor = COLORS.borderMedium;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.borderColor = COLORS.borderLight;
+                        }
+                      }}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4 flex-1">
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-2.5 h-2.5 rounded-full ${
-                              device.status === 'Active' ? 'bg-brand-primary' :
-                              device.status === 'Critical' ? 'bg-brand-earth' : 'bg-brand-accent'
-                            }`}></div>
-                            <div>
-                              <div className="font-medium text-gray-900 text-sm">{device.animalName}</div>
-                              <div className="text-xs text-gray-500">{device.id} • {device.speciesName}</div>
-                            </div>
-                          </div>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
-                          <div className="text-xs text-gray-600 min-w-32 hidden sm:block">
-                            {device.location}
-                          </div>
+          {/* Device Cards Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+            {filteredDevices.map((device) => {
+              const statusColor = getStatusColor(device.status);
+              const statusBg = getStatusBg(device.status);
+              const batteryColor = getBatteryColor(device.battery);
+              const accentColor = device.status === 'Active' ? COLORS.success :
+                                device.status === 'Warning' || device.status === 'Low Battery' ? COLORS.ochre :
+                                device.status === 'Critical' ? COLORS.error : COLORS.textSecondary;
+
+              return (
+                <div
+                  key={device.id}
+                  style={{
+                    background: COLORS.whiteCard,
+                    border: `1px solid ${COLORS.borderLight}`,
+                    borderRadius: '10px',
+                    padding: '20px',
+                    position: 'relative',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.borderMedium;
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.borderLight;
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                  onClick={() => setSelectedDevice(device)}
+                >
+                  {/* Top Accent Bar */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '4px',
+                    borderRadius: '10px 10px 0 0',
+                    background: accentColor
+                  }}></div>
+
+                  {/* Card Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    {/* Device Info */}
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                      {/* Icon */}
+                      <div style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '24px',
+                        background: device.status === 'Active' ? COLORS.tintSuccess :
+                                   device.status === 'Warning' || device.status === 'Low Battery' ? COLORS.tintWarning :
+                                   device.status === 'Critical' ? COLORS.tintCritical : COLORS.creamBg
+                      }}>
+                        <Wifi className="w-6 h-6" style={{ color: COLORS.textPrimary }} />
+                      </div>
+                      {/* Name and ID */}
+                      <div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '2px' }}>
+                          {device.name}
                         </div>
-
-                        <div className="flex items-center space-x-6 text-xs">
-                          <div className="text-center">
-                            <div className="text-gray-500 mb-1">Battery</div>
-                            <div className={`font-medium ${
-                              device.battery > 50 ? 'text-brand-primary' :
-                              device.battery > 20 ? 'text-brand-earth' : 'text-brand-accent'
-                            }`}>{Math.round(device.battery)}%</div>
-                          </div>
-
-                          <div className="text-center">
-                            <div className="text-gray-500 mb-1">Signal</div>
-                            <div className={`font-medium ${
-                              device.signalStrength > 70 ? 'text-brand-primary' :
-                              device.signalStrength > 40 ? 'text-brand-earth' : 'text-brand-accent'
-                            }`}>{device.signalStrength}%</div>
-                          </div>
-
-                          <div className="text-center">
-                            <div className="text-gray-500 mb-1">Last Seen</div>
-                            <div className="font-medium text-gray-900">{formatTimeSince(device.lastPing)}</div>
-                          </div>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex items-center space-x-2 ml-4">
-                          {trackingMode[device.id] ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStopTracking(device.id);
-                              }}
-                              className="px-3 py-1.5 bg-brand-accent text-brand-primary text-xs font-medium rounded-lg hover:bg-brand-secondary transition-colors flex items-center gap-1"
-                            >
-                              <Square className="w-3 h-3" />
-                              Stop
-                            </button>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartTracking(device.id);
-                              }}
-                              className="px-3 py-1.5 bg-brand-primary/20 text-brand-primary text-xs font-medium rounded-lg hover:bg-brand-primary/30 transition-colors flex items-center gap-1"
-                            >
-                              <Play className="w-3 h-3" />
-                              Track Live
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDevice(device);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-brand-primary transition-colors"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                        <div style={{ fontSize: '12px', fontWeight: 500, color: COLORS.textSecondary }}>
+                          {device.deviceId} {device.category === 'animal' && device.species && `• ${device.species}`}
+                          {device.category === 'ranger' && device.team && `• ${device.team}`}
                         </div>
                       </div>
                     </div>
-                  ))}
+                    {/* Status Badge */}
+                    <span style={{
+                      padding: '5px 12px',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      background: statusBg,
+                      color: statusColor
+                    }}>
+                      {device.status}
+                    </span>
+                  </div>
+
+                  {/* Card Metrics */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 500, marginBottom: '4px' }}>
+                        Signal Strength
+                      </div>
+                      <div style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 600 }}>
+                        {Math.round(device.signalStrength)}%
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 500, marginBottom: '4px' }}>
+                        Last Ping
+                      </div>
+                      <div style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 600 }}>
+                        {formatTimeSince(device.lastPing)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Battery Section */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '11px', color: '#6B5E4F', fontWeight: 500 }}>
+                        Battery
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#6B5E4F', fontWeight: 500 }}>
+                        {Math.round(device.battery)}%
+                      </div>
+                    </div>
+                    <div style={{
+                      height: '6px',
+                      background: COLORS.borderLight,
+                      borderRadius: '3px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${device.battery}%`,
+                        background: batteryColor,
+                        borderRadius: '3px',
+                        transition: 'width 0.3s ease'
+                      }}></div>
+                    </div>
+                  </div>
+
+                  {/* Card Footer */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDevice(device);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        background: COLORS.burntOrange,
+                        border: 'none',
+                        color: 'white',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.3px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; }}
+                    >
+                      View Details
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('More options for', device.id);
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        background: 'transparent',
+                        border: `1px solid ${COLORS.borderLight}`,
+                        color: '#6B5E4F',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#D4CCBA'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E8E3D6'; }}
+                    >
+                      <Settings className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Device Detail Modal */}
-      {selectedDevice && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-4 z-50" onClick={() => setSelectedDevice(null)}>
-          <div className="bg-white rounded-lg max-w-lg w-full shadow-xl" style={{fontFamily: 'Inter, system-ui, -apple-system, sans-serif'}} onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{selectedDevice.animalName}</h3>
-                  <p className="text-sm text-gray-500">{selectedDevice.id} • {selectedDevice.speciesName}</p>
-                </div>
-                <button 
-                  onClick={() => setSelectedDevice(null)}
-                  className="text-gray-400 hover:text-gray-600 p-1"
-                >
-                  <Eye className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500">Device Type</span>
-                  <p className="font-medium">{selectedDevice.type}</p>
-                </div>
-                <div>
-                  <span className="text-gray-500">Current Status</span>
-                  <p className={`font-medium ${
-                    selectedDevice.status === 'Active' ? 'text-brand-primary' :
-                    selectedDevice.status === 'Critical' ? 'text-red-600' : 'text-gray-600'
-                  }`}>{selectedDevice.status}</p>
-                </div>
-                <div>
-                  <span className="text-gray-500">Speed</span>
-                  <p className="font-medium">{selectedDevice.speed} km/h</p>
-                </div>
-                <div>
-                  <span className="text-gray-500">Heading</span>
-                  <p className="font-medium">{selectedDevice.heading}</p>
-                </div>
-                <div>
-                  <span className="text-gray-500">Altitude</span>
-                  <p className="font-medium">{selectedDevice.altitude}m</p>
-                </div>
-                {selectedDevice.temperature && (
-                  <div>
-                    <span className="text-gray-500">Temperature</span>
-                    <p className="font-medium">{selectedDevice.temperature}°C</p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="pt-2 border-t">
-                <span className="text-gray-500 text-sm">GPS Coordinates</span>
-                <p className="font-mono text-sm">{selectedDevice.coordinates[0].toFixed(4)}, {selectedDevice.coordinates[1].toFixed(4)}</p>
-              </div>
-              
-              <div className="pt-2">
-                <span className="text-gray-500 text-sm">Location</span>
-                <p className="font-medium">{selectedDevice.location}</p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-4 border-t">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Tracking Actions</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleViewOnMap(selectedDevice)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-lg hover:bg-brand-primary/20 transition-colors text-sm font-medium"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    View on Map
-                  </button>
-                  <button
-                    onClick={() => handleViewRoute(selectedDevice)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-                  >
-                    <Route className="w-4 h-4" />
-                    View Route
-                  </button>
-                  <button
-                    onClick={() => handleSetAlert(selectedDevice)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium"
-                  >
-                    <Bell className="w-4 h-4" />
-                    Set Alerts
-                  </button>
-                  {trackingMode[selectedDevice.id] ? (
-                    <button
-                      onClick={() => handleStopTracking(selectedDevice.id)}
-                      className="flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
-                    >
-                      <Square className="w-4 h-4" />
-                      Stop Tracking
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleStartTracking(selectedDevice.id)}
-                      className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-lg hover:bg-brand-primary/20 transition-colors text-sm font-medium"
-                    >
-                      <Play className="w-4 h-4" />
-                      Start Tracking
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Live Status Indicator */}
-              {trackingMode[selectedDevice.id] && (
-                <div className="pt-3 border-t bg-brand-primary/10 -mx-6 px-6 py-3 mt-4">
-                  <div className="flex items-center gap-2 text-brand-primary">
-                    <div className="w-2 h-2 bg-brand-primary rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium">Live tracking active</span>
-                  </div>
-                  <p className="text-xs text-brand-primary mt-1">Receiving real-time location updates</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      {/* Add pulse animation CSS */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
+    </div>
   );
 };
 

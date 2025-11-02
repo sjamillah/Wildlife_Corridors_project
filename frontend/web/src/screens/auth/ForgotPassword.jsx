@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Mail, ArrowLeft, CheckCircle } from '@/components/shared/Icons';
+import { COLORS } from '../../constants/Colors';
+
+const ElephantBackground = '/assets/ele_background.jpg';
 
 const ForgotPassword = ({ setCurrentScreen }) => {
   const [email, setEmail] = useState('');
@@ -13,75 +16,250 @@ const ForgotPassword = ({ setCurrentScreen }) => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-primary/5 to-blue-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-          <div className="w-16 h-16 bg-brand-primary rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-8 h-8 text-white" />
+      <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+        {/* Left Side - Image with Content */}
+        <div style={{
+          flex: '0 0 60%',
+          backgroundImage: `url(${ElephantBackground})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '60px 48px',
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(135deg, rgba(46, 93, 69, 0.85) 0%, rgba(44, 36, 22, 0.75) 100%)',
+          }}></div>
+        <div style={{
+          position: 'relative',
+          zIndex: 1,
+          color: COLORS.white,
+          opacity: 0.8,
+          fontSize: '13px',
+          marginTop: 'auto',
+          paddingBottom: '0',
+          textAlign: 'left',
+        }}>
+          © 2025 Aureynx. All rights reserved.
+        </div>
+        </div>
+
+        {/* Right Side - Success Message */}
+        <div style={{
+          flex: '0 0 40%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: COLORS.creamBg,
+          padding: '40px',
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '480px',
+            background: COLORS.whiteCard,
+            borderRadius: '16px',
+            padding: '48px',
+            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              background: COLORS.success,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+            }}>
+              <CheckCircle className="w-8 h-8" style={{ color: COLORS.white }} />
+            </div>
+            
+            <h1 style={{ fontSize: '28px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '16px', letterSpacing: '-0.5px' }}>
+              Check Your Email
+            </h1>
+            
+            <p style={{ fontSize: '15px', color: COLORS.textSecondary, marginBottom: '24px', lineHeight: '1.6' }}>
+              We've sent a password reset link to <strong style={{ color: COLORS.textPrimary }}>{email}</strong>
+            </p>
+            
+            <p style={{ fontSize: '13px', color: COLORS.textSecondary, marginBottom: '32px' }}>
+              Didn't receive the email? Check your spam folder or try again.
+            </p>
+            
+            <button
+              onClick={() => setCurrentScreen('login')}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: COLORS.burntOrange,
+                border: 'none',
+                borderRadius: '8px',
+                color: COLORS.white,
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; }}
+            >
+              Back to Sign In
+            </button>
           </div>
-          
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Check Your Email</h1>
-          
-          <p className="text-gray-600 mb-6">
-            We've sent a password reset link to <strong>{email}</strong>
-          </p>
-          
-          <p className="text-sm text-gray-500 mb-8">
-            Didn't receive the email? Check your spam folder or try again.
-          </p>
-          
-          <button
-            onClick={() => setCurrentScreen('login')}
-            className="w-full bg-brand-primary hover:bg-brand-secondary text-white py-3 px-6 rounded-xl font-medium transition duration-200"
-          >
-            Back to Sign In
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-primary/5 to-blue-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Mail className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
-          <p className="text-gray-600 mt-2">Enter your email to receive reset instructions</p>
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      {/* Left Side - Image with Content */}
+      <div style={{
+        flex: '0 0 60%',
+        backgroundImage: `url(${ElephantBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '60px 48px',
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'linear-gradient(135deg, rgba(46, 93, 69, 0.85) 0%, rgba(44, 36, 22, 0.75) 100%)',
+        }}></div>
+        <div style={{ position: 'relative', zIndex: 1, color: COLORS.white, opacity: 0.8, fontSize: '13px', marginTop: 'auto', paddingBottom: '20px' }}>
+          © 2025 Aureynx. All rights reserved.
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
-              placeholder="Enter your email"
-            />
+      {/* Right Side - Reset Form */}
+      <div style={{
+        flex: '0 0 40%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: COLORS.creamBg,
+        padding: '40px',
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '480px',
+          background: COLORS.whiteCard,
+          borderRadius: '16px',
+          padding: '48px',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              background: COLORS.burntOrange,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+            }}>
+              <Mail className="w-8 h-8" style={{ color: COLORS.white }} />
+            </div>
+            <h1 style={{ fontSize: '28px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '8px', letterSpacing: '-0.5px' }}>
+              Reset Password
+            </h1>
+            <p style={{ fontSize: '15px', color: COLORS.textSecondary }}>
+              Enter your email to receive reset instructions
+            </p>
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 px-6 rounded-xl font-medium transition duration-200"
-          >
-            Send Reset Instructions
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px' }}>
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: `1px solid ${COLORS.borderLight}`,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  background: COLORS.whiteCard,
+                  outline: 'none',
+                  transition: 'all 0.2s ease',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.forestGreen;
+                  e.currentTarget.style.boxShadow = `0 0 0 3px ${COLORS.forestGreen}15`;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.borderLight;
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+                placeholder="Enter your email"
+              />
+            </div>
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setCurrentScreen('login')}
-            className="inline-flex items-center text-gray-600 hover:text-gray-800 text-sm font-medium"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Sign In
-          </button>
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: COLORS.burntOrange,
+                border: 'none',
+                borderRadius: '8px',
+                color: COLORS.white,
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                marginTop: '8px',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; }}
+            >
+              Send Reset Instructions
+            </button>
+          </form>
+
+          <div style={{ marginTop: '24px', textAlign: 'center' }}>
+            <button
+              onClick={() => setCurrentScreen('login')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: 'transparent',
+                border: 'none',
+                color: COLORS.textSecondary,
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                gap: '8px',
+              }}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Sign In
+            </button>
+          </div>
         </div>
       </div>
     </div>

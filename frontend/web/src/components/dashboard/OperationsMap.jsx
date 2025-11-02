@@ -5,6 +5,16 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation } from '@/components/shared/Icons';
 
+// Map-specific colors using CSS variables
+const MAP_COLORS = {
+  WILDLIFE_NORMAL: '#2E5D45',
+  PATROL: '#3B82F6',
+  MIGRATION: '#E8961C',
+  BREEDING: '#D84315',
+  LOCATION: '#3B82F6',
+  GRAY_DEFAULT: '#6B7280',
+};
+
 // Fix for default markers in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -16,10 +26,10 @@ L.Icon.Default.mergeOptions({
 // Custom marker icons for different conservation status levels
 const createCustomIcon = (status) => {
   const colors = {
-  'Normal': 'var(--brand-primary)',
-    'High Activity': '#3b82f6', 
-    'Migration Season': '#f59e0b',
-    'Breeding Season': '#8b5cf6'
+    'Normal': MAP_COLORS.WILDLIFE_NORMAL,
+    'High Activity': MAP_COLORS.PATROL,
+    'Migration Season': MAP_COLORS.MIGRATION,
+    'Breeding Season': MAP_COLORS.BREEDING
   };
   
   return L.divIcon({
@@ -27,7 +37,7 @@ const createCustomIcon = (status) => {
     html: `<div style="
       width: 24px; 
       height: 24px; 
-      background-color: ${colors[status] || '#6b7280'}; 
+      background-color: ${colors[status] || MAP_COLORS.GRAY_DEFAULT}; 
       border: 3px solid white; 
       border-radius: 50%; 
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -43,7 +53,7 @@ const currentLocationIcon = L.divIcon({
   html: `<div style="
     width: 20px; 
     height: 20px; 
-    background-color: #3b82f6; 
+    background-color: ${MAP_COLORS.LOCATION}; 
     border: 4px solid white; 
     border-radius: 50%; 
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);

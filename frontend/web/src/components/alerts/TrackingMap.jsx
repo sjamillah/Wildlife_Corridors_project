@@ -1,6 +1,13 @@
 import React from 'react';
 import MapComponent from '../shared/MapComponent';
 
+// Map-specific colors using CSS variables
+const MAP_COLORS = {
+  WILDLIFE_NORMAL: '#2E5D45',
+  ALERT_CRITICAL: '#EF4444',
+  ALERT_WARNING: '#F59E0B',
+};
+
 const TrackingMap = ({ animals, onAnimalSelect }) => {
   // Convert animals data to markers format for MapComponent with proper colors
   const markers = animals ? animals.map(animal => {
@@ -9,14 +16,14 @@ const TrackingMap = ({ animals, onAnimalSelect }) => {
     switch (animal.risk) {
       case 'High':
       case 'Critical':
-        color = '#ef4444'; // red-500
+        color = MAP_COLORS.ALERT_CRITICAL;
         break;
       case 'Medium':
-        color = '#f59e0b'; // amber-500
+        color = MAP_COLORS.ALERT_WARNING;
         break;
       case 'Low':
       default:
-  color = '#D76B27'; // brand-primary
+        color = MAP_COLORS.WILDLIFE_NORMAL;
         break;
     }
 

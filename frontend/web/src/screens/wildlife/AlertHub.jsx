@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, Zap, Shield, Clock, AlertTriangle, CheckCircle, Users, MapPin, Activity, Eye, Battery, Heart, Wrench } from '@/components/shared/Icons';
+import { Search, AlertTriangle, MapPin, Users, Clock, Zap, Plus, Download } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
-import { AlertHubHeader } from '../../components/shared/HeaderVariants';
+import { BRAND_COLORS, COLORS, rgba } from '../../constants/Colors';
 
 const AlertHub = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [, setSelectedAlert] = useState(null);
+  const [selectedAlert, setSelectedAlert] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
   const [alerts] = useState([
@@ -25,7 +25,13 @@ const AlertHub = () => {
       coordinates: [34.8532, -2.0891],
       responseTeam: 'KWS Amboseli Unit',
       estimatedRisk: 'High',
-      icon: 'MdEmergency'
+      story: 'Elephant herd led by matriarch Nafisa has been detected moving towards Kimana Village. KWS rangers have been dispatched to intercept and guide the herd away from populated areas. Coordination with local community leaders is underway.',
+      riskLevel: 'Critical',
+      team: {
+        name: 'KWS Amboseli Unit',
+        members: ['John Mwangi', 'Sarah Kipchoge', 'David Ochieng'],
+        description: 'Specialized unit trained in human-wildlife conflict resolution'
+      }
     },
     {
       id: 'ALT-002',
@@ -41,7 +47,13 @@ const AlertHub = () => {
       coordinates: [34.7821, -2.1245],
       responseTeam: 'Tech Team',
       estimatedRisk: 'Medium',
-      icon: 'MdBattery0Bar'
+      story: 'GPS collar on leopard Duma has dropped to critical battery levels. Field team has been scheduled for battery replacement tomorrow morning. Animal remains in safe monitoring range.',
+      riskLevel: 'High',
+      team: {
+        name: 'Tech Team',
+        members: ['Peter Kimani', 'Mary Wanjiku'],
+        description: 'Technical support team for tracking equipment maintenance'
+      }
     },
     {
       id: 'ALT-003',
@@ -57,7 +69,13 @@ const AlertHub = () => {
       coordinates: [34.8901, -2.0672],
       responseTeam: 'Vet Team',
       estimatedRisk: 'Medium',
-      icon: 'Heart'
+      story: 'Rhino R-008 has been showing unusual movement patterns consistent with potential injury or illness. Veterinary team dispatched to assess condition and provide treatment if necessary.',
+      riskLevel: 'Medium',
+      team: {
+        name: 'Vet Team',
+        members: ['Dr. James Omondi', 'Dr. Grace Akinyi'],
+        description: 'Wildlife veterinary specialists for health assessments'
+      }
     },
     {
       id: 'ALT-004',
@@ -73,7 +91,13 @@ const AlertHub = () => {
       coordinates: [34.8234, -2.1089],
       responseTeam: 'Maintenance',
       estimatedRisk: 'Low',
-      icon: 'MdConstruction'
+      story: 'Routine scheduled maintenance check completed successfully. All collar systems functioning normally.',
+      riskLevel: 'Low',
+      team: {
+        name: 'Maintenance Team',
+        members: ['Michael Otieno'],
+        description: 'Routine maintenance and diagnostics team'
+      }
     },
     {
       id: 'ALT-005',
@@ -89,7 +113,13 @@ const AlertHub = () => {
       coordinates: [34.7956, -2.0934],
       responseTeam: 'Security Team',
       estimatedRisk: 'High',
-      icon: 'MdShieldHalf'
+      story: 'Perimeter sensors detected possible fence breach at Fence Line 4 on North Ridge. Security patrol dispatched to investigate and repair if needed. Enhanced monitoring activated.',
+      riskLevel: 'High',
+      team: {
+        name: 'Security Team',
+        members: ['Robert Kiptoo', 'Susan Chebet', 'Paul Mwangi'],
+        description: 'Security and perimeter monitoring unit'
+      }
     }
   ]);
 
@@ -102,13 +132,22 @@ const AlertHub = () => {
     console.log('Creating new alert...');
   };
 
-  const handleExport = () => {
-    console.log('Exporting report...');
-  };
+  const filteredAlerts = alerts.filter(alert => {
+    const matchesSearch = alert.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         alert.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         alert.location.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesFilter = filterStatus === 'all' || alert.status === filterStatus;
+    
+    return matchesSearch && matchesFilter;
+  });
 
-  const filteredAlerts = filterStatus === 'all' 
-    ? alerts 
-    : alerts.filter(alert => alert.status === filterStatus);
+  // Auto-select first alert if none selected
+  React.useEffect(() => {
+    if (!selectedAlert && filteredAlerts.length > 0) {
+      setSelectedAlert(filteredAlerts[0]);
+    }
+  }, [filteredAlerts, selectedAlert]);
 
   const alertCounts = {
     all: alerts.length,
@@ -118,219 +157,639 @@ const AlertHub = () => {
     resolved: alerts.filter(a => a.status === 'resolved').length
   };
 
-  const priorityCounts = {
-    critical: alerts.filter(a => a.priority === 'critical').length,
-    high: alerts.filter(a => a.priority === 'high').length,
-    medium: alerts.filter(a => a.priority === 'medium').length,
-    low: alerts.filter(a => a.priority === 'low').length
+  const getSeverityColor = (priority) => {
+    switch (priority) {
+      case 'critical': return COLORS.error;
+      case 'high': return COLORS.ochre;
+      case 'medium': return COLORS.info;
+      default: return COLORS.success;
+    }
+  };
+
+  const getSeverityBg = (priority) => {
+    switch (priority) {
+      case 'critical': return COLORS.tintCritical;
+      case 'high': return COLORS.tintWarning;
+      case 'medium': return rgba('statusInfo', 0.1);
+      default: return COLORS.tintSuccess;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return COLORS.error;
+      case 'acknowledged': return COLORS.info;
+      case 'investigating': return COLORS.ochre;
+      case 'resolved': return COLORS.success;
+      default: return COLORS.textSecondary;
+    }
+  };
+
+  const getStatusBg = (status) => {
+    switch (status) {
+      case 'active': return COLORS.tintCritical;
+      case 'acknowledged': return rgba('statusInfo', 0.1);
+      case 'investigating': return COLORS.tintWarning;
+      case 'resolved': return COLORS.tintSuccess;
+      default: return COLORS.creamBg;
+    }
   };
 
   return (
-    <div className="flex h-screen bg-brand-bg overflow-hidden">
-      <Sidebar 
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        onLogout={handleLogout}
-      />
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", background: COLORS.creamBg, minHeight: '100vh' }}>
+      <Sidebar onLogout={handleLogout} />
       
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <AlertHubHeader 
-          alerts={alerts} 
-          onNewAlert={handleNewAlert}
-          onExport={handleExport}
-        />
+      {/* Main Content */}
+      <div style={{ marginLeft: '260px', minHeight: '100vh' }}>
+        {/* Page Header */}
+        <section style={{ background: COLORS.forestGreen, padding: '28px 40px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'white', marginBottom: '6px', letterSpacing: '-0.6px' }}>
+              Alert Management
+            </h1>
+            <p style={{ fontSize: '14px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.9)' }}>
+              Monitor and respond to conservation alerts
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* Active count */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '8px 16px', borderRadius: '6px', color: 'white', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS.error }}></div>
+              Active: {alertCounts.active}
+            </div>
+            {/* New Alert button */}
+            <button
+              onClick={handleNewAlert}
+              style={{
+                background: COLORS.burntOrange,
+                border: `2px solid ${COLORS.burntOrange}`,
+                color: 'white',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; e.currentTarget.style.borderColor = COLORS.terracotta; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; e.currentTarget.style.borderColor = COLORS.burntOrange; }}
+            >
+              <Plus className="w-4 h-4" />
+              New Alert
+            </button>
+          </div>
+        </section>
 
-        {/* Status Overview */}
-  <div className="bg-gradient-to-r from-brand-primary to-brand-highlight px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-text-secondary">Critical Alerts</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-brand-text">{priorityCounts.critical}</p>
-                </div>
-                <div className="p-3 bg-status-error/10 rounded-xl">
-                  <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-status-error" />
-                </div>
+        {/* Status Overview Bar */}
+        <section style={{ background: COLORS.secondaryBg, padding: '20px 40px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+          <div style={{ display: 'flex', gap: '2px', background: COLORS.borderLight, borderRadius: '8px', overflow: 'hidden', height: '70px' }}>
+            {/* Active */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: COLORS.tintCritical,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onClick={() => setFilterStatus('active')}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.error, marginBottom: '4px' }}>
+                {alertCounts.active}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Active
               </div>
             </div>
 
-            <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-text-secondary">High Priority</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-brand-text">{priorityCounts.high}</p>
-                </div>
-                <div className="p-3 bg-status-warning/10 rounded-xl">
-                  <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-status-warning" />
-                </div>
+            {/* Acknowledged */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: rgba('statusInfo', 0.1),
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onClick={() => setFilterStatus('acknowledged')}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.info, marginBottom: '4px' }}>
+                {alertCounts.acknowledged}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Acknowledged
               </div>
             </div>
 
-            <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-text-secondary">Investigating</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-brand-text">{alertCounts.investigating}</p>
-                </div>
-                <div className="p-3 bg-status-info/10 rounded-xl">
-                  <Search className="w-5 h-5 sm:w-6 sm:h-6 text-status-info" />
-                </div>
+            {/* Investigating */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: COLORS.tintWarning,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onClick={() => setFilterStatus('investigating')}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.ochre, marginBottom: '4px' }}>
+                {alertCounts.investigating}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Investigating
               </div>
             </div>
 
-            <div className="bg-brand-surface rounded-xl shadow-lg border border-brand-border p-4 sm:p-6 hover:shadow-xl transition-all duration-300 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-text-secondary">Resolved</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-brand-text">{alertCounts.resolved}</p>
-                </div>
-                <div className="p-3 bg-status-success/10 rounded-xl">
-                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-status-success" />
-                </div>
+            {/* Resolved */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: COLORS.tintSuccess,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onClick={() => setFilterStatus('resolved')}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.success, marginBottom: '4px' }}>
+                {alertCounts.resolved}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Resolved
+              </div>
+            </div>
+
+            {/* Total */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: COLORS.secondaryBg,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onClick={() => setFilterStatus('all')}
+            >
+              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '4px' }}>
+                {alertCounts.all}
+              </div>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
+                Total
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4 sm:p-6 lg:p-8">
-            {/* Filter Tabs */}
-            <div className="bg-brand-surface rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 border border-brand-border shadow-lg animate-fade-in">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex-1 relative max-w-md">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search alerts by ID, type, or location..."
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
-                  />
-                </div>
+        {/* Alerts Section - Split Layout */}
+        <section style={{ display: 'flex', height: 'calc(100vh - 240px)' }}>
+          {/* Left Panel - Alert Cards (60%) */}
+          <div style={{ width: '60%', overflowY: 'auto', background: COLORS.creamBg, padding: '32px 28px' }}>
+            {/* Panel Header */}
+            <div style={{ marginBottom: '24px' }}>
+              {/* Search Box */}
+              <div style={{ position: 'relative', marginBottom: '16px' }}>
+                <Search className="w-4 h-4" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: COLORS.textSecondary }} />
+                <input
+                  type="text"
+                  placeholder="Search alerts..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '14px 18px 14px 46px',
+                    border: `2px solid ${COLORS.borderLight}`,
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    background: 'white',
+                    outline: 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.forestGreen;
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(46,93,69,0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.borderLight;
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                />
               </div>
-              
-              <div className="flex space-x-2">
-                {[
-                  { key: 'all', label: 'All Alerts', count: alertCounts.all, icon: Bell },
-                  { key: 'active', label: 'Active', count: alertCounts.active, icon: AlertTriangle },
-                  { key: 'acknowledged', label: 'Acknowledged', count: alertCounts.acknowledged, icon: Eye },
-                  { key: 'investigating', label: 'Investigating', count: alertCounts.investigating, icon: Search },
-                  { key: 'resolved', label: 'Resolved', count: alertCounts.resolved, icon: CheckCircle }
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setFilterStatus(tab.key)}
-                    className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg font-medium transition ${
-                      filterStatus === tab.key
-                        ? 'bg-brand-primary text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <tab.icon className="w-5 h-5" />
-                    <span className="text-sm">{tab.label}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                      filterStatus === tab.key ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
+              {/* Filter Pills */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {['all', 'active', 'acknowledged', 'investigating', 'resolved'].map((filter) => {
+                  const isActive = filterStatus === filter;
+                  const label = filter === 'all' ? 'All' :
+                               filter === 'active' ? 'Active' :
+                               filter === 'acknowledged' ? 'Acknowledged' :
+                               filter === 'investigating' ? 'Investigating' : 'Resolved';
+
+                  return (
+                    <button
+                      key={filter}
+                      onClick={() => setFilterStatus(filter)}
+                      style={{
+                        padding: '8px 16px',
+                        border: `1px solid ${isActive ? COLORS.forestGreen : COLORS.borderLight}`,
+                        background: isActive ? COLORS.forestGreen : COLORS.whiteCard,
+                        color: isActive ? COLORS.white : COLORS.textSecondary,
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.borderColor = COLORS.borderMedium;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.borderColor = COLORS.borderLight;
+                        }
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Alerts List */}
-            <div className="space-y-4">
-              {filteredAlerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  onClick={() => setSelectedAlert(alert)}
-                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 overflow-hidden"
-                >
-                  <div className={`h-1 ${
-                    alert.priority === 'critical' ? 'bg-red-500' : 
-                    alert.priority === 'high' ? 'bg-orange-500' : 
-                    alert.priority === 'medium' ? 'bg-yellow-500' : 
-                    'bg-brand-primary'
-                  }`} />
+            {/* Alert Cards Grid */}
+            <div style={{ display: 'grid', gap: '20px' }}>
+              {filteredAlerts.map((alert) => {
+                const severityColor = getSeverityColor(alert.priority);
+                const severityBg = getSeverityBg(alert.priority);
+                const statusColor = getStatusColor(alert.status);
+                const statusBg = getStatusBg(alert.status);
 
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start space-x-4">
-                                <div className="text-4xl">
-                                  {alert.type === 'Critical' && <AlertTriangle className="w-10 h-10 text-red-600" />}
-                                  {alert.type === 'Warning' && <Battery className="w-10 h-10 text-orange-600" />}
-                                  {alert.type === 'Health' && <Heart className="w-10 h-10 text-brand-moss" />}
-                                  {alert.type === 'Maintenance' && <Wrench className="w-10 h-10 text-brand-earth" />}
-                                  {alert.type === 'Security' && <Shield className="w-10 h-10 text-gray-700" />}
-                                </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="font-bold text-gray-900 text-lg">{alert.title}</h3>
-                            <span className="text-xs text-gray-400 font-mono">{alert.id}</span>
-                          </div>
-                          <p className="text-gray-600 mb-2">{alert.description}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <div className="flex items-center space-x-1">
-                              <MapPin className="w-4 h-4" />
-                              <span>{alert.location}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <Clock className="w-4 h-4" />
-                              <span>{alert.timestamp}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <Users className="w-4 h-4" />
-                              <span>{alert.responseTeam}</span>
-                            </div>
-                          </div>
+                return (
+                  <div
+                    key={alert.id}
+                    onClick={() => setSelectedAlert(alert)}
+                    style={{
+                      background: COLORS.whiteCard,
+                      border: `1px solid ${selectedAlert?.id === alert.id ? COLORS.burntOrange : COLORS.borderLight}`,
+                      borderRadius: '8px',
+                      padding: '20px',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedAlert?.id !== alert.id) {
+                        e.currentTarget.style.borderColor = COLORS.borderMedium;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedAlert?.id !== alert.id) {
+                        e.currentTarget.style.borderColor = COLORS.borderLight;
+                      }
+                    }}
+                  >
+                    {/* Left Accent Bar */}
+                    <div style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: '4px',
+                      borderRadius: '8px 0 0 8px',
+                      background: severityColor
+                    }}></div>
+
+                    {/* Card Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      {/* Left Section */}
+                      <div style={{ flex: 1 }}>
+                        {/* Icon wrapper */}
+                        <div style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '22px',
+                          background: severityBg,
+                          marginBottom: '12px'
+                        }}>
+                          <AlertTriangle className="w-6 h-6" style={{ color: severityColor }} />
+                        </div>
+                        {/* Title */}
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '8px' }}>
+                          {alert.title}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <span className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold">
-                          {alert.status === 'active' && <AlertTriangle className="w-4 h-4 text-red-600" />}
-                          {alert.status === 'acknowledged' && <Eye className="w-4 h-4 text-brand-primary" />}
-                          {alert.status === 'investigating' && <Search className="w-4 h-4 text-yellow-600" />}
-                          {alert.status === 'resolved' && <CheckCircle className="w-4 h-4 text-brand-primary" />}
-                          <span className="text-gray-700">{alert.status.charAt(0).toUpperCase() + alert.status.slice(1)}</span>
+
+                      {/* Right Section - Badges */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
+                        {/* Status pill */}
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          background: statusBg,
+                          color: statusColor
+                        }}>
+                          {alert.status}
                         </span>
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                          alert.priority === 'critical' ? 'bg-red-500 text-white' :
-                          alert.priority === 'high' ? 'bg-orange-500 text-white' :
-                          alert.priority === 'medium' ? 'bg-yellow-500 text-white' :
-                          'bg-gray-500 text-white'
-                        }`}>
-                          {alert.priority.toUpperCase()}
+                        {/* Severity pill */}
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          background: alert.priority === 'critical' ? COLORS.error :
+                                     alert.priority === 'high' ? COLORS.ochre :
+                                     alert.priority === 'medium' ? COLORS.info : COLORS.success,
+                          color: 'white'
+                        }}>
+                          {alert.priority}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          <Activity className="w-4 h-4 text-brand-primary" />
-                          <span className="text-sm text-gray-600">{alert.animalType} - {alert.animalId}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Shield className="w-4 h-4 text-brand-primary" />
-                          <span className="text-sm text-gray-600">Risk: {alert.estimatedRisk}</span>
-                        </div>
+                    {/* Description */}
+                    <div style={{ fontSize: '14px', color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: '16px', textAlign: 'left' }}>
+                      {alert.description}
+                    </div>
+
+                    {/* Meta Tags */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', paddingTop: '14px', borderTop: `1px solid ${COLORS.creamBg}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: COLORS.textSecondary, fontWeight: 600 }}>
+                        <MapPin className="w-3.5 h-3.5" />
+                        {alert.location}
                       </div>
-                      <div className="flex space-x-2">
-                        <button className="px-4 py-2 bg-brand-primary hover:bg-brand-earth text-white text-sm font-semibold rounded-lg transition flex items-center space-x-2">
-                          <Zap className="w-4 h-4" />
-                          <span>Respond</span>
-                        </button>
-                        <button className="px-4 py-2 border border-gray-200 hover:border-gray-300 text-gray-700 text-sm font-semibold rounded-lg transition flex items-center space-x-2">
-                          <Eye className="w-4 h-4" />
-                          <span>Details</span>
-                        </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: COLORS.textSecondary, fontWeight: 600 }}>
+                        <Clock className="w-3.5 h-3.5" />
+                        {alert.timestamp}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: COLORS.textSecondary, fontWeight: 600 }}>
+                        <Users className="w-3.5 h-3.5" />
+                        {alert.responseTeam}
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
-        </div>
+
+          {/* Right Panel - Details (40%) */}
+          <div style={{ width: '40%', background: COLORS.whiteCard, overflowY: 'auto', padding: '40px 36px', borderLeft: `2px solid ${COLORS.borderLight}` }}>
+            {selectedAlert ? (
+              <>
+                {/* Details Header */}
+                <div style={{ marginBottom: '28px' }}>
+                  {/* Icon */}
+                  <div style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '10px',
+                    background: getSeverityBg(selectedAlert.priority),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '26px',
+                    marginBottom: '16px'
+                  }}>
+                    <AlertTriangle className="w-7 h-7" style={{ color: getSeverityColor(selectedAlert.priority) }} />
+                  </div>
+                  {/* Title */}
+                  <h2 style={{ fontSize: '22px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '6px', lineHeight: 1.3 }}>
+                    {selectedAlert.title}
+                  </h2>
+                  {/* ID */}
+                  <div style={{ fontSize: '12px', color: COLORS.textSecondary, fontWeight: 500, marginBottom: '16px' }}>
+                    {selectedAlert.id}
+                  </div>
+                  {/* Badges */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '28px' }}>
+                    <span style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      background: getStatusBg(selectedAlert.status),
+                      color: getStatusColor(selectedAlert.status)
+                    }}>
+                      {selectedAlert.status}
+                    </span>
+                    <span style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      background: selectedAlert.priority === 'critical' ? COLORS.error :
+                                 selectedAlert.priority === 'high' ? COLORS.ochre :
+                                 selectedAlert.priority === 'medium' ? COLORS.info : COLORS.success,
+                      color: 'white'
+                    }}>
+                      {selectedAlert.priority}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Story Section */}
+                <div style={{ background: COLORS.secondaryBg, padding: '20px', marginBottom: '32px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>
+                    Story
+                  </div>
+                  <div style={{ fontSize: '15px', color: COLORS.textPrimary, lineHeight: 1.8, textAlign: 'left' }}>
+                    {selectedAlert.story}
+                  </div>
+                </div>
+
+                {/* Info Grid */}
+                <div style={{ display: 'grid', gap: '16px', marginBottom: '32px' }}>
+                  <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                      Location
+                    </div>
+                    <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <MapPin className="w-4.5 h-4.5" style={{ color: COLORS.textSecondary }} />
+                      {selectedAlert.location}
+                    </div>
+                  </div>
+
+                  <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                      Animal
+                    </div>
+                    <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500 }}>
+                      {selectedAlert.animalType} - {selectedAlert.animalId}
+                    </div>
+                  </div>
+
+                  <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                      Timestamp
+                    </div>
+                    <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Clock className="w-4.5 h-4.5" style={{ color: COLORS.textSecondary }} />
+                      {selectedAlert.timestamp}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Risk Card */}
+                <div style={{ paddingBottom: '16px', borderBottom: `1px solid ${COLORS.borderLight}`, marginBottom: '32px' }}>
+                  <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                    Risk Level
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: COLORS.error, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertTriangle className="w-5 h-5" />
+                    {selectedAlert.riskLevel}
+                  </div>
+                </div>
+
+                {/* Team Section */}
+                <div style={{ paddingBottom: '16px', borderBottom: `1px solid ${COLORS.borderLight}`, marginBottom: '32px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <Users className="w-4.5 h-4.5" style={{ color: COLORS.textSecondary }} />
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: COLORS.textPrimary }}>
+                      {selectedAlert.team.name}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '14px', color: BRAND_COLORS.TEXT_TERTIARY, lineHeight: 1.6, textAlign: 'left' }}>
+                    {selectedAlert.team.description}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '32px', paddingTop: '24px', borderTop: `1px solid ${COLORS.borderLight}` }}>
+                  {/* Primary Button */}
+                  <button
+                    onClick={() => console.log('Respond to', selectedAlert.id)}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      background: COLORS.burntOrange,
+                      border: 'none',
+                      color: 'white',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; }}
+                  >
+                    <Zap className="w-4 h-4" />
+                    Respond
+                  </button>
+                  {/* Secondary Buttons */}
+                  <button
+                    onClick={() => console.log('Acknowledge', selectedAlert.id)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'transparent',
+                      border: `1px solid ${COLORS.borderLight}`,
+                      color: COLORS.textSecondary,
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = COLORS.borderMedium;
+                      e.currentTarget.style.background = COLORS.secondaryBg;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = COLORS.borderLight;
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    Acknowledge
+                  </button>
+                  <button
+                    onClick={() => console.log('Export', selectedAlert.id)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'transparent',
+                      border: `1px solid ${COLORS.borderLight}`,
+                      color: COLORS.textSecondary,
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = COLORS.borderMedium;
+                      e.currentTarget.style.background = COLORS.secondaryBg;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = COLORS.borderLight;
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <Download className="w-4 h-4" />
+                    Export Details
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: COLORS.textSecondary, fontSize: '14px' }}>
+                Select an alert to view details
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

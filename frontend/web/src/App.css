@@ -3,25 +3,54 @@
 }
 
 :root {
-  /* Consistent brand palette aligned with Tailwind config */
-  --brand-primary: #D76B27;
-  --brand-secondary: #EECFAF; 
-  --brand-accent: #A7A87A;
-  --brand-highlight: #E67E22;
-  --brand-text: #3A2E1E;
-  --brand-text-secondary: #6B5E52;
-  --brand-bg: #FFF9F3;
-  --brand-surface: #FFFFFF;
-  --brand-border: #E5E7EB;
-  --brand-muted: #F9FAFB;
+  /* Earth-tone wildlife conservation palette */
+  --forest-green: #2E5D45;
+  --burnt-orange: #D84315;
+  --terracotta: #C1440E;
+  --ochre: #E8961C;
+  --cream-bg: #F5F1E8;
+  --beige-sidebar: #E8E3D6;
+  --white-card: #FFFFFF;
+  --secondary-bg: #FAFAF8;
+  
+  /* Text colors */
+  --text-primary: #2C2416;
+  --text-secondary: #6B5E4F;
+  --text-tertiary: #4A4235;
+  
+  /* Border colors */
+  --border-light: #E8E3D6;
+  --border-medium: #D4CCBA;
+  
+  /* Status tints */
+  --tint-critical: #FEF3F2;
+  --tint-rangers: #EDF5F0;
+  --tint-success: #ECFDF5;
+  --tint-warning: #FEF9E7;
+  --tint-offline: #FAFAF8;
+  
   /* Status colors */
   --status-success: #10B981;
   --status-warning: #F59E0B; 
   --status-error: #EF4444;
   --status-info: #3B82F6;
+  
+  /* Legacy brand aliases for compatibility */
+  --brand-primary: #2E5D45;
+  --brand-secondary: #E8E3D6; 
+  --brand-accent: #D84315;
+  --brand-highlight: #2E5D45;
+  --brand-text: #2C2416;
+  --brand-text-secondary: #6B5E4F;
+  --brand-bg: #F5F1E8;
+  --brand-surface: #FFFFFF;
+  --brand-border: #E8E3D6;
+  --brand-muted: #FAFAF8;
+  
   /* RGB values for opacity variants */
-  --brand-primary-rgb: 215,107,39;
-  --brand-moss-rgb: 167,168,122;
+  --forest-green-rgb: 46,93,69;
+  --burnt-orange-rgb: 216,67,21;
+  --status-info-rgb: 59,130,246;
 }
 
 /* Brand helper utilities */
@@ -57,56 +86,55 @@
 .bg-status-error { background-color: var(--status-error) !important; }
 .bg-status-info { background-color: var(--status-info) !important; }
 
+/* New palette utilities */
+.bg-forest-green { background-color: var(--forest-green) !important; }
+.bg-burnt-orange { background-color: var(--burnt-orange) !important; }
+.bg-cream { background-color: var(--cream-bg) !important; }
+.bg-beige-sidebar { background-color: var(--beige-sidebar) !important; }
+.bg-white-card { background-color: var(--white-card) !important; }
+
+.text-forest-green { color: var(--forest-green) !important; }
+.text-burnt-orange { color: var(--burnt-orange) !important; }
+.text-primary { color: var(--text-primary) !important; }
+.text-secondary { color: var(--text-secondary) !important; }
+
+.border-light { border-color: var(--border-light) !important; }
+.border-medium { border-color: var(--border-medium) !important; }
+
+/* Status tint utilities */
+.bg-tint-critical { background-color: var(--tint-critical) !important; }
+.bg-tint-rangers { background-color: var(--tint-rangers) !important; }
+.bg-tint-success { background-color: var(--tint-success) !important; }
+.bg-tint-warning { background-color: var(--tint-warning) !important; }
+.bg-tint-offline { background-color: var(--tint-offline) !important; }
+
+/* Legacy color overrides for backwards compatibility */
 .text-emerald-600, .text-emerald-500, .text-emerald-700,
 .text-green-600, .text-green-500 {
-  color: var(--brand-primary) !important;
+  color: var(--forest-green) !important;
 }
 
-/* Backgrounds remap to warm palette */
 .bg-emerald-500, .bg-emerald-600, .bg-green-500, .bg-green-600 {
-  background-color: var(--brand-primary) !important;
-}
-.bg-emerald-50, .bg-emerald-100, .bg-amber-100, .bg-orange-100, .bg-red-100 {
-  background-color: var(--brand-accent) !important;
+  background-color: var(--forest-green) !important;
 }
 
-/* Borders */
 .border-emerald-500, .border-green-500, .border-emerald-600 {
-  border-color: var(--brand-primary) !important;
+  border-color: var(--forest-green) !important;
 }
 
-/* Gradient tokens (Tailwind sets these CSS variables) */
-.from-emerald-500 { --tw-gradient-from: var(--brand-primary); }
-.to-green-500 { --tw-gradient-to: var(--brand-accent); }
-.via-emerald-500 { --tw-gradient-stops: var(--brand-primary), var(--brand-accent); }
-
-/* Common utility variants (hover/peer-checked) — override the underlying classes
-   Note: Tailwind generates pseudo-class variants; matching the base utility ensures the
-   hover/checked variants will use the overridden value at runtime.
-*/
-.hover\:bg-emerald-600, .hover\:bg-emerald-500, .hover\:bg-green-600 { background-color: var(--brand-primary) !important; }
-.peer-checked\:bg-emerald-600 { background-color: var(--brand-primary) !important; }
+.hover\:bg-emerald-600, .hover\:bg-emerald-500, .hover\:bg-green-600 { 
+  background-color: var(--forest-green) !important; 
+}
+.peer-checked\:bg-emerald-600 { 
+  background-color: var(--forest-green) !important; 
+}
 
 /* Enhanced background patterns for a more organic, human feel */
 .wildlife-background {
-  /* warmer, slightly textured background — avoid pure white */
-  background: linear-gradient(135deg, #fbf8f2 0%, #f7efe6 40%, #f1e9de 100%);
+  /* warm cream background — no gradients */
+  background: var(--cream-bg);
   background-attachment: fixed;
   position: relative;
-}
-
-.wildlife-background::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: 
-    radial-gradient(circle at 25% 25%, rgba(var(--brand-1-rgb), 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(var(--brand-2-rgb), 0.02) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
 }
 
 /* Enhanced card animations for more natural feel */
@@ -116,7 +144,8 @@
 }
 
 .enhanced-card:hover {
-  transform: translateY(-4px) scale(1.02);
+  transform: translateY(-4px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 /* Subtle text enhancements */
@@ -142,14 +171,14 @@
 }
 
 /* Sidebar / navigation utilities */
-.sidebar-base { background-color: var(--bg-warm); }
+.sidebar-base { background-color: var(--beige-sidebar); }
 .nav-item-active {
-  background: linear-gradient(90deg, rgba(231,184,122,0.12), rgba(249,243,237,0.6));
-  border: 1px solid rgba(231,184,122,0.18);
-  color: var(--brand-earth);
+  background: var(--white-card);
+  border-left: 4px solid var(--forest-green);
+  color: var(--forest-green);
 }
-.nav-item-inactive { color: #5b5b5b; }
-.nav-item-hover:hover { background-color: rgba(0,0,0,0.03); }
+.nav-item-inactive { color: var(--text-secondary); }
+.nav-item-hover:hover { background-color: var(--white-card); }
 
 .App {
   text-align: center;
@@ -414,6 +443,35 @@ body {
   background-size: 20px 20px;
   animation: hologram 3s ease-in-out infinite;
 }
+
+/* Map UI enhancements */
+.custom-wildlife-marker {
+  animation: markerBreath 3s ease-in-out infinite;
+}
+
+@keyframes markerBreath {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25)); }
+  50% { transform: scale(1.06); filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
+}
+
+.custom-wildlife-marker.out-of-corridor {
+  animation: markerAlert 1s ease-in-out infinite;
+}
+
+@keyframes markerAlert {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(239,68,68,0.2); }
+}
+
+.corridor-glow {
+  filter: drop-shadow(0 0 6px rgba(46,93,69,0.6));
+}
+
+.season-overlay {
+  transition: background-color 300ms ease;
+}
+.season-overlay.wet { background-color: rgba(var(--forest-green-rgb), 0.06); }
+.season-overlay.dry { background-color: rgba(156, 109, 66, 0.06); }
 
 @keyframes hologram {
   0%, 100% { background-position: 0 0; }

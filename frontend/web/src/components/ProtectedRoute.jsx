@@ -3,9 +3,12 @@ import { Navigate } from 'react-router-dom';
 import auth from '../services/auth';
 
 const ProtectedRoute = ({ children }) => {
-  if (!auth.isAuthenticated()) {
+  const isAuth = auth.isAuthenticated();
+  
+  if (!isAuth) {
     return <Navigate to="/auth" replace />;
   }
+  
   return children;
 };
 
