@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, MaterialIcons, FontAwesome5, Ionicons, Feather } from '@expo/vector-icons';
+import { UI_COLORS } from '../../constants/Colors';
 
 /**
  * Centralized Icon Component for Wildlife Corridors App
@@ -64,8 +65,8 @@ export default Icon;
 export const IconWithBackground = ({ 
   name, 
   size = 24, 
-  color = '#000', 
-  backgroundColor = '#f0f0f0',
+  color = UI_COLORS.ICON_DEFAULT, 
+  backgroundColor = UI_COLORS.ICON_BG,
   library = 'MaterialCommunityIcons',
   containerSize = 40,
   borderRadius = 20,

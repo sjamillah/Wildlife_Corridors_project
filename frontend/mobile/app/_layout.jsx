@@ -2,11 +2,24 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Text, TextInput, Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '../hooks/useColorScheme';
 import { ThemeProvider as AppThemeProvider } from '../contexts/ThemeContext';
 import { AlertsProvider } from '../contexts/AlertsContext';
+import { FONT_FAMILY } from '../constants/Typography';
+
+// Apply serif font globally to all Text and TextInput components
+if (Text.defaultProps == null) {
+  Text.defaultProps = {};
+}
+Text.defaultProps.style = { fontFamily: FONT_FAMILY.REGULAR };
+
+if (TextInput.defaultProps == null) {
+  TextInput.defaultProps = {};
+}
+TextInput.defaultProps.style = { fontFamily: FONT_FAMILY.REGULAR };
 
 export default function RootNavigationLayout() {
   const colorScheme = useColorScheme();

@@ -19,7 +19,7 @@ export function ReportTypeSwitch({ reportTypes, currentReportType, onSwitch }) {
             <IconSymbol 
               name={config.icon} 
               size={16} 
-              color={currentReportType === key ? '#ffffff' : '#666666'} 
+              color={currentReportType === key ? 'white' : '#666666'} 
             />
             <Text className={`text-sm font-medium ${
               currentReportType === key ? 'text-white' : 'text-gray-600'

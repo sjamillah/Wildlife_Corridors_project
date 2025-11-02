@@ -19,9 +19,16 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/Aureynx_Logo.png",
-        "backgroundColor": "#D76B27"
+        "backgroundColor": "#2E5D45"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "package": "com.aureynx.wildlifecorridors"
     },
     "web": {
       "bundler": "metro",
@@ -37,7 +44,7 @@
           "image": "./assets/images/Aureynx_Logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#D76B27"
+          "backgroundColor": "#2E5D45"
         }
       ],
       [
@@ -46,10 +53,25 @@
           "RNMapboxMapsImpl": "mapbox",
           "RNMAPBOX_MAPS_DOWNLOAD_TOKEN": "pk.eyJ1IjoiamFtbXktbCIsImEiOiJjbWd0YWRmNnAwMjZwMmpyN252a2d2ajd1In0.M0mjFFqLPLGPfz2mEFNBKA"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d51b5b66-0676-476d-bb34-37e51bcf13d6"
+      }
+    },
+    "owner": "jammy-b",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d51b5b66-0676-476d-bb34-37e51bcf13d6"
     }
   }
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TouchableOpacity, Text, StyleSheet, Dimensions } from 'react-native';
-import { Colors } from '../../constants/Colors';
+import { Colors, UI_COLORS, BRAND_COLORS } from '../../constants/Colors';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -23,33 +23,33 @@ export function Button({
     switch (variant) {
       case 'primary':
         return {
-          backgroundColor: disabled ? '#94a3b8' : colors.accent.primary,
+          backgroundColor: disabled ? UI_COLORS.BUTTON_DISABLED : BRAND_COLORS.ACCENT,
           borderWidth: 0,
         };
       case 'secondary':
         return {
-          backgroundColor: colors.background,
+          backgroundColor: colors.surface,
           borderWidth: 1,
           borderColor: colors.border,
         };
       case 'warning':
         return {
-          backgroundColor: disabled ? '#94a3b8' : colors.accent.warning,
+          backgroundColor: disabled ? UI_COLORS.BUTTON_DISABLED : colors.accent.warning,
           borderWidth: 0,
         };
       case 'danger':
         return {
-          backgroundColor: disabled ? '#94a3b8' : colors.accent.danger,
+          backgroundColor: disabled ? UI_COLORS.BUTTON_DISABLED : colors.accent.danger,
           borderWidth: 0,
         };
       case 'success':
         return {
-          backgroundColor: disabled ? '#94a3b8' : colors.accent.success,
+          backgroundColor: disabled ? UI_COLORS.BUTTON_DISABLED : colors.accent.success,
           borderWidth: 0,
         };
       default:
         return {
-          backgroundColor: disabled ? '#94a3b8' : colors.accent.primary,
+          backgroundColor: disabled ? '#94a3b8' : BRAND_COLORS.ACCENT,
           borderWidth: 0,
         };
     }
@@ -131,7 +131,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     // Web-compatible shadow
@@ -144,10 +144,10 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
-    elevation: 3,
+    elevation: 2,
   },
   text: {
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
     includeFontPadding: false,
   },

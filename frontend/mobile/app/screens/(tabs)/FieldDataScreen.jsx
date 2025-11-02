@@ -10,447 +10,305 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LogoHeader } from '../../../components/ui/LogoHeader';
-import { useTheme } from '../../../contexts/ThemeContext';
+import { router } from 'expo-router';
 import { useAlerts } from '../../../contexts/AlertsContext';
-import { Colors, BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
+import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
 
 export default function FieldDataScreen() {
-  const { theme } = useTheme();
-  const colors = Colors[theme];
   const { addAlert } = useAlerts();
   
   const [currentReportType, setCurrentReportType] = useState('incident');
   const [formData, setFormData] = useState({
     type: '',
     severity: '',
-    species: 'Elephant',
+    species: '',
     count: 1,
     notes: '',
-    hasPhoto: false,
-    hasLocation: true,
-    additionalData: {}
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Report type configurations
   const reportTypes = {
     incident: {
-      title: 'Log Field Data',
-      primaryField: 'type',
-      icon: 'FileText',
+      title: 'Incident',
       types: [
-        'Equipment Malfunction',
-        'Security Breach',
-        'Environmental Hazard',
-        'Wildlife Sighting',
-        'Maintenance Required',
-        'Safety Incident',
-        'Other'
+        { label: 'Poaching Activity', emoji: '🚨' },
+        { label: 'Human-Wildlife Conflict', emoji: '⚠️' },
+        { label: 'Equipment Malfunction', emoji: '⚙️' },
+        { label: 'Security Breach', emoji: '🔒' },
+        { label: 'Fire Outbreak', emoji: '🔥' },
+        { label: 'Injured Animal', emoji: '🩹' },
+        { label: 'Fence Damage', emoji: '🪛' },
+        { label: 'Vehicle Breakdown', emoji: '🚙' },
+        { label: 'Other', emoji: '📋' }
       ],
       hasSeverity: false,
-      hasCount: false,
-      hasSpecies: false
     },
     obstruction: {
-      title: 'Report Obstruction',
-      primaryField: 'type',
-      icon: 'RoadBlock',
+      title: 'Obstruction',
       types: [
-        'Fallen Tree',
-        'Rock Slide',
-        'Flood Damage',
-        'Bridge Collapse',
-        'Road Washout',
-        'Debris',
-        'Vehicle Breakdown',
-        'Other'
+        { label: 'Fallen Tree', emoji: '🌳' },
+        { label: 'Rock Slide', emoji: '🪨' },
+        { label: 'Flood Damage', emoji: '💧' },
+        { label: 'Road Erosion', emoji: '🛣️' },
+        { label: 'Debris Pile', emoji: '🪵' },
+        { label: 'Mud Slide', emoji: '🌊' },
+        { label: 'Other', emoji: '⚠️' }
       ],
       hasSeverity: true,
-      hasCount: false,
-      hasSpecies: false,
       severityLevels: [
-        { 
-          level: 'Critical', 
-          color: STATUS_COLORS.WARNING, 
-          description: 'Complete blockage, immediate action required' 
-        },
-        { 
-          level: 'High', 
-          color: STATUS_COLORS.ERROR, 
-          description: 'Major obstruction, affects operations' 
-        },
-        { 
-          level: 'Medium', 
-          color: STATUS_COLORS.SUCCESS, 
-          description: 'Partial obstruction, manageable' 
-        }
+        { level: 'Critical', color: STATUS_COLORS.ERROR, description: 'Complete blockage, immediate action required' },
+        { level: 'High', color: BRAND_COLORS.HIGHLIGHT, description: 'Major obstruction, affects operations' },
+        { level: 'Medium', color: STATUS_COLORS.SUCCESS, description: 'Partial obstruction, manageable' }
       ]
     },
     wildlife: {
-      title: 'New Sighting',
-      primaryField: 'species',
-      icon: 'Eye',
+      title: 'Wildlife',
       types: [
-        { name: 'Elephant', icon: 'elephant', iconColor: BRAND_COLORS.ACCENT, description: 'African Elephant' },
-        { name: 'Wildebeest', icon: 'cow', iconColor: BRAND_COLORS.TEXT, description: 'Blue Wildebeest' },
-        { name: 'Other Animal', icon: 'paw', iconColor: BRAND_COLORS.TEXT_SECONDARY, description: 'Other Wildlife Species' }
+        { label: 'Elephant', emoji: '🐘' },
+        { label: 'Wildebeest', emoji: '🦬' },
+        { label: 'Lion', emoji: '🦁' },
+        { label: 'Rhino', emoji: '🦏' },
+        { label: 'Giraffe', emoji: '🦒' },
+        { label: 'Zebra', emoji: '🦓' },
+        { label: 'Buffalo', emoji: '🐃' },
+        { label: 'Leopard', emoji: '🐆' },
+        { label: 'Other', emoji: '🦘' }
       ],
       hasSeverity: false,
-      hasCount: true,
-      hasSpecies: true
     }
   };
 
   const currentConfig = reportTypes[currentReportType];
 
-  const adjustCount = (increment) => {
-    const newCount = formData.count + increment;
-    if (newCount >= 0) {
-      updateFormData('count', newCount);
-    }
-  };
-
-  const switchReportType = (newType) => {
-    setCurrentReportType(newType);
-    // Reset form when switching types
-    setFormData({
-      type: '',
-      severity: '',
-      species: 'Elephant',
-      count: 1,
-      notes: '',
-      hasPhoto: false,
-      hasLocation: true,
-      additionalData: {}
-    });
-  };
-
-  const handleSubmit = () => {
-    // Validation based on report type
-    if (currentConfig.hasSeverity && !formData.severity) {
-      Alert.alert('Validation Error', 'Please select a severity level');
-      return;
-    }
-    if (!formData.type && !formData.species) {
-      Alert.alert('Validation Error', `Please select a ${currentConfig.primaryField}`);
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    if (currentReportType === 'obstruction') {
-      const alertData = {
-        title: `${formData.type} - ${formData.severity} Priority`,
-        type: 'Obstruction',
-        priority: formData.severity,
-        icon: 'alert-triangle',
-        color: formData.severity === 'Critical' ? STATUS_COLORS.ERROR :
-               formData.severity === 'High' ? STATUS_COLORS.WARNING : STATUS_COLORS.SUCCESS,
-        description: formData.notes || `${formData.type} reported via field app`,
-        location: '-1.4061° S, 35.0117° E (Maasai Mara, Kenya)',
-        hasPhoto: formData.hasPhoto,
-        reportedBy: 'Field Ranger'
-      };
-      addAlert(alertData);
-    }
-
-    setTimeout(() => {
-      setIsSubmitting(false);
-      Alert.alert('Success', `${currentConfig.title} submitted successfully!`);
-
-      // Reset form
-      setFormData({
-        type: '',
-        severity: '',
-        species: 'Elephant',
-        count: 1,
-        notes: '',
-        hasPhoto: false,
-        hasLocation: true,
-        additionalData: {}
-      });
-    }, 2000);
-  };
-
   const updateFormData = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleSubmit = () => {
+    if (!formData.type) {
+      Alert.alert('Validation Error', 'Please select a type');
+      return;
+    }
+    if (currentConfig.hasSeverity && !formData.severity) {
+      Alert.alert('Validation Error', 'Please select severity level');
+      return;
+    }
 
-  const renderReportTypeSwitcher = () => (
-    <View style={styles.reportTypeSwitcher}>
-      <View style={styles.switcherContainer}>
-        {Object.entries(reportTypes).map(([key, config]) => (
-          <TouchableOpacity
-            key={key}
-            onPress={() => switchReportType(key)}
-            style={[
-              styles.switcherButton,
-              currentReportType === key && styles.switcherButtonActive
-            ]}
-          >
-            {config.icon === 'FileText' && <MaterialCommunityIcons name="file-document" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
-            {config.icon === 'RoadBlock' && <MaterialCommunityIcons name="gate-alert" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
-            {config.icon === 'Eye' && <MaterialCommunityIcons name="eye" size={16} color={currentReportType === key ? '#fff' : '#666'} />}
-            <Text style={[
-              styles.switcherButtonText,
-              currentReportType === key && styles.switcherButtonTextActive
-            ]}>
-              {key.charAt(0).toUpperCase() + key.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+    setIsSubmitting(true);
+    setTimeout(() => {
+      setIsSubmitting(false);
+      Alert.alert('Success', `${currentConfig.title} report submitted successfully!`);
+      setFormData({ type: '', severity: '', species: '', count: 1, notes: '' });
+    }, 1500);
+  };
+
+  const handleClose = () => {
+    router.back();
+  };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <LogoHeader />
+      <StatusBar barStyle="light" backgroundColor={BRAND_COLORS.PRIMARY} />
       
-      {renderReportTypeSwitcher()}
+      {/* Screen Header */}
+      <View style={styles.screenHeader}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.push('/screens/(tabs)/DashboardScreen')}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={24} color={BRAND_COLORS.SURFACE} />
+        </TouchableOpacity>
+        <Text style={styles.screenTitle}>New Report</Text>
+        <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting} style={styles.saveButton}>
+          <Text style={[styles.saveText, { color: isSubmitting ? 'rgba(255,255,255,0.5)' : BRAND_COLORS.SURFACE }]}>
+            {isSubmitting ? 'Saving...' : 'Save'}
+          </Text>
+        </TouchableOpacity>
+      </View>
       
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Type Selection with Wildlife Grid */}
-        <View style={styles.dropdownContainer}>
-          <Text style={styles.label}>
-            {currentConfig.primaryField === 'species' ? 'Species' : 
-             currentConfig.primaryField === 'type' ? 
-             (currentReportType === 'obstruction' ? 'Obstruction Type' : 'Incident Type') : 
-             'Selection'}
-          </Text>
+        {/* Title Area */}
+        <View style={styles.titleArea}>
+          <Text style={styles.newReportLabel}>NEW REPORT</Text>
+          <Text style={styles.reportTitle}>{currentConfig.title}</Text>
           
-          {/* Wildlife Grid for species selection */}
-          {currentConfig.hasSpecies && (
-            <View style={styles.wildlifeGrid}>
-              {currentConfig.types.slice(0, 4).map((animal) => (
+          {/* Report Type Tabs */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
+            <View style={styles.tabsContainer}>
+              {Object.keys(reportTypes).map((key) => (
                 <TouchableOpacity
-                  key={animal.name}
-                  onPress={() => updateFormData('species', animal.name)}
+                  key={key}
+                  onPress={() => setCurrentReportType(key)}
                   style={[
-                    styles.animalButton,
-                    formData.species === animal.name && styles.animalButtonSelected
+                    styles.tab,
+                    currentReportType === key && styles.activeTab
                   ]}
                 >
-                  <MaterialCommunityIcons 
-                    name={animal.icon} 
-                    size={32} 
-                    color={animal.iconColor}
-                    style={styles.animalIcon}
-                  />
-                  <Text style={styles.animalName}>{animal.name}</Text>
+                  <Text style={[
+                    styles.tabText,
+                    currentReportType === key && styles.activeTabText
+                  ]}>
+                    {reportTypes[key].title}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          )}
-          
-          {/* Picker for all types */}
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={currentConfig.hasSpecies ? formData.species : formData.type}
-              onValueChange={(value) => updateFormData(currentConfig.hasSpecies ? 'species' : 'type', value)}
-              style={styles.picker}
-            >
-              <Picker.Item 
-                label={`Select ${currentConfig.primaryField}`} 
-                value="" 
-              />
-              {currentConfig.types.map(item => (
-                <Picker.Item
-                  key={typeof item === 'string' ? item : item.name}
-                  label={typeof item === 'string' ? item : `${item.name} - ${item.description}`}
-                  value={typeof item === 'string' ? item : item.name}
-                />
+          </ScrollView>
+        </View>
+
+        {/* Section 1: Type Selection */}
+        <View style={styles.section}>
+          <View style={styles.sectionNumber}>
+            <Text style={styles.sectionNumberText}>1</Text>
+          </View>
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionTitle}>Select Type</Text>
+            <View style={styles.typeGrid}>
+              {currentConfig.types.map((item) => (
+                <TouchableOpacity
+                  key={item.label}
+                  onPress={() => updateFormData('type', item.label)}
+                  style={[
+                    styles.typeCard,
+                    formData.type === item.label && styles.typeCardSelected
+                  ]}
+                >
+                  <Text style={styles.typeEmoji}>{item.emoji}</Text>
+                  <Text style={styles.typeLabel}>{item.label}</Text>
+                </TouchableOpacity>
               ))}
-            </Picker>
+            </View>
           </View>
         </View>
 
-        {/* Severity for Obstructions */}
+        {/* Section 2: Severity (for Obstruction) or Details */}
         {currentConfig.hasSeverity && (
-          <View style={styles.severityContainer}>
-            <Text style={styles.label}>Severity Level</Text>
-            {currentConfig.severityLevels.map(({ level, color, description }) => (
-              <TouchableOpacity
-                key={level}
-                onPress={() => updateFormData('severity', level)}
-                style={[
-                  styles.severityButton,
-                  { backgroundColor: color },
-                  formData.severity === level && styles.severityButtonSelected
-                ]}
-              >
-                <Text style={styles.severityLevel}>{level}</Text>
-                <Text style={styles.severityDescription}>{description}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Count for Wildlife */}
-        {currentConfig.hasCount && (
-          <View style={styles.countContainer}>
-            <Text style={styles.label}>Count</Text>
-            <View style={styles.countSelector}>
-              <TouchableOpacity
-                onPress={() => adjustCount(-1)}
-                style={[styles.countButton, formData.count <= 0 && styles.countButtonDisabled]}
-                disabled={formData.count <= 0}
-              >
-                <MaterialCommunityIcons name="minus" size={20} color={formData.count <= 0 ? '#ccc' : '#666'} />
-              </TouchableOpacity>
-              
-              <View style={styles.countDisplay}>
-                <TextInput
-                  value={formData.count.toString()}
-                  onChangeText={(text) => updateFormData('count', Math.max(0, parseInt(text) || 0))}
-                  style={styles.countInput}
-                  keyboardType="numeric"
-                />
-              </View>
-              
-              <TouchableOpacity
-                onPress={() => adjustCount(1)}
-                style={styles.countButton}
-              >
-                <MaterialCommunityIcons name="plus" size={20} color="#666" />
-              </TouchableOpacity>
+          <View style={styles.section}>
+            <View style={styles.sectionNumber}>
+              <Text style={styles.sectionNumberText}>2</Text>
+            </View>
+            <View style={styles.sectionContent}>
+              <Text style={styles.sectionTitle}>Severity Level</Text>
+              {currentConfig.severityLevels.map(({ level, color, description }) => (
+                <TouchableOpacity
+                  key={level}
+                  onPress={() => updateFormData('severity', level)}
+                  style={styles.severityRow}
+                >
+                  <View style={[styles.severityBorder, { backgroundColor: color }]} />
+                  <View style={styles.severityInfo}>
+                    <Text style={styles.severityName}>{level}</Text>
+                    <Text style={styles.severityDesc}>{description}</Text>
+                  </View>
+                  <View style={[
+                    styles.radioButton,
+                    formData.severity === level && styles.radioButtonSelected
+                  ]}>
+                    {formData.severity === level && <View style={styles.radioInner} />}
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         )}
 
-        {/* Notes */}
-        <View style={styles.notesContainer}>
-          <Text style={styles.label}>Additional Notes</Text>
-          <TextInput
-            value={formData.notes}
-            onChangeText={(text) => updateFormData('notes', text)}
-            placeholder={
-              currentReportType === 'wildlife' ? 'Behavior, location details, group composition...' :
-              currentReportType === 'obstruction' ? 'Additional obstruction details...' :
-              'Enter detailed notes here...'
-            }
-            style={styles.notesInput}
-          />
+        {!currentConfig.hasSeverity && (
+          <View style={styles.section}>
+            <View style={styles.sectionNumber}>
+              <Text style={styles.sectionNumberText}>2</Text>
+            </View>
+            <View style={styles.sectionContent}>
+              <Text style={styles.sectionTitle}>Details</Text>
+              <TextInput
+                value={formData.notes}
+                onChangeText={(text) => updateFormData('notes', text)}
+                placeholder="Describe the incident..."
+                placeholderTextColor={BRAND_COLORS.TEXT_SECONDARY}
+                multiline
+                numberOfLines={4}
+                style={styles.detailsTextarea}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Section 3: Notes */}
+        <View style={styles.section}>
+          <View style={styles.sectionNumber}>
+            <Text style={styles.sectionNumberText}>{currentConfig.hasSeverity ? '3' : '3'}</Text>
+          </View>
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionTitle}>Additional Notes</Text>
+            <TextInput
+              value={formData.notes}
+              onChangeText={(text) => updateFormData('notes', text)}
+              placeholder="Add any additional information..."
+              placeholderTextColor={BRAND_COLORS.TEXT_SECONDARY}
+              multiline
+              numberOfLines={3}
+              style={styles.notesTextarea}
+            />
+          </View>
         </View>
 
-        {/* Photo Button */}
-        <TouchableOpacity
-          onPress={() => updateFormData('hasPhoto', !formData.hasPhoto)}
-          style={[
-            styles.photoButton,
-            formData.hasPhoto && styles.photoButtonSelected
-          ]}
-        >
-          <MaterialCommunityIcons 
-            name="camera" 
-            size={24} 
-            color={formData.hasPhoto ? STATUS_COLORS.SUCCESS : '#666'} 
-          />
-          <Text style={[
-            styles.photoButtonText,
-            formData.hasPhoto && styles.photoButtonTextSelected
-          ]}>
-            {formData.hasPhoto ? 'Photo Added (Optional)' : 'Add Photo (Optional)'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Enhanced Map Preview */}
-        <View style={styles.mapContainer}>
-          <View style={styles.gpsRow}>
-            <MaterialCommunityIcons name="earth" size={16} color={STATUS_COLORS.SUCCESS} />
-            <Text style={styles.gpsText}>
-              GPS Tagged: -1.4061° S, 35.0117° E (Maasai Mara, Kenya)
-            </Text>
+        {/* Section 4: Location */}
+        <View style={styles.section}>
+          <View style={styles.sectionNumber}>
+            <Text style={styles.sectionNumberText}>4</Text>
           </View>
-          <View style={styles.mapPreview}>
-            {/* Realistic map background */}
-            <View style={styles.mapBackground}>
-              {/* Grid overlay */}
-              <View style={styles.mapGrid}>
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <View key={`h-${i}`} style={[styles.gridLine, { top: `${i * 12.5}%` }]} />
-                ))}
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <View key={`v-${i}`} style={[styles.gridLineVertical, { left: `${i * 12.5}%` }]} />
-                ))}
-              </View>
-              
-              {/* Simulated landmarks */}
-              <View style={[styles.landmark, { top: '20%', left: '15%', backgroundColor: '#8B5CF6' }]} />
-              <View style={[styles.landmark, { top: '70%', right: '20%', backgroundColor: '#F59E0B' }]} />
-              <View style={[styles.landmark, { bottom: '15%', left: '30%', backgroundColor: '#EF4444' }]} />
-              
-              {/* User location with pulsing effect */}
-              <View style={styles.locationMarker}>
-                <View style={styles.locationPulse} />
-                <View style={styles.locationDot} />
-              </View>
-              
-              {/* Location label with better styling */}
-              <View style={styles.locationLabel}>
-                <View style={styles.locationLabelRow}>
-                  <MaterialCommunityIcons name="binoculars" size={12} color="#FFFFFF" />
-                  <Text style={styles.locationLabelText}>Your Location</Text>
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionTitle}>Location</Text>
+            
+            {/* Location Display */}
+            <View style={styles.locationDisplay}>
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationEmoji}>📍</Text>
+                <View>
+                  <Text style={styles.locationName}>Maasai Mara Reserve</Text>
+                  <Text style={styles.locationCoords}>-1.4061° S, 35.0117° E</Text>
                 </View>
               </View>
+              <TouchableOpacity>
+                <Text style={styles.editLink}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Map Preview */}
+            <View style={styles.simpleMap}>
+              <View style={styles.mapPin}>
+                <Text style={styles.mapPinText}>📍</Text>
+              </View>
             </View>
           </View>
         </View>
+      </ScrollView>
 
-        {/* Form Summary */}
-        {(formData.type || formData.species || formData.severity || formData.notes) && (
-          <View style={styles.summaryContainer}>
-            <Text style={styles.summaryTitle}>Report Summary</Text>
-            <View style={styles.summaryContent}>
-              {formData.type && <Text style={styles.summaryItem}>• Type: {formData.type}</Text>}
-              {formData.species && <Text style={styles.summaryItem}>• Species: {formData.species}</Text>}
-              {formData.severity && <Text style={styles.summaryItem}>• Severity: {formData.severity}</Text>}
-              {currentConfig.hasCount && <Text style={styles.summaryItem}>• Count: {formData.count}</Text>}
-              <Text style={styles.summaryItem}>• Location: GPS Tagged</Text>
-              {formData.hasPhoto && <Text style={styles.summaryItem}>• Photo: Attached</Text>}
-              {formData.notes && (
-                <Text style={styles.summaryItem}>
-                  • Notes: {formData.notes.slice(0, 50)}{formData.notes.length > 50 ? '...' : ''}
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Submit Button */}
+      {/* Fixed Submit Bar */}
+      <View style={styles.submitBar}>
         <TouchableOpacity
           onPress={handleSubmit}
           disabled={isSubmitting}
           style={[
             styles.submitButton,
+            { backgroundColor: BRAND_COLORS.ACCENT },
             isSubmitting && styles.submitButtonDisabled
           ]}
         >
           {isSubmitting ? (
-            <View style={styles.submitButtonContent}>
-              <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.submitButtonText}>
-                Submitting {currentConfig.title}...
-              </Text>
-            </View>
+            <ActivityIndicator color={BRAND_COLORS.SURFACE} />
           ) : (
             <Text style={styles.submitButtonText}>
-              {currentReportType === 'wildlife' ? 'Log Sighting' :
-               currentReportType === 'obstruction' ? 'Report Obstruction' :
-               'Save Report'}
+              Submit {currentConfig.title} Report
             </Text>
           )}
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -458,328 +316,295 @@ export default function FieldDataScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: BRAND_COLORS.SURFACE,
   },
-  reportTypeSwitcher: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  switcherContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  switcherButton: {
-    flex: 1,
+  screenHeader: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingTop: 56,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    gap: 6,
+    alignItems: 'center',
   },
-  switcherButtonActive: {
-    backgroundColor: BRAND_COLORS.PRIMARY,
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: BRAND_COLORS.SURFACE,
+    flex: 1,
+    textAlign: 'center',
   },
-  switcherButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
+  saveButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  switcherButtonTextActive: {
-    color: '#fff',
+  saveText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   scrollContent: {
-    padding: 16,
     paddingBottom: 100,
   },
-  label: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 12,
+  titleArea: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    backgroundColor: BRAND_COLORS.SURFACE,
   },
-  wildlifeGrid: {
-    flexDirection: 'row',
-    gap: 12,
+  newReportLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  reportTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: BRAND_COLORS.TEXT,
     marginBottom: 16,
   },
-  animalButton: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    alignItems: 'center',
+  tabsScroll: {
+    marginHorizontal: -20,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+  },
+  tab: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+  },
+  activeTab: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+  },
+  activeTabText: {
+    color: BRAND_COLORS.SURFACE,
+  },
+  section: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderBottomWidth: 1,
+    borderBottomColor: BRAND_COLORS.BORDER_LIGHT,
+  },
+  sectionNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: BRAND_COLORS.TEXT,
     justifyContent: 'center',
-    padding: 8,
+    alignItems: 'center',
+    marginRight: 16,
   },
-  animalButtonSelected: {
-    backgroundColor: BRAND_COLORS.SECONDARY + '40',
-    borderWidth: 2,
-    borderColor: BRAND_COLORS.PRIMARY,
+  sectionNumberText: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 13,
+    fontWeight: '700',
   },
-  animalIcon: {
-    marginBottom: 4,
+  sectionContent: {
+    flex: 1,
   },
-  animalName: {
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  dropdownContainer: {
-    marginBottom: 24,
-  },
-  pickerContainer: {
-    backgroundColor: BRAND_COLORS.SURFACE,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: BRAND_COLORS.BORDER,
-  },
-  picker: {
-    height: 60,
-    backgroundColor: BRAND_COLORS.SURFACE,
-    borderWidth: 0,
-  },
-  severityContainer: {
-    marginBottom: 24,
-  },
-  severityButton: {
-    padding: 16,
-    borderRadius: 8,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
     marginBottom: 12,
   },
-  severityButtonSelected: {
-    elevation: 8,
-  },
-  severityLevel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  severityDescription: {
-    fontSize: 14,
-    color: '#fff',
-    opacity: 0.9,
-  },
-  countContainer: {
-    marginBottom: 24,
-  },
-  countSelector: {
+  typeGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  countButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countButtonDisabled: {
-    opacity: 0.5,
-  },
-  countDisplay: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-  },
-  countInput: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    color: '#111827',
-    width: '100%',
-  },
-  notesContainer: {
-    marginBottom: 24,
-  },
-  notesInput: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    textAlignVertical: 'top',
-    minHeight: 100,
-  },
-  photoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    marginBottom: 24,
+    flexWrap: 'wrap',
     gap: 12,
   },
-  photoButtonSelected: {
-    backgroundColor: BRAND_COLORS.SECONDARY + '40',
+  typeCard: {
+    width: '48%',
+    aspectRatio: 1.2,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)',
+  },
+  typeCardSelected: {
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderWidth: 2,
     borderColor: BRAND_COLORS.PRIMARY,
   },
-  photoButtonText: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#666',
+  typeEmoji: {
+    fontSize: 40,
+    marginBottom: 8,
   },
-  photoButtonTextSelected: {
-    color: BRAND_COLORS.PRIMARY,
-  },
-  mapContainer: {
-    marginBottom: 24,
-  },
-  gpsText: {
-    fontSize: 18,
+  typeLabel: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 12,
+    color: BRAND_COLORS.TEXT,
+    textAlign: 'center',
   },
-  mapPreview: {
-    height: 200,
-    borderRadius: 12,
+  severityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+    borderRadius: 8,
+    marginBottom: 8,
     position: 'relative',
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    elevation: 3,
-  },
-  mapBackground: {
-    flex: 1,
-    backgroundColor: '#2d5a3d',
-    position: 'relative',
-  },
-  mapGrid: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  gridLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: BRAND_COLORS.ACCENT,
-    opacity: 0.2,
-  },
-  gridLineVertical: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: BRAND_COLORS.ACCENT,
-    opacity: 0.2,
-  },
-  landmark: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'white',
+    borderColor: 'rgba(228, 227, 214, 0.3)',
   },
-  locationMarker: {
+  severityBorder: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginTop: -10,
-    marginLeft: -10,
-    zIndex: 10,
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderRadius: 8,
   },
-  locationPulse: {
-    position: 'absolute',
+  severityInfo: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+  severityName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
+    marginBottom: 2,
+  },
+  severityDesc: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+  },
+  radioButton: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#3B82F6',
-    opacity: 0.3,
+    borderWidth: 2,
+    borderColor: BRAND_COLORS.BORDER_MEDIUM,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  locationDot: {
-    width: 16,
-    height: 16,
-    backgroundColor: '#3B82F6',
+  radioButtonSelected: {
+    borderColor: BRAND_COLORS.PRIMARY,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: BRAND_COLORS.PRIMARY,
+  },
+  detailsTextarea: {
+    backgroundColor: BRAND_COLORS.BACKGROUND,
     borderRadius: 8,
-    borderWidth: 3,
-    borderColor: '#fff',
-    marginTop: 2,
-    marginLeft: 2,
+    padding: 12,
+    fontSize: 15,
+    color: BRAND_COLORS.TEXT,
+    textAlignVertical: 'top',
+    minHeight: 100,
+    borderWidth: 0,
   },
-  locationLabel: {
-    position: 'absolute',
-    top: '25%',
-    left: '50%',
-    backgroundColor: '#1F2937',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    transform: [{ translateX: -50 }],
-    borderWidth: 1,
-    borderColor: '#374151',
+  notesTextarea: {
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: BRAND_COLORS.TEXT,
+    textAlignVertical: 'top',
+    minHeight: 80,
+    borderWidth: 0,
   },
-  locationLabelRow: {
+  locationDisplay: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  locationInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 10,
   },
-  locationLabelText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  locationEmoji: {
+    fontSize: 20,
   },
-  summaryContainer: {
-    backgroundColor: '#dbeafe',
-    borderWidth: 1,
-    borderColor: '#93c5fd',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 24,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e40af',
-    marginBottom: 8,
-  },
-  summaryContent: {
-    gap: 4,
-  },
-  summaryItem: {
+  locationName: {
     fontSize: 14,
-    color: '#1d4ed8',
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
+  },
+  locationCoords: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+  },
+  editLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND_COLORS.ACCENT,
+  },
+  simpleMap: {
+    height: 220,
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  mapPin: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapPinText: {
+    fontSize: 40,
+  },
+  submitBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 2,
+    borderTopColor: BRAND_COLORS.BORDER_LIGHT,
   },
   submitButton: {
-    backgroundColor: BRAND_COLORS.PRIMARY,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
   },
   submitButtonDisabled: {
-    backgroundColor: '#9ca3af',
-  },
-  submitButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    opacity: 0.6,
   },
   submitButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    color: BRAND_COLORS.SURFACE,
   },
 });

@@ -5,17 +5,31 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Consistent brand palette matching web app
-        'brand-primary': '#D76B27',
-        'brand-secondary': '#EECFAF', 
-        'brand-accent': '#A7A87A',
-        'brand-highlight': '#E67E22',
-        'brand-text': '#3A2E1E',
-        'brand-text-secondary': '#6B5E52',
-        'brand-bg': '#FFF9F3',
-        'brand-surface': '#FFFFFF',
-        'brand-border': '#E5E7EB',
-        'brand-muted': '#F9FAFB',
+        // Earth-tone wildlife conservation palette
+        'forest-green': '#2E5D45',        // Headers
+        'burnt-orange': '#D84315',        // Accents/CTAs
+        'terracotta': '#C1440E',          // Secondary accent
+        'ochre': '#E8961C',               // Tertiary accent
+        'cream-bg': '#F5F1E8',            // Main background
+        'beige-sidebar': '#E8E3D6',       // Sidebar background
+        'white-card': '#FFFFFF',          // Card background
+        'secondary-bg': '#FAFAF8',        // Secondary background
+        
+        // Text colors
+        'text-primary': '#2C2416',
+        'text-secondary': '#6B5E4F',
+        'text-tertiary': '#4A4235',
+        
+        // Border colors
+        'border-light': '#E8E3D6',
+        'border-medium': '#D4CCBA',
+        
+        // Status tints
+        'tint-critical': '#FEF3F2',
+        'tint-rangers': '#EDF5F0',
+        'tint-success': '#ECFDF5',
+        'tint-warning': '#FEF9E7',
+        'tint-offline': '#FAFAF8',
         
         // Status colors
         'status-success': '#10B981',
@@ -23,17 +37,17 @@ module.exports = {
         'status-error': '#EF4444',
         'status-info': '#3B82F6',
         
-        // Dark mode counterparts
-        'brand-primary-dark': '#E67E22',
-        'brand-secondary-dark': '#C3541A',
-        'brand-accent-dark': '#FFB347',
-        'brand-bg-dark': '#1C1C1C',
-        'brand-surface-dark': '#2A1F18',
-        
-        // Legacy support (keeping old names for compatibility)
-        'brand-earth': '#A7A87A', // mapped to brand-accent
-        'brand-moss': '#A7A87A', // mapped to brand-accent
-        'bg-warm': '#FFF9F3', // mapped to brand-bg
+        // Legacy brand aliases for compatibility
+        'brand-primary': '#2E5D45',       // Forest green for headers
+        'brand-secondary': '#E8E3D6', 
+        'brand-accent': '#D84315',
+        'brand-highlight': '#2E5D45',
+        'brand-text': '#2C2416',
+        'brand-text-secondary': '#6B5E4F',
+        'brand-bg': '#F5F1E8',
+        'brand-surface': '#FFFFFF',
+        'brand-border': '#E8E3D6',
+        'brand-muted': '#FAFAF8',
       },
       fontFamily: {
         'sans': ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],

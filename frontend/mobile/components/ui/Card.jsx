@@ -63,5 +63,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     elevation: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)', // Very subtle border
   },
 });

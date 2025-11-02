@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Card } from '../../../components/ui/Card';
-import { LogoHeader } from '../../../components/ui/LogoHeader';
 import { Colors, BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAlerts } from '../../../contexts/AlertsContext';
@@ -24,10 +24,9 @@ export default function AlertsScreen() {
     resolveAlert 
   } = useAlerts();
   
-  const [activeTab, setActiveTab] = useState('Active');
-  const [selectedPriority, setSelectedPriority] = useState('All');
+  const [activeTab, setActiveTab] = useState('All');
 
-  const tabs = ['Active', 'Resolved'];
+  const tabs = ['All', 'Active', 'Resolved'];
 
   const handleAlertAction = (alertId, action) => {
     switch (action) {
@@ -63,30 +62,42 @@ export default function AlertsScreen() {
   };
 
   const filteredAlerts = alerts.filter(alert => {
-    const matchesTab = activeTab === 'Active' ? alert.active : !alert.active;
-    const matchesPriority = selectedPriority === 'All' || alert.priority === selectedPriority;
-    return matchesTab && matchesPriority;
+    if (activeTab === 'All') return true;
+    if (activeTab === 'Active') return alert.active;
+    if (activeTab === 'Resolved') return !alert.active;
+    return true;
   });
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style="light" />
-      <LogoHeader />
+      <StatusBar style="light" backgroundColor={BRAND_COLORS.PRIMARY} />
       
-      {/* Tab Navigation */}
-      <View style={styles.tabNavigation}>
+      {/* Screen Header */}
+      <View style={styles.screenHeader}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.push('/screens/(tabs)/DashboardScreen')}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={24} color={BRAND_COLORS.SURFACE} />
+        </TouchableOpacity>
+        <Text style={styles.screenTitle}>Alerts</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      
+      {/* Simple Filter Tabs */}
+      <View style={styles.filterTabs}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab}
             onPress={() => setActiveTab(tab)}
             style={[
-              styles.tabButton,
-              activeTab === tab && styles.activeTabButton
+              styles.filterTab,
+              activeTab === tab && styles.activeFilterTab
             ]}
           >
             <Text style={[
-              styles.tabButtonText,
-              activeTab === tab && styles.activeTabButtonText
+              styles.filterTabText,
+              activeTab === tab && styles.activeFilterTabText
             ]}>
               {tab}
             </Text>
@@ -94,101 +105,93 @@ export default function AlertsScreen() {
         ))}
       </View>
 
-      {/* Priority Filters */}
-      <View style={styles.filtersContainer}>
-        <View style={styles.priorityFilters}>
-          <Text style={styles.filterLabel}>Priority:</Text>
-          {['All', 'Critical', 'High', 'Medium'].map(priority => (
-            <TouchableOpacity
-              key={priority}
-              onPress={() => setSelectedPriority(priority)}
-              style={[
-                styles.priorityButton,
-                selectedPriority === priority && styles.activePriorityButton,
-                selectedPriority === priority && priority === 'Critical' && styles.criticalPriority,
-                selectedPriority === priority && priority === 'High' && styles.highPriority,
-                selectedPriority === priority && priority === 'Medium' && styles.mediumPriority,
-                selectedPriority === priority && priority === 'All' && styles.allPriority,
-              ]}
-            >
-              <Text style={[
-                styles.priorityButtonText,
-                selectedPriority === priority && styles.activePriorityButtonText
-              ]}>
-                {priority}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {filteredAlerts.map((alert) => (
-          <TouchableOpacity key={alert.id} activeOpacity={0.9}>
-            <Card style={styles.alertCard}>
-              <View style={styles.alertCardContent}>
-                {/* Left Accent Bar */}
-                <View style={[styles.alertAccent, { backgroundColor: alert.color }]} />
-                
-                {/* Alert Icon */}
-                <View style={[styles.alertIconCircle, { backgroundColor: alert.color + '20' }]}>
-                  <MaterialCommunityIcons name={alert.icon} size={24} color={alert.color} />
-                </View>
-                
-                {/* Alert Info */}
-                <View style={styles.alertInfo}>
-                  <Text style={[styles.alertTitleNew, { color: colors.text }]}>{alert.title}</Text>
-                  <View style={styles.alertMetaRow}>
-                    <Text style={[styles.alertTypeNew, { color: colors.textSecondary }]}>{alert.type}</Text>
-                    <Text style={[styles.alertTimestamp, { color: colors.textSecondary }]}>• {alert.timestamp}</Text>
-                  </View>
-                  <View style={styles.alertLocation}>
-                    <MaterialCommunityIcons name="map-marker" size={12} color={colors.textSecondary} />
-                    <Text style={[styles.alertLocationText, { color: colors.textSecondary }]}>
-                      {alert.location || 'Maasai Mara'} • {alert.distance || '0.8 km'}
-                    </Text>
+          <View 
+            key={alert.id}
+            style={[styles.alertCard, { 
+              backgroundColor: BRAND_COLORS.SURFACE,
+              borderLeftColor: alert.color
+            }]}
+          >
+            <View style={styles.cardContent}>
+              {/* Header Row */}
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderLeft}>
+                  <Text style={[styles.alertTitle, { color: BRAND_COLORS.TEXT }]}>{alert.title}</Text>
+                  <View style={styles.metaRow}>
+                    <Text style={[styles.alertType, { color: BRAND_COLORS.TEXT_SECONDARY }]}>{alert.type}</Text>
+                    <Text style={[styles.metaSeparator, { color: BRAND_COLORS.TEXT_TERTIARY }]}>•</Text>
+                    <Text style={[styles.alertTimestamp, { color: BRAND_COLORS.TEXT_SECONDARY }]}>{alert.timestamp}</Text>
                   </View>
                 </View>
                 
-                {/* Status Badge */}
-                <View style={[styles.statusBadgeNew, { 
-                  backgroundColor: alert.status === 'Active' ? STATUS_COLORS.ERROR + '20' : 
-                                   alert.status === 'Acknowledged' ? STATUS_COLORS.WARNING + '20' : 
-                                   STATUS_COLORS.SUCCESS + '20'
+                {/* Priority Badge */}
+                <View style={[styles.priorityBadge, { 
+                  backgroundColor: alert.color + '15',
+                  borderColor: alert.color
                 }]}>
-                  <Text style={[styles.statusBadgeText, {
-                    color: alert.status === 'Active' ? STATUS_COLORS.ERROR : 
-                           alert.status === 'Acknowledged' ? STATUS_COLORS.WARNING : 
-                           STATUS_COLORS.SUCCESS
-                  }]}>{alert.status}</Text>
+                  <Text style={[styles.priorityText, { color: alert.color }]}>
+                    {alert.priority}
+                  </Text>
                 </View>
               </View>
               
-              {/* Action Buttons */}
+              {/* Location */}
+              <View style={styles.locationRow}>
+                <MaterialCommunityIcons name="map-marker" size={14} color={BRAND_COLORS.TEXT_SECONDARY} />
+                <Text style={[styles.locationText, { color: BRAND_COLORS.TEXT_SECONDARY }]}>
+                  {alert.location || 'Maasai Mara Reserve'}
+                </Text>
+              </View>
+              
+              {/* Status and Actions Row */}
               {alert.active && (
-                <View style={styles.alertActionsNew}>
-                  {alert.status !== 'Acknowledged' && (
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: BRAND_COLORS.PRIMARY }]}
-                      onPress={() => handleAlertAction(alert.id, 'acknowledge')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.actionBtnText}>Acknowledge</Text>
-                    </TouchableOpacity>
-                  )}
-                  {alert.status !== 'Resolved' && (
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: STATUS_COLORS.SUCCESS }]}
-                      onPress={() => handleAlertAction(alert.id, 'resolve')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.actionBtnText}>Resolve</Text>
-                    </TouchableOpacity>
-                  )}
+                <View style={styles.actionsRow}>
+                  <View style={[styles.statusIndicator, { 
+                    backgroundColor: alert.status === 'Active' ? BRAND_COLORS.TERRA_COTTA + '20' : STATUS_COLORS.INFO + '15'
+                  }]}>
+                    <Text style={[styles.statusText, {
+                      color: alert.status === 'Active' ? BRAND_COLORS.TERRA_COTTA : STATUS_COLORS.INFO
+                    }]}>
+                      {alert.status}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.actionButtonsRow}>
+                    {alert.status !== 'Acknowledged' && (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { borderColor: BRAND_COLORS.ACCENT }]}
+                        onPress={() => handleAlertAction(alert.id, 'acknowledge')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.actionBtnText, { color: BRAND_COLORS.ACCENT }]}>Acknowledge</Text>
+                      </TouchableOpacity>
+                    )}
+                    {alert.status !== 'Resolved' && (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { borderColor: STATUS_COLORS.SUCCESS }]}
+                        onPress={() => handleAlertAction(alert.id, 'resolve')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.actionBtnText, { color: STATUS_COLORS.SUCCESS }]}>Resolve</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               )}
-            </Card>
-          </TouchableOpacity>
+              
+              {!alert.active && (
+                <View style={styles.resolvedBadge}>
+                  <Text style={styles.resolvedText}>✓ Resolved</Text>
+                </View>
+              )}
+            </View>
+          </View>
         ))}
 
         {filteredAlerts.length === 0 && (
@@ -204,229 +207,187 @@ export default function AlertsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor will be set dynamically by theme
   },
-  tabNavigation: {
+  screenHeader: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
     flexDirection: 'row',
-    backgroundColor: BRAND_COLORS.SURFACE,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND_COLORS.BORDER,
-    paddingTop: 8,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    backgroundColor: BRAND_COLORS.MUTED,
+    paddingVertical: 16,
+    paddingTop: 56,
   },
-  activeTabButton: {
-    backgroundColor: STATUS_COLORS.SUCCESS,
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: BRAND_COLORS.TEXT_SECONDARY,
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: BRAND_COLORS.SURFACE,
+    flex: 1,
     textAlign: 'center',
   },
-  activeTabButtonText: {
-    color: BRAND_COLORS.SURFACE,
+  headerSpacer: {
+    width: 40,
   },
-  filtersContainer: {
-    padding: 16,
-    backgroundColor: BRAND_COLORS.SURFACE,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  priorityFilters: {
+  filterTabs: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    backgroundColor: BRAND_COLORS.SECONDARY,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: BRAND_COLORS.BORDER_LIGHT,
   },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    marginRight: 4,
-  },
-  priorityButton: {
+  filterTab: {
+    flex: 1,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: BRAND_COLORS.MUTED,
+    borderRadius: 6,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.BORDER_LIGHT,
   },
-  activePriorityButton: {
-    backgroundColor: '#fbbf24',
+  activeFilterTab: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    borderColor: BRAND_COLORS.PRIMARY,
   },
-  criticalPriority: {
-    backgroundColor: '#fecaca',
-  },
-  highPriority: {
-    backgroundColor: '#fed7aa',
-  },
-  mediumPriority: {
-    backgroundColor: '#dcfce7',
-  },
-  allPriority: {
-    backgroundColor: '#fbbf24',
-  },
-  priorityButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
+  filterTabText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: BRAND_COLORS.TEXT_SECONDARY,
   },
-  activePriorityButtonText: {
-    color: '#92400e',
+  activeFilterTabText: {
+    color: BRAND_COLORS.SURFACE,
+    fontWeight: '700',
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 16,
+    paddingBottom: 100,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
   },
   alertCard: {
-    marginBottom: 12,
-    overflow: 'hidden',
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderRadius: 8,
+    marginBottom: 14,
+    borderLeftWidth: 4,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderBottomWidth: 2,
+    borderTopColor: BRAND_COLORS.BORDER_LIGHT,
+    borderRightColor: BRAND_COLORS.BORDER_LIGHT,
+    borderBottomColor: BRAND_COLORS.BORDER_LIGHT,
   },
-  alertCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  cardContent: {
     padding: 16,
-    position: 'relative',
   },
-  alertAccent: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-  },
-  alertIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-    marginRight: 12,
-  },
-  alertInfo: {
-    flex: 1,
-  },
-  alertTitleNew: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  alertMetaRow: {
+  cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    gap: 6,
-  },
-  alertTypeNew: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  alertTimestamp: {
-    fontSize: 12,
-  },
-  alertLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  alertLocationText: {
-    fontSize: 11,
-  },
-  statusBadgeNew: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  alertActionsNew: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: BRAND_COLORS.BORDER,
-  },
-  actionBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  actionBtnText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  alertHeader: {
-    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  alertIconContainer: {
-    marginRight: 12,
-    marginTop: 4,
-  },
-  alertIcon: {
-    fontSize: 20,
-  },
-  alertContent: {
+  cardHeaderLeft: {
     flex: 1,
+    marginRight: 12,
   },
   alertTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: '700',
     marginBottom: 4,
+    lineHeight: 22,
   },
-  alertMeta: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 6,
   },
   alertType: {
-    fontSize: 14,
-    color: BRAND_COLORS.TEXT_SECONDARY,
+    fontSize: 13,
+    fontWeight: '500',
   },
   metaSeparator: {
-    fontSize: 14,
-    color: BRAND_COLORS.TEXT_SECONDARY,
-    marginHorizontal: 8,
+    fontSize: 13,
+    fontWeight: '700',
   },
-  timestamp: {
-    fontSize: 14,
-    color: BRAND_COLORS.TEXT_SECONDARY,
+  alertTimestamp: {
+    fontSize: 13,
+    fontWeight: '500',
   },
-  statusContainer: {
+  priorityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  priorityText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
     marginBottom: 12,
   },
-  statusLabel: {
-    fontSize: 14,
+  locationText: {
+    fontSize: 13,
     fontWeight: '500',
-    color: '#111827',
-    marginRight: 8,
   },
-  statusBadge: {
-    marginRight: 8,
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: BRAND_COLORS.BORDER_LIGHT,
   },
-  alertActions: {
+  statusIndicator: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  actionButtonsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
   },
-  actionButton: {
-    paddingHorizontal: 12,
+  actionBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: BRAND_COLORS.BORDER_LIGHT,
+    backgroundColor: BRAND_COLORS.SURFACE,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  resolvedBadge: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: BRAND_COLORS.BORDER_LIGHT,
+    alignItems: 'flex-start',
+  },
+  resolvedText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: STATUS_COLORS.SUCCESS,
   },
   emptyState: {
     flex: 1,
@@ -438,29 +399,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: BRAND_COLORS.TEXT_SECONDARY,
     textAlign: 'center',
-  },
-  locationMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  locationText: {
-    fontSize: 12,
-    color: '#6B7280',
     fontWeight: '500',
-  },
-  distanceText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
   },
 });

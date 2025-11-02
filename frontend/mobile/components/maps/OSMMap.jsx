@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { BRAND_COLORS, STATUS_COLORS } from '../../constants/Colors';
+import { BRAND_COLORS, STATUS_COLORS, MAP_COLORS } from '../../constants/Colors';
 
 /**
  * OpenStreetMap Component
  * Pure React Native - No dependencies
  * Works on both Web and Mobile
+ * Note: This is a simplified map for web/simulator - use native build for full Mapbox
  */
 const OSMMap = ({
   markers = [],
@@ -19,6 +20,16 @@ const OSMMap = ({
   style = {},
   height = 400,
 }) => {
+  // Default to Maasai Mara bounds if none provided
+  const defaultBounds = {
+    north: -1.35,
+    south: -1.45,
+    east: 35.08,
+    west: 34.95,
+  };
+
+  const bounds = corridorBounds || defaultBounds;
+
   const getMarkerColor = (type, priority) => {
     if (type === 'alert') {
       if (priority === 'critical') return STATUS_COLORS.ERROR;
@@ -29,22 +40,18 @@ const OSMMap = ({
       checkpoint: STATUS_COLORS.SUCCESS,
       patrol: STATUS_COLORS.INFO,
       vehicle: STATUS_COLORS.WARNING,
-      camera: '#8B5CF6',
+      camera: MAP_COLORS.CAMERA,
     };
     return colors[type] || BRAND_COLORS.PRIMARY;
   };
 
   // Calculate marker position as percentage
   const getMarkerPosition = (marker) => {
-    if (!corridorBounds) {
-      return { top: '50%', left: '50%' };
-    }
+    const latRange = bounds.north - bounds.south;
+    const lngRange = bounds.east - bounds.west;
     
-    const latRange = corridorBounds.north - corridorBounds.south;
-    const lngRange = corridorBounds.east - corridorBounds.west;
-    
-    const top = ((corridorBounds.north - marker.lat) / latRange) * 100;
-    const left = ((marker.lng - corridorBounds.west) / lngRange) * 100;
+    const top = ((bounds.north - marker.lat) / latRange) * 100;
+    const left = ((marker.lng - bounds.west) / lngRange) * 100;
     
     return { 
       top: `${Math.max(5, Math.min(95, top))}%`, 
@@ -56,6 +63,9 @@ const OSMMap = ({
     <View style={[styles.container, style, { height }]}>
       {/* Map Background */}
       <View style={styles.mapBackground}>
+        {/* Terrain overlay - simulate savanna */}
+        <View style={styles.terrainOverlay} />
+        
         {/* Grid overlay */}
         {[...Array(6)].map((_, i) => (
           <View key={`h-${i}`} style={[styles.gridLine, { top: `${i * 16.67}%` }]} />
@@ -65,13 +75,18 @@ const OSMMap = ({
         ))}
 
         {/* Corridor boundary */}
-        {showGeofence && corridorBounds && (
+        {showGeofence && (
           <View style={styles.corridorBoundary}>
             <View style={styles.boundaryLabel}>
               <Text style={styles.boundaryText}>Wildlife Corridor</Text>
             </View>
           </View>
         )}
+        
+        {/* Web Simulator Notice */}
+        <View style={styles.simulatorNotice}>
+          <Text style={styles.simulatorText}>📱 Simulator View • Build native app for full Mapbox</Text>
+        </View>
 
         {/* Markers */}
         {markers.map((marker) => {
@@ -141,12 +156,20 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#1a4d2e',
+    backgroundColor: MAP_COLORS.MAP_BACKGROUND,
   },
   mapBackground: {
     flex: 1,
-    backgroundColor: '#1a4d2e',
+    backgroundColor: MAP_COLORS.MAP_BACKGROUND,
     position: 'relative',
+  },
+  terrainOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(139, 195, 74, 0.15)', // Green tint for savanna
   },
   gridLine: {
     position: 'absolute',
@@ -154,7 +177,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: 1,
     backgroundColor: STATUS_COLORS.SUCCESS,
-    opacity: 0.1,
+    opacity: 0.15,
   },
   gridLineVertical: {
     position: 'absolute',
@@ -162,7 +185,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 1,
     backgroundColor: STATUS_COLORS.SUCCESS,
-    opacity: 0.1,
+    opacity: 0.15,
+  },
+  simulatorNotice: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  simulatorText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '500',
   },
   corridorBoundary: {
     position: 'absolute',
@@ -194,22 +231,26 @@ const styles = StyleSheet.create({
   },
   marker: {
     position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 3,
     borderColor: '#fff',
-    transform: [{ translateX: -10 }, { translateY: -10 }],
-    elevation: 5,
+    transform: [{ translateX: -12 }, { translateY: -12 }],
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   markerPulse: {
     position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    opacity: 0.3,
-    top: -2,
-    left: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    opacity: 0.4,
+    top: -3,
+    left: -3,
   },
   userMarker: {
     position: 'absolute',

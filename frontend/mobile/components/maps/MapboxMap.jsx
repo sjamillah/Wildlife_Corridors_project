@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
-import { BRAND_COLORS, STATUS_COLORS } from '../../constants/Colors';
+import { BRAND_COLORS, STATUS_COLORS, MAP_COLORS } from '../../constants/Colors';
 
 // Set your Mapbox access token
 Mapbox.setAccessToken('pk.eyJ1IjoiamFtbXktbCIsImEiOiJjbWd0YWRmNnAwMjZwMmpyN252a2d2ajd1In0.M0mjFFqLPLGPfz2mEFNBKA');
@@ -45,7 +45,7 @@ const MapboxMap = ({
       checkpoint: STATUS_COLORS.SUCCESS,
       patrol: STATUS_COLORS.INFO,
       vehicle: STATUS_COLORS.WARNING,
-      camera: '#8B5CF6',
+      camera: MAP_COLORS.CAMERA,
     };
     return colors[type] || BRAND_COLORS.PRIMARY;
   };

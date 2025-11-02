@@ -10,7 +10,6 @@ export function LogoHeader() {
   const { alerts } = useAlerts();
   const activeAlertCount = alerts?.filter(a => a.active).length || 3;
   const isOnline = true; // TODO: Connect to actual network status
-  const lastSyncTime = '2m ago'; // TODO: Connect to actual sync status
   
   const handleNotificationPress = () => {
     router.push('/screens/(tabs)/AlertsScreen');
@@ -18,7 +17,7 @@ export function LogoHeader() {
   
   return (
     <View style={styles.header}>
-      {/* Logo on Left */}
+      {/* Logo - Larger and Clearer */}
       <View style={styles.logoContainer}>
         <Image 
           source={require('../../assets/images/Aureynx_Logo.png')}
@@ -27,10 +26,10 @@ export function LogoHeader() {
         />
       </View>
       
-      {/* Status Row on Right */}
-      <View style={styles.statusRow}>
-        {/* Connection Status */}
-        <View style={styles.statusItem}>
+      {/* Right Side: Status and Notifications */}
+      <View style={styles.rightSection}>
+        {/* Online/Offline Status */}
+        <View style={styles.statusBadge}>
           <View style={[styles.statusDot, { 
             backgroundColor: isOnline ? STATUS_COLORS.SUCCESS : STATUS_COLORS.ERROR 
           }]} />
@@ -39,19 +38,13 @@ export function LogoHeader() {
           </Text>
         </View>
         
-        {/* Sync Status */}
-        <View style={styles.statusItem}>
-          <Icon name={WILDLIFE_ICONS.SYNC} size={ICON_SIZES.sm} color="#FFF9F3" />
-          <Text style={styles.statusText}>{lastSyncTime}</Text>
-        </View>
-        
         {/* Notification Bell */}
         <TouchableOpacity 
           style={styles.notificationButton}
           onPress={handleNotificationPress}
           activeOpacity={0.7}
         >
-          <Icon name={WILDLIFE_ICONS.NOTIFICATION} size={ICON_SIZES.lg} color="#FFF9F3" />
+          <Icon name={WILDLIFE_ICONS.NOTIFICATION} size={ICON_SIZES.xl} color={BRAND_COLORS.SURFACE} />
           {activeAlertCount > 0 && (
             <View style={styles.notificationBadge}>
               <Text style={styles.notificationCount}>
@@ -68,28 +61,37 @@ export function LogoHeader() {
 const styles = StyleSheet.create({
   header: {
     backgroundColor: BRAND_COLORS.PRIMARY,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   logoContainer: {
     flex: 1,
   },
   logo: {
-    width: 140,
-    height: 45,
+    width: 160,
+    height: 50,
   },
-  statusRow: {
+  rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
-  statusItem: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   statusDot: {
     width: 8,
@@ -97,30 +99,32 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    color: '#FFF9F3',
+    color: BRAND_COLORS.SURFACE,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   notificationButton: {
     position: 'relative',
-    padding: 4,
+    padding: 6,
   },
   notificationBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: 2,
+    right: 2,
     backgroundColor: STATUS_COLORS.ERROR,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: BRAND_COLORS.PRIMARY,
   },
   notificationCount: {
-    color: '#fff',
+    color: BRAND_COLORS.SURFACE,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
 

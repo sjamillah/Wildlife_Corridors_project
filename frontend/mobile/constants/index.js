@@ -24,3 +24,10 @@ export {
   ICON_CONFIGS,
   getIconName,
 } from './Icons';
+
+// Typography system
+export {
+  FONT_FAMILY,
+  TYPOGRAPHY,
+  getFontFamily,
+} from './Typography';

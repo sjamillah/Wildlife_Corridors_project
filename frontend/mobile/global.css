@@ -3,19 +3,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mobile App Brand Color System - Consistent with Web App */
+/* Mobile App Brand Color System - Earth-tone Wildlife Conservation Palette */
 :root {
-  /* Consistent brand palette aligned with web app */
-  --brand-primary: #D76B27;
-  --brand-secondary: #EECFAF; 
-  --brand-accent: #A7A87A;
-  --brand-highlight: #E67E22;
-  --brand-text: #3A2E1E;
-  --brand-text-secondary: #6B5E52;
-  --brand-bg: #FFF9F3;
+  /* Earth-tone palette aligned with web app */
+  --brand-primary: #2E5D45;
+  --brand-secondary: #E8E3D6; 
+  --brand-accent: #D84315;
+  --brand-highlight: #E8961C;
+  --brand-text: #2C2416;
+  --brand-text-secondary: #6B5E4F;
+  --brand-bg: #F5F1E8;
   --brand-surface: #FFFFFF;
-  --brand-border: #E5E7EB;
-  --brand-muted: #F9FAFB;
+  --brand-border: #E8E3D6;
+  --brand-muted: #FAFAF8;
   
   /* Status colors */
   --status-success: #10B981;
@@ -24,8 +24,8 @@
   --status-info: #3B82F6;
   
   /* RGB values for opacity variants */
-  --brand-primary-rgb: 215,107,39;
-  --brand-accent-rgb: 167,168,122;
+  --brand-primary-rgb: 46,93,69;
+  --brand-accent-rgb: 216,67,21;
 }
 
 /* Brand helper utilities for mobile */
@@ -100,14 +100,14 @@
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   :root {
-    --brand-primary: #E67E22;
-    --brand-secondary: #C3541A;
-    --brand-accent: #FFB347;
-    --brand-text: #FFF9F3;
-    --brand-text-secondary: #EECFAF;
-    --brand-bg: #1C1C1C;
-    --brand-surface: #2A1F18;
-    --brand-border: #374151;
-    --brand-muted: #1F2937;
+    --brand-primary: #5A8A6F;
+    --brand-secondary: #4A7C60;
+    --brand-accent: #FF6B47;
+    --brand-text: #F5F1E8;
+    --brand-text-secondary: #C7BEB5;
+    --brand-bg: #1A1A1A;
+    --brand-surface: #2E2E2E;
+    --brand-border: #3A3A3A;
+    --brand-muted: #252525;
   }
 }

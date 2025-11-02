@@ -4,22 +4,18 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity
+  TouchableOpacity,
+  Image,
+  Platform
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Icon from '../../../components/ui/Icon';
-import { Card } from '../../../components/ui/Card';
-import { LogoHeader } from '../../../components/ui/LogoHeader';
 import SmartMap from '../../../components/maps/SmartMap';
-import { Colors, BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
+import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
 import { WILDLIFE_ICONS, ICON_SIZES } from '../../../constants/Icons';
-import { useTheme } from '../../../contexts/ThemeContext';
 import { router } from 'expo-router';
 
 export default function DashboardScreen() {
-  const { theme } = useTheme();
-  const colors = Colors[theme];
-  
   const [alertCounts] = useState({
     Critical: 2,
     High: 1,
@@ -63,60 +59,97 @@ export default function DashboardScreen() {
     router.push('/screens/(tabs)/AlertsScreen');
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style="light" />
-      <LogoHeader />
+    <View style={styles.container}>
+      <StatusBar style="light" backgroundColor={BRAND_COLORS.PRIMARY} />
+      
+      {/* Large Green Header */}
+      <View style={styles.largeHeader}>
+        <View style={styles.headerContent}>
+          {/* Left Column */}
+          <View style={styles.headerLeft}>
+            <Image 
+              source={require('../../../assets/images/Aureynx_Logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+            <Text style={styles.greetingText}>{getGreeting()}</Text>
+            <Text style={styles.dashboardTitle}>Dashboard</Text>
+          </View>
+          
+          {/* Right Column */}
+          <View style={styles.headerRight}>
+            <View style={styles.onlineStatusBadge}>
+              <View style={styles.pulseDot} />
+              <Text style={styles.onlineText}>Online</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.notificationBox}
+              onPress={handleViewAlerts}
+            >
+              <Text style={styles.bellEmoji}>🔔</Text>
+              <View style={styles.notificationDot}>
+                <Text style={styles.notificationNumber}>
+                  {alertCounts.Critical + alertCounts.High + alertCounts.Medium}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* Alert Chips Integrated in Header */}
+        <View style={styles.alertChips}>
+          <TouchableOpacity 
+            style={[styles.alertChip, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
+            onPress={handleViewAlerts}
+          >
+            <Text style={styles.alertChipNumber}>{alertCounts.Critical}</Text>
+            <Text style={styles.alertChipLabel}>Critical</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.alertChip, { backgroundColor: 'rgba(232, 150, 28, 0.2)' }]}
+            onPress={handleViewAlerts}
+          >
+            <Text style={styles.alertChipNumber}>{alertCounts.High}</Text>
+            <Text style={styles.alertChipLabel}>High</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.alertChip, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}
+            onPress={handleViewAlerts}
+          >
+            <Text style={styles.alertChipNumber}>{alertCounts.Medium}</Text>
+            <Text style={styles.alertChipLabel}>Medium</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
       
       <ScrollView 
         style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Alerts Summary - Interactive Clean Cards */}
-        <Card variant="elevated" style={styles.alertsCard}>
-          <View style={styles.cardHeaderSimple}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Active Alerts</Text>
-            <TouchableOpacity onPress={handleViewAlerts}>
-              <Text style={[styles.viewAllLink, { color: BRAND_COLORS.PRIMARY }]}>View All →</Text>
+
+        {/* Location Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Location</Text>
+            <TouchableOpacity onPress={() => router.push('/screens/(tabs)/MapScreen')}>
+              <Text style={styles.viewAllLink}>View All →</Text>
             </TouchableOpacity>
           </View>
           
-          <View style={styles.alertsGrid}>
-            <TouchableOpacity 
-              style={[styles.alertCardClean, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={handleViewAlerts}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.alertNumber, { color: STATUS_COLORS.ERROR }]}>{alertCounts.Critical}</Text>
-              <Text style={[styles.alertLabel, { color: colors.textSecondary }]}>Critical</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.alertCardClean, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={handleViewAlerts}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.alertNumber, { color: STATUS_COLORS.WARNING }]}>{alertCounts.High}</Text>
-              <Text style={[styles.alertLabel, { color: colors.textSecondary }]}>High</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.alertCardClean, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={handleViewAlerts}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.alertNumber, { color: STATUS_COLORS.INFO }]}>{alertCounts.Medium}</Text>
-              <Text style={[styles.alertLabel, { color: colors.textSecondary }]}>Medium</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
-
-        {/* Location Overview */}
-        <Card variant="outlined">
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Location</Text>
-          <View style={styles.mapOverview}>
-            <View style={styles.mapPreviewContainer}>
+          <View style={styles.locationCard}>
+            {/* Map Area */}
+            <View style={styles.mapArea}>
               <SmartMap
                 markers={dashboardMarkers}
                 userLocation={userLocation}
@@ -129,50 +162,57 @@ export default function DashboardScreen() {
                 }}
                 showGeofence={true}
                 showPatrolRoutes={false}
-                height={120}
+                height={200}
               />
+              {/* Location Label on Map */}
+              <View style={styles.mapLocationLabel}>
+                <Text style={styles.mapLabelText}>📍 Maasai Mara Reserve</Text>
+              </View>
             </View>
             
+            {/* Location Info */}
             <View style={styles.locationInfo}>
-              <Text style={[styles.locationName, { color: colors.text }]}>Maasai Mara Reserve</Text>
-              <Text style={[styles.coordsText, { color: colors.textSecondary }]}>-1.4061° S, 35.0117° E</Text>
+              <Text style={styles.locationName}>Maasai Mara Reserve</Text>
+              <Text style={styles.locationCoords}>-1.4061° S, 35.0117° E</Text>
             </View>
           </View>
-        </Card>
+        </View>
 
-        {/* Quick Actions - Organized Grid */}
-        <Card>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+          </View>
           
-          <View style={styles.actionsGridClean}>
+          <View style={styles.quickActionsGrid}>
             <TouchableOpacity 
-              style={[styles.actionCard, { backgroundColor: BRAND_COLORS.PRIMARY }]}
+              style={[styles.actionBtn, styles.mapButton]}
               onPress={() => router.push('/screens/(tabs)/MapScreen')}
               activeOpacity={0.8}
             >
-              <Icon name={WILDLIFE_ICONS.MAP} size={ICON_SIZES.lg} color={BRAND_COLORS.SURFACE} />
-              <Text style={styles.actionLabel}>Map</Text>
+              <Icon name={WILDLIFE_ICONS.MAP} size={ICON_SIZES.md} color={BRAND_COLORS.SURFACE} />
+              <Text style={styles.actionBtnText}>Map</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.actionCard, { backgroundColor: STATUS_COLORS.SUCCESS }]}
+              style={[styles.actionBtn, styles.reportButton]}
               onPress={() => router.push('/screens/(tabs)/FieldDataScreen')}
               activeOpacity={0.8}
             >
-              <Icon name={WILDLIFE_ICONS.DOCUMENT} size={ICON_SIZES.lg} color={BRAND_COLORS.SURFACE} />
-              <Text style={styles.actionLabel}>Log Data</Text>
+              <Icon name={WILDLIFE_ICONS.DOCUMENT} size={ICON_SIZES.md} color={BRAND_COLORS.TEXT} />
+              <Text style={[styles.actionBtnText, { color: BRAND_COLORS.TEXT }]}>Report</Text>
             </TouchableOpacity>
           </View>
           
           <TouchableOpacity 
-            style={[styles.emergencyButton, { backgroundColor: STATUS_COLORS.ERROR }]}
+            style={styles.emergencyBtn}
             onPress={() => router.push('/screens/(tabs)/AlertsScreen')}
             activeOpacity={0.8}
           >
-            <Icon name={WILDLIFE_ICONS.ALERT_OCTAGON} size={ICON_SIZES.md} color="#fff" />
-            <Text style={styles.emergencyText}>Emergency Alert</Text>
+            <Icon name={WILDLIFE_ICONS.ALERT_OCTAGON} size={ICON_SIZES.md} color={BRAND_COLORS.SURFACE} />
+            <Text style={styles.emergencyBtnText}>Emergency Alert</Text>
           </TouchableOpacity>
-        </Card>
+        </View>
       </ScrollView>
     </View>
   );
@@ -181,55 +221,139 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+  },
+  largeHeader: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    paddingTop: 56,
+    paddingHorizontal: 28,
+    paddingBottom: 20,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerLogo: {
+    width: 120,
+    height: 38,
+    marginBottom: 12,
+  },
+  greetingText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 6,
+  },
+  dashboardTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: BRAND_COLORS.SURFACE,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  onlineStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  pulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: STATUS_COLORS.SUCCESS,
+  },
+  onlineText: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  notificationBox: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  bellEmoji: {
+    fontSize: 20,
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: BRAND_COLORS.ACCENT,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationNumber: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  alertChips: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  alertChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  alertChipNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: BRAND_COLORS.SURFACE,
+    marginBottom: 2,
+  },
+  alertChipLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: BRAND_COLORS.SURFACE,
+    textTransform: 'uppercase',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingTop: 20,
     paddingBottom: 100,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  alertsCard: {
-    marginBottom: 16,
-  },
-  cardHeaderSimple: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
+  },
   viewAllLink: {
     fontSize: 14,
-    fontWeight: '500',
-  },
-  alertsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  alertCardClean: {
-    flex: 1,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 70,
-    borderWidth: 1,
-    borderColor: BRAND_COLORS.BORDER,
-  },
-  alertNumber: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  alertLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    textTransform: 'uppercase',
+    fontWeight: '600',
+    color: BRAND_COLORS.ACCENT,
   },
   statusGrid: {
     flexDirection: 'row',
@@ -276,57 +400,89 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  mapOverview: {
-    gap: 12,
-  },
-  mapPreviewContainer: {
-    width: '100%',
-    height: 120,
-    borderRadius: 8,
+  locationCard: {
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)',
+  },
+  mapArea: {
+    height: 200,
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    position: 'relative',
+  },
+  mapLocationLabel: {
+    position: 'absolute',
+    bottom: 12,
+    left: '50%',
+    transform: [{ translateX: -75 }],
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  mapLabelText: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 12,
+    fontWeight: '600',
   },
   locationInfo: {
-    gap: 6,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    padding: 16,
   },
   locationName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
+    marginBottom: 4,
   },
-  coordsText: {
-    fontSize: 13,
+  locationCoords: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-  actionsGridClean: {
+  quickActionsGrid: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 12,
   },
-  actionCard: {
+  actionBtn: {
     flex: 1,
-    paddingVertical: 20,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  actionLabel: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emergencyButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: 18,
+    borderRadius: 12,
     gap: 8,
   },
-  emergencyText: {
-    color: '#fff',
+  mapButton: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
+  },
+  reportButton: {
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.BORDER_MEDIUM,
+  },
+  actionBtnText: {
     fontSize: 15,
     fontWeight: '600',
+    color: BRAND_COLORS.SURFACE,
+  },
+  emergencyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 12,
+    gap: 8,
+    backgroundColor: BRAND_COLORS.ACCENT,
+  },
+  emergencyBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND_COLORS.SURFACE,
   },
   miniMapBackground: {
     flex: 1,
@@ -373,3 +529,4 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
 });
+

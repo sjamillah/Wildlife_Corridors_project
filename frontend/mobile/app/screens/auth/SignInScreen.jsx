@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { BRAND_COLORS } from '../../../constants/Colors';
 
 export default function SignInScreen() {
@@ -22,56 +21,17 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [biometricSupported, setBiometricSupported] = useState(false);
-  const [biometricType, setBiometricType] = useState(null);
-
-  useEffect(() => {
-    checkBiometricSupport();
-  }, []);
-
-  const checkBiometricSupport = async () => {
-    try {
-      const compatible = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      
-      setBiometricSupported(compatible && enrolled);
-      setBiometricType(types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION) ? 'face' : 
-                      types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT) ? 'fingerprint' : 
-                      'biometric');
-    } catch (error) {
-      console.log('Biometric check failed:', error);
-    }
-  };
 
   const handleSignIn = () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('Validation Error', 'Please enter email and password');
       return;
     }
-    // TODO: Implement actual authentication
-    router.push('/screens/(tabs)/DashboardScreen');
-  };
-
-  const handleBiometricSignIn = async () => {
-    try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Sign in to Aureynx Wildlife Corridors',
-        subPromptMessage: 'Use your biometric to access your account',
-        cancelLabel: 'Cancel',
-        fallbackLabel: 'Use Password',
-      });
-
-      if (result.success) {
-        // In a real app, you'd get the stored credentials here
-        // For now, we'll just navigate to dashboard
-        router.push('/screens/(tabs)/DashboardScreen');
-      } else {
-        Alert.alert('Authentication Failed', 'Biometric authentication was cancelled or failed');
-      }
-    } catch (_error) {
-      Alert.alert('Error', 'Biometric authentication failed');
-    }
+    // Navigate to OTP verification
+    router.push({
+      pathname: '/screens/auth/OTPVerification',
+      params: { method: 'email', contact: email }
+    });
   };
 
   const navigateToSignUp = () => {
@@ -80,22 +40,28 @@ export default function SignInScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.3)" translucent />
+      <StatusBar barStyle="dark-content" backgroundColor={BRAND_COLORS.BACKGROUND} />
       
-      <View style={styles.backgroundContainer}>
-        <View style={styles.overlay} />
-        
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
+      {/* Background Image */}
+      <Image 
+        source={require('../../../assets/images/ele_background.jpg')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
+      
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContentSignIn}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContentSignIn}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Header */}
-            <View style={styles.headerSignIn}>
+          {/* Hero Section on Background */}
+          <View style={styles.heroSection}>
+            <View style={styles.heroOverlay} />
+            <View style={styles.heroContent}>
               <Image 
                 source={require('../../../assets/images/Aureynx_Logo.png')}
                 style={styles.logo}
@@ -104,11 +70,12 @@ export default function SignInScreen() {
               <Text style={styles.appName}>Aureynx</Text>
               <Text style={styles.tagline}>Wildlife Conservation Platform</Text>
             </View>
+          </View>
 
-            {/* Form Card */}
-            <View style={[styles.formCard, { backgroundColor: BRAND_COLORS.BACKGROUND }]}>
-              <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Sign in to continue your mission</Text>
+          {/* Form Card */}
+          <View style={styles.formCard}>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to continue your mission</Text>
 
               {/* Email */}
               <View style={styles.inputContainer}>
@@ -163,60 +130,35 @@ export default function SignInScreen() {
                   <Text style={styles.rememberMeText}>Remember me</Text>
                 </TouchableOpacity>
                 
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/screens/auth/ForgotPasswordScreen')}>
                   <Text style={styles.forgotPassword}>Forgot Password?</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Sign In Button */}
               <TouchableOpacity
-                style={[styles.signInButton, { backgroundColor: BRAND_COLORS.PRIMARY }]}
+                style={styles.signInButton}
                 onPress={handleSignIn}
                 activeOpacity={0.8}
               >
                 <Text style={styles.signInButtonText}>Sign In</Text>
               </TouchableOpacity>
 
-              {biometricSupported && (
-                <>
-                  {/* Divider */}
-                  <View style={styles.divider}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>OR</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
-
-                  {/* Biometric Sign In */}
-                  <TouchableOpacity
-                    style={styles.biometricButton}
-                    onPress={handleBiometricSignIn}
-                    activeOpacity={0.8}
-                  >
-                    {biometricType === 'face' ? (
-                      <MaterialCommunityIcons name="face-recognition" size={20} color={BRAND_COLORS.PRIMARY} />
-                    ) : biometricType === 'fingerprint' ? (
-                      <MaterialCommunityIcons name="fingerprint" size={20} color={BRAND_COLORS.PRIMARY} />
-                    ) : (
-                      <MaterialCommunityIcons name="cellphone-key" size={20} color={BRAND_COLORS.PRIMARY} />
-                    )}
-                    <Text style={styles.biometricButtonText}>
-                      Sign In with {biometricType === 'face' ? 'Face ID' : biometricType === 'fingerprint' ? 'Fingerprint' : 'Biometrics'}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
               {/* Sign Up Link */}
               <View style={styles.signUpContainer}>
                 <Text style={styles.signUpText}>Don&apos;t have an account? </Text>
                 <TouchableOpacity onPress={navigateToSignUp}>
-                  <Text style={styles.signUpLink}>Create Account</Text>
+                  <Text style={styles.signUpLink}>Register</Text>
                 </TouchableOpacity>
               </View>
+
+            {/* Footer */}
+            <View style={styles.formFooter}>
+              <Text style={styles.footerText}>Secure conservation management platform</Text>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 };
@@ -224,82 +166,91 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
   },
-  backgroundContainer: {
-    flex: 1,
-    backgroundColor: '#f7efe6',
-    justifyContent: 'center',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  backgroundImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
   },
   keyboardView: {
     flex: 1,
   },
   scrollContentSignIn: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
   },
-  headerSignIn: {
+  heroSection: {
+    height: 280,
+    position: 'relative',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(46, 93, 69, 0.7)',
+  },
+  heroContent: {
+    zIndex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   logo: {
-    width: 60,
-    height: 60,
-    marginBottom: 10,
+    width: 80,
+    height: 80,
+    marginBottom: 16,
   },
   appName: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    textShadowColor: 'rgba(255, 255, 255, 0.3)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
+    fontWeight: '800',
+    color: BRAND_COLORS.SURFACE,
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
   tagline: {
     fontSize: 16,
-    color: '#6B7280',
-    marginTop: 5,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.95)',
     textAlign: 'center',
   },
   formCard: {
-    backgroundColor: 'rgba(244, 243, 236, 1)',
-    borderRadius: 20,
-    padding: 30,
-    elevation: 0,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    padding: 32,
+    paddingTop: 40,
+    minHeight: 500,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 10,
-    color: '#1F2937',
+    marginBottom: 8,
+    color: BRAND_COLORS.TEXT,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
-    color: '#6B7280',
-    marginBottom: 30,
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    marginBottom: 24,
+    fontWeight: '500',
   },
   inputContainer: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: BRAND_COLORS.TEXT,
     marginBottom: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: BRAND_COLORS.BORDER_MEDIUM,
     paddingHorizontal: 15,
   },
   inputIcon: {
@@ -309,7 +260,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     fontSize: 16,
-    color: '#1F2937',
+    color: BRAND_COLORS.TEXT,
   },
   eyeIcon: {
     padding: 5,
@@ -329,69 +280,35 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderColor: BRAND_COLORS.BORDER_MEDIUM,
     marginRight: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: BRAND_COLORS.PRIMARY,
-    borderColor: BRAND_COLORS.PRIMARY,
+    backgroundColor: BRAND_COLORS.ACCENT,
+    borderColor: BRAND_COLORS.ACCENT,
   },
   rememberMeText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: BRAND_COLORS.TEXT_SECONDARY,
   },
   forgotPassword: {
     fontSize: 14,
-    color: BRAND_COLORS.PRIMARY,
+    color: BRAND_COLORS.ACCENT,
     fontWeight: '600',
   },
   signInButton: {
-    backgroundColor: BRAND_COLORS.PRIMARY,
-    borderRadius: 12,
-    paddingVertical: 15,
+    backgroundColor: BRAND_COLORS.ACCENT,
+    borderRadius: 8,
+    paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 20,
-    elevation: 0,
   },
   signInButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  biometricButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    paddingVertical: 15,
-    borderWidth: 1,
-    borderColor: BRAND_COLORS.PRIMARY,
-    marginBottom: 20,
-  },
-  biometricButtonText: {
-    color: BRAND_COLORS.PRIMARY,
+    color: BRAND_COLORS.SURFACE,
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
   },
   signUpContainer: {
     flexDirection: 'row',
@@ -400,12 +317,24 @@ const styles = StyleSheet.create({
   },
   signUpText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: BRAND_COLORS.TEXT_SECONDARY,
   },
   signUpLink: {
     fontSize: 16,
-    color: BRAND_COLORS.PRIMARY,
-    fontWeight: '600',
+    color: BRAND_COLORS.ACCENT,
+    fontWeight: '700',
+  },
+  formFooter: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: BRAND_COLORS.BORDER_LIGHT,
+  },
+  footerText: {
+    fontSize: 12,
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

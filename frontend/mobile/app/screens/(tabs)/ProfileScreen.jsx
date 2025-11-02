@@ -1,260 +1,247 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  Switch,
+  Image 
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { IconSymbol } from '../../../components/ui/IconSymbol';
-import { Card } from '../../../components/ui/Card';
-import { LogoHeader } from '../../../components/ui/LogoHeader';
-import { Button } from '../../../components/ui/Button';
-import { Colors, BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
-import { useTheme } from '../../../contexts/ThemeContext';
+import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
 
 const ProfileScreen = () => {
-  const { theme, toggleTheme } = useTheme();
-  const colors = Colors[theme];
-  
   const [notifications, setNotifications] = useState(true);
   const [locationSharing, setLocationSharing] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [autoSync, setAutoSync] = useState(true);
   
-  const handleThemeToggle = (value) => {
-    toggleTheme();
-  };
-
   const userInfo = {
     name: 'John Ranger',
     email: 'john.ranger@wildlifeprotection.org',
     role: 'Senior Wildlife Ranger',
     badge: 'WR-2024-001',
     joinDate: 'January 2024',
-    avatar: null
   };
 
-  const stats = {
-    totalPatrols: 156,
-    alertsResolved: 89,
-    incidentsLogged: 23,
-    hoursOnDuty: 2840
-  };
-
-  const menuItems = [
-    { id: 'personal', icon: 'person.crop.circle', title: 'Personal Information', subtitle: 'Update your profile details' },
-    { id: 'security', icon: 'lock.shield', title: 'Security Settings', subtitle: 'Password and authentication' },
-    { id: 'preferences', icon: 'gearshape', title: 'App Preferences', subtitle: 'Customize your experience' },
-    { id: 'data', icon: 'icloud.and.arrow.down', title: 'Data & Storage', subtitle: 'Manage offline data' },
-    { id: 'help', icon: 'questionmark.circle', title: 'Help & Support', subtitle: 'Get assistance' },
-    { id: 'about', icon: 'info.circle', title: 'About', subtitle: 'App version and info' }
+  const stats = [
+    { label: 'Patrols', value: 156, color: BRAND_COLORS.PRIMARY },
+    { label: 'Resolved', value: 89, color: STATUS_COLORS.SUCCESS },
+    { label: 'Incidents', value: 23, color: BRAND_COLORS.ACCENT },
+    { label: 'Hours', value: 2840, color: BRAND_COLORS.HIGHLIGHT },
   ];
 
-  const handleMenuPress = (itemId) => {
-    // Navigation or action based on menu item
-    console.log(`Pressed ${itemId}`);
-  };
+  const recentActivity = [
+    { id: 1, title: 'Resolved elephant conflict alert', time: '2 hours ago', emoji: '✅' },
+    { id: 2, title: 'Completed patrol route Alpha', time: '5 hours ago', emoji: '🚶' },
+    { id: 3, title: 'Logged wildlife sighting', time: '1 day ago', emoji: '🦁' },
+    { id: 4, title: 'Updated GPS tracker battery', time: '2 days ago', emoji: '🔋' },
+  ];
+
+  const accountMenuItems = [
+    { id: 'personal', title: 'Personal Information', subtitle: 'Update your profile details', icon: 'account-circle' },
+    { id: 'security', title: 'Security Settings', subtitle: 'Password and authentication', icon: 'shield-lock' },
+    { id: 'preferences', title: 'App Preferences', subtitle: 'Customize your experience', icon: 'cog' },
+  ];
+
+  const moreMenuItems = [
+    { id: 'data', title: 'Data & Storage', subtitle: 'Manage offline data', icon: 'database' },
+    { id: 'help', title: 'Help & Support', subtitle: 'Get assistance', icon: 'help-circle' },
+    { id: 'about', title: 'About', subtitle: 'App version and info', icon: 'information' },
+  ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LogoHeader />
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-        {/* Profile Header */}
-        <Card style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatar}>
-              <IconSymbol name="person.fill" size={32} color={BRAND_COLORS.SURFACE} />
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={[styles.userName, { color: colors.text }]}>{userInfo.name}</Text>
-              <Text style={[styles.userRole, { color: colors.textSecondary }]}>{userInfo.role}</Text>
-              <Text style={[styles.userBadge, { color: colors.textSecondary }]}>Badge: {userInfo.badge}</Text>
-            </View>
-            <TouchableOpacity style={styles.editButton}>
-              <IconSymbol name="pencil" size={16} color={STATUS_COLORS.SUCCESS} />
-            </TouchableOpacity>
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      
+      {/* Hero Header with Profile Info */}
+      <View style={styles.heroHeader}>
+        {/* Top Bar */}
+        <View style={styles.topBar}>
+          <View style={styles.onlineStatus}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.onlineText}>Online</Text>
           </View>
-          <View style={styles.profileDetails}>
-            <Text style={[styles.detailItem, { color: colors.textSecondary }]}>{userInfo.email}</Text>
-            <Text style={[styles.detailItem, { color: colors.textSecondary }]}>Member since {userInfo.joinDate}</Text>
-          </View>
-        </Card>
+          <TouchableOpacity style={styles.editButton}>
+            <MaterialCommunityIcons name="pencil" size={16} color={BRAND_COLORS.SURFACE} />
+          </TouchableOpacity>
+        </View>
 
-        {/* Stats Cards - Redesigned */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            <TouchableOpacity 
-              style={[styles.statCardNew, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.statIconContainer, { backgroundColor: BRAND_COLORS.PRIMARY + '20' }]}>
-                <IconSymbol name="map.fill" size={20} color={BRAND_COLORS.PRIMARY} />
-              </View>
-              <Text style={[styles.statNumberNew, { color: BRAND_COLORS.PRIMARY }]}>{stats.totalPatrols}</Text>
-              <Text style={[styles.statLabelNew, { color: colors.textSecondary }]}>Patrols</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.statCardNew, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.statIconContainer, { backgroundColor: STATUS_COLORS.SUCCESS + '20' }]}>
-                <IconSymbol name="exclamationmark.triangle.fill" size={20} color={STATUS_COLORS.SUCCESS} />
-              </View>
-              <Text style={[styles.statNumberNew, { color: STATUS_COLORS.SUCCESS }]}>{stats.alertsResolved}</Text>
-              <Text style={[styles.statLabelNew, { color: colors.textSecondary }]}>Resolved</Text>
-            </TouchableOpacity>
+        {/* Profile Content */}
+        <View style={styles.profileContent}>
+          {/* Avatar */}
+          <View style={styles.avatar}>
+            <MaterialCommunityIcons name="account" size={40} color={BRAND_COLORS.PRIMARY} />
           </View>
           
-          <View style={styles.statsRow}>
-            <TouchableOpacity 
-              style={[styles.statCardNew, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.statIconContainer, { backgroundColor: BRAND_COLORS.ACCENT + '40' }]}>
-                <IconSymbol name="doc.text.fill" size={20} color={BRAND_COLORS.ACCENT} />
+          {/* User Info */}
+          <Text style={styles.userName}>{userInfo.name}</Text>
+          <Text style={styles.userRole}>{userInfo.role}</Text>
+          <Text style={styles.userBadge}>Badge: {userInfo.badge}</Text>
+          
+          {/* Divider */}
+          <View style={styles.headerDivider} />
+          
+          {/* Contact Info */}
+          <Text style={styles.userEmail}>{userInfo.email}</Text>
+          <Text style={styles.userJoinDate}>Member since {userInfo.joinDate}</Text>
+        </View>
+      </View>
+
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Stats Cards - Overlapping Header */}
+        <View style={styles.statsSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.statsRow}>
+              {stats.map((stat, index) => (
+                <View key={index} style={styles.statCard}>
+                  <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label.toUpperCase()}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Recent Activity */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Recent Activity</Text>
+          {recentActivity.map((activity) => (
+            <View key={activity.id} style={styles.activityCard}>
+              <View style={styles.activityLeft}>
+                <Text style={styles.activityTitle}>{activity.title}</Text>
+                <Text style={styles.activityTime}>{activity.time}</Text>
               </View>
-              <Text style={[styles.statNumberNew, { color: BRAND_COLORS.ACCENT }]}>{stats.incidentsLogged}</Text>
-              <Text style={[styles.statLabelNew, { color: colors.textSecondary }]}>Incidents</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.statCardNew, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.statIconContainer, { backgroundColor: BRAND_COLORS.HIGHLIGHT + '30' }]}>
-                <IconSymbol name="clock.fill" size={20} color={BRAND_COLORS.HIGHLIGHT} />
-              </View>
-              <Text style={[styles.statNumberNew, { color: BRAND_COLORS.HIGHLIGHT }]}>{stats.hoursOnDuty}</Text>
-              <Text style={[styles.statLabelNew, { color: colors.textSecondary }]}>Hours</Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={styles.activityEmoji}>{activity.emoji}</Text>
+            </View>
+          ))}
         </View>
 
         {/* Quick Settings */}
-        <Card style={styles.settingsCard}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Settings</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>QUICK SETTINGS</Text>
           
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <IconSymbol name="bell" size={20} color={colors.textSecondary} />
-              <Text style={[styles.settingLabel, { color: colors.text }]}>Notifications</Text>
+          <View style={styles.settingCard}>
+            <Text style={styles.settingName}>Notifications</Text>
+            <View style={styles.customSwitch}>
+              <Switch
+                value={notifications}
+                onValueChange={setNotifications}
+                trackColor={{ false: BRAND_COLORS.BORDER_MEDIUM, true: STATUS_COLORS.SUCCESS }}
+                thumbColor={BRAND_COLORS.SURFACE}
+                style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }}
+              />
             </View>
-            <Switch
-              value={notifications}
-              onValueChange={setNotifications}
-              trackColor={{ false: BRAND_COLORS.BORDER, true: STATUS_COLORS.SUCCESS }}
-              thumbColor={BRAND_COLORS.SURFACE}
-            />
           </View>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <IconSymbol name="location" size={20} color={colors.textSecondary} />
-              <Text style={[styles.settingLabel, { color: colors.text }]}>Location Sharing</Text>
+          <View style={styles.settingCard}>
+            <Text style={styles.settingName}>Location Sharing</Text>
+            <View style={styles.customSwitch}>
+              <Switch
+                value={locationSharing}
+                onValueChange={setLocationSharing}
+                trackColor={{ false: BRAND_COLORS.BORDER_MEDIUM, true: STATUS_COLORS.SUCCESS }}
+                thumbColor={BRAND_COLORS.SURFACE}
+                style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }}
+              />
             </View>
-            <Switch
-              value={locationSharing}
-              onValueChange={setLocationSharing}
-              trackColor={{ false: BRAND_COLORS.BORDER, true: STATUS_COLORS.SUCCESS }}
-              thumbColor={BRAND_COLORS.SURFACE}
-            />
           </View>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <IconSymbol name="moon" size={20} color={colors.textSecondary} />
-              <Text style={[styles.settingLabel, { color: colors.text }]}>Dark Mode</Text>
+          <View style={styles.settingCard}>
+            <Text style={styles.settingName}>Dark Mode</Text>
+            <View style={styles.customSwitch}>
+              <Switch
+                value={darkMode}
+                onValueChange={setDarkMode}
+                trackColor={{ false: BRAND_COLORS.BORDER_MEDIUM, true: STATUS_COLORS.SUCCESS }}
+                thumbColor={BRAND_COLORS.SURFACE}
+                style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }}
+              />
             </View>
-            <Switch
-              value={theme === 'dark'}
-              onValueChange={handleThemeToggle}
-              trackColor={{ false: BRAND_COLORS.BORDER, true: STATUS_COLORS.SUCCESS }}
-              thumbColor={BRAND_COLORS.SURFACE}
-            />
           </View>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <IconSymbol name="arrow.triangle.2.circlepath" size={20} color={colors.textSecondary} />
-              <Text style={[styles.settingLabel, { color: colors.text }]}>Auto Sync</Text>
+          <View style={styles.settingCard}>
+            <Text style={styles.settingName}>Auto Sync</Text>
+            <View style={styles.customSwitch}>
+              <Switch
+                value={autoSync}
+                onValueChange={setAutoSync}
+                trackColor={{ false: BRAND_COLORS.BORDER_MEDIUM, true: STATUS_COLORS.SUCCESS }}
+                thumbColor={BRAND_COLORS.SURFACE}
+                style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }}
+              />
             </View>
-            <Switch
-              value={autoSync}
-              onValueChange={setAutoSync}
-              trackColor={{ false: BRAND_COLORS.BORDER, true: STATUS_COLORS.SUCCESS }}
-              thumbColor={BRAND_COLORS.SURFACE}
-            />
           </View>
-        </Card>
+        </View>
 
-        {/* Menu Items */}
-        <Card style={styles.menuCard}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account & Settings</Text>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={() => handleMenuPress(item.id)}
-            >
-              <View style={styles.menuItemLeft}>
-                <IconSymbol name={item.icon} size={20} color={colors.textSecondary} />
-                <View style={styles.menuItemText}>
-                  <Text style={[styles.menuItemTitle, { color: colors.text }]}>{item.title}</Text>
-                  <Text style={[styles.menuItemSubtitle, { color: colors.textSecondary }]}>{item.subtitle}</Text>
-                </View>
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>ACCOUNT</Text>
+          {accountMenuItems.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.menuCard}>
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuTitle}>{item.title}</Text>
+                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
               </View>
-              <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
+              <Text style={styles.menuArrow}>→</Text>
             </TouchableOpacity>
           ))}
-        </Card>
+        </View>
+
+        {/* More Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>MORE</Text>
+          {moreMenuItems.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.menuCard}>
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuTitle}>{item.title}</Text>
+                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+              </View>
+              <Text style={styles.menuArrow}>→</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <Button
-            onPress={() => console.log('Sync data')}
-            variant="primary"
-            style={styles.actionButton}
-          >
-            Sync Data
-          </Button>
-          <Button
-            onPress={() => console.log('Backup settings')}
-            variant="secondary"
-            style={styles.actionButton}
-          >
-            Backup Settings
-          </Button>
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity style={styles.primaryActionButton}>
+            <Text style={styles.primaryActionText}>Sync Data</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryActionButton}>
+            <Text style={styles.secondaryActionText}>Backup</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Emergency Actions */}
-        <Card style={styles.emergencyCard}>
-          <Text style={[styles.emergencyTitle, { color: colors.text }]}>Emergency Actions</Text>
+        {/* Emergency Section */}
+        <View style={styles.emergencyCard}>
+          <Text style={styles.emergencyTitle}>Emergency Actions</Text>
           <View style={styles.emergencyButtons}>
-            <Button
+            <TouchableOpacity 
+              style={styles.emergencyContactButton}
               onPress={() => router.push('/screens/emergency/EmergencyContactScreen')}
-              variant="warning"
-              style={styles.emergencyButton}
             >
-              Emergency Contact
-            </Button>
-            <Button
+              <Text style={styles.emergencyContactText}>Emergency Contact</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.panicButton}
               onPress={() => router.push('/screens/emergency/PanicAlertScreen')}
-              variant="danger"
-              style={styles.emergencyButton}
             >
-              Panic Alert
-            </Button>
+              <Text style={styles.panicButtonText}>Panic Alert</Text>
+            </TouchableOpacity>
           </View>
-        </Card>
+        </View>
 
-        {/* Sign Out */}
-        <View style={styles.signOutContainer}>
-          <Button
-            onPress={() => console.log('Sign out')}
-            variant="secondary"
-            style={styles.signOutButton}
-          >
-            Sign Out
-          </Button>
-        </View>
-        </View>
+        {/* Sign Out Button */}
+        <TouchableOpacity style={styles.signOutButton}>
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -263,201 +250,308 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+  },
+  heroHeader: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    paddingTop: 56,
+    paddingBottom: 80,
+    paddingHorizontal: 20,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  onlineStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: STATUS_COLORS.SUCCESS,
+  },
+  onlineText: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  editButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 8,
+    borderRadius: 6,
+  },
+  profileContent: {
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: BRAND_COLORS.SURFACE,
+    marginBottom: 6,
+  },
+  userRole: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: 4,
+  },
+  userBadge: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 16,
+  },
+  headerDivider: {
+    width: 60,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: 12,
+  },
+  userEmail: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  userJoinDate: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   scrollView: {
     flex: 1,
   },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
+  scrollContent: {
+    paddingTop: 10,
+    paddingBottom: 100,
   },
-  profileCard: {
-    marginBottom: 16,
-  },
-  profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: BRAND_COLORS.PRIMARY,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  userRole: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  userBadge: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  editButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#F0FDF4',
-  },
-  profileDetails: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 12,
-  },
-  detailItem: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  statsContainer: {
-    marginBottom: 16,
+  statsSection: {
+    marginTop: -60,
+    marginBottom: 24,
+    paddingTop: 10,
   },
   statsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 12,
+    paddingHorizontal: 20,
   },
   statCard: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 16,
-  },
-  statCardNew: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: BRAND_COLORS.SURFACE,
     borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+    padding: 20,
     alignItems: 'center',
+    minWidth: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)',
   },
-  statNumberNew: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  statLabelNew: {
-    fontSize: 11,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: BRAND_COLORS.PRIMARY,
-    marginBottom: 4,
+  statValue: {
+    fontSize: 36,
+    fontWeight: '800',
+    marginBottom: 6,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    letterSpacing: 0.5,
   },
-  settingsCard: {
-    marginBottom: 16,
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+  activityCard: {
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)',
+  },
+  activityLeft: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND_COLORS.TEXT,
+    marginBottom: 4,
+  },
+  activityTime: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+  },
+  activityEmoji: {
+    fontSize: 20,
+  },
+  settingCard: {
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)',
+  },
+  settingName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: BRAND_COLORS.TEXT,
+  },
+  customSwitch: {
+    // Wrapper for switch styling
   },
   menuCard: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  settingItem: {
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 8,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  settingInfo: {
-    flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)',
   },
-  settingLabel: {
-    fontSize: 16,
-    color: '#374151',
-    marginLeft: 12,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  menuLeft: {
     flex: 1,
   },
-  menuItemText: {
-    marginLeft: 12,
-    flex: 1,
+  menuTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
+    marginBottom: 4,
   },
-  menuItemTitle: {
-    fontSize: 16,
+  menuSubtitle: {
+    fontSize: 12,
     fontWeight: '500',
-    color: '#111827',
+    color: BRAND_COLORS.TEXT_SECONDARY,
   },
-  menuItemSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
+  menuArrow: {
+    fontSize: 18,
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    fontWeight: '400',
   },
-  actionButtons: {
+  actionButtonsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  actionButton: {
+  primaryActionButton: {
     flex: 1,
+    backgroundColor: BRAND_COLORS.ACCENT,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  primaryActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: BRAND_COLORS.SURFACE,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.BORDER_LIGHT,
+  },
+  secondaryActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
   },
   emergencyCard: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
-    borderWidth: 1,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderRadius: 8,
+    padding: 20,
+    marginHorizontal: 20,
     marginBottom: 24,
+    borderWidth: 2,
+    borderColor: STATUS_COLORS.ERROR,
   },
   emergencyTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#DC2626',
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
     marginBottom: 12,
   },
   emergencyButtons: {
     flexDirection: 'row',
     gap: 12,
   },
-  emergencyButton: {
+  emergencyContactButton: {
     flex: 1,
-  },
-  signOutContainer: {
+    backgroundColor: BRAND_COLORS.HIGHLIGHT,
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
   },
+  emergencyContactText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BRAND_COLORS.SURFACE,
+  },
+  panicButton: {
+    flex: 1,
+    backgroundColor: STATUS_COLORS.ERROR,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  panicButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BRAND_COLORS.SURFACE,
+  },
   signOutButton: {
-    width: '60%',
+    backgroundColor: BRAND_COLORS.SURFACE,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.BORDER_LIGHT,
+  },
+  signOutText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
   },
 });
 
