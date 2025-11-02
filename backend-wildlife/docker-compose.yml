@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: wildlife_postgres
+    environment:
+      POSTGRES_DB: wildlife_tracking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Django Backend
+  django:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wildlife_django
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn wildlife_backend.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=${DEBUG:-True}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-in-production}
+      - DB_NAME=wildlife_tracking
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - ML_SERVICE_URL=http://ml_service:8001
+      - AFRICASTALKING_USERNAME=${AFRICASTALKING_USERNAME}
+      - AFRICASTALKING_API_KEY=${AFRICASTALKING_API_KEY}
+      - ALLOWED_HOSTS=localhost,127.0.0.1,django
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FastAPI ML Service
+  ml_service:
+    build:
+      context: ./backend
+      dockerfile: ml_service/Dockerfile
+    container_name: wildlife_ml_service
+    command: python -m uvicorn ml_service.main:app --host 0.0.0.0 --port 8001
+    volumes:
+      - ./backend:/app
+      - ml_models:/app/ml_service/data
+    ports:
+      - "8001:8001"
+    environment:
+      - DEBUG=True
+      - ML_SERVICE_API_KEY=${ML_SERVICE_API_KEY:-dev-key}
+      - CORS_ORIGINS=*
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+  ml_models:
+

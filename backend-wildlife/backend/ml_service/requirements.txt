@@ -1,0 +1,38 @@
+# FastAPI ML Service Requirements
+# For Wildlife Corridor RL Optimization
+
+# FastAPI & Web Server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# ML & RL Libraries
+stable-baselines3[extra]==2.2.1
+gymnasium==0.29.1
+torch==2.1.1
+numpy==1.24.3
+pandas==2.1.3
+
+# HTTP Client
+httpx==0.25.2
+
+# Data Processing
+scikit-learn==1.3.2
+scipy==1.11.4
+
+# Database (optional for ML service)
+# psycopg2-binary==2.9.9
+
+# Logging & Monitoring
+python-multipart==0.0.6
+
+# Optional: TensorFlow for LSTM models
+# tensorflow==2.15.0
+
+# Optional: XGBoost for habitat models
+# xgboost==2.0.2
+
+# Development
+pytest==7.4.3
+pytest-asyncio==0.21.1

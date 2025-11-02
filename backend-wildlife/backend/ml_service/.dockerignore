@@ -1,0 +1,16 @@
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.env
+.env.local
+*.log
+logs/
+.pytest_cache/
+checkpoints/
+*.md
+__pycache__/
+
