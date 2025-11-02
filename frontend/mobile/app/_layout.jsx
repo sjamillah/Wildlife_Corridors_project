@@ -8,18 +8,18 @@ import 'react-native-reanimated';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { ThemeProvider as AppThemeProvider } from '../contexts/ThemeContext';
 import { AlertsProvider } from '../contexts/AlertsContext';
-import { FONT_FAMILY } from '../constants/Typography';
 
-// Apply serif font globally to all Text and TextInput components
-if (Text.defaultProps == null) {
-  Text.defaultProps = {};
-}
-Text.defaultProps.style = { fontFamily: FONT_FAMILY.REGULAR };
-
-if (TextInput.defaultProps == null) {
-  TextInput.defaultProps = {};
-}
-TextInput.defaultProps.style = { fontFamily: FONT_FAMILY.REGULAR };
+// Apply Inter-like font globally (same as web)
+// Using native system fonts that closely match Inter's clean sans-serif style
+const appFont = Platform.select({ 
+  ios: '-apple-system',  // San Francisco - Apple's system font
+  android: 'Roboto',      // Android's default, similar to Inter
+  default: 'system-ui'
+});
+if (!Text.defaultProps) Text.defaultProps = {};
+if (!TextInput.defaultProps) TextInput.defaultProps = {};
+Text.defaultProps.style = { fontFamily: appFont };
+TextInput.defaultProps.style = { fontFamily: appFont };
 
 export default function RootNavigationLayout() {
   const colorScheme = useColorScheme();

@@ -13,7 +13,10 @@
       "bundleIdentifier": "com.aureynx.wildlifecorridors",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app uses your location to show wildlife corridor data and nearby alerts.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location to track patrol routes and wildlife movements."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location to track patrol routes and wildlife movements.",
+        "NSCameraUsageDescription": "This app needs access to your camera to take photos of wildlife sightings.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to attach photos to wildlife reports.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs permission to save photos to your library."
       }
     },
     "android": {
@@ -23,10 +26,11 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT",
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ],
       "package": "com.aureynx.wildlifecorridors"
     },
@@ -38,6 +42,8 @@
     "plugins": [
       "expo-router",
       "expo-local-authentication",
+      "expo-image-picker",
+      "expo-location",
       [
         "expo-splash-screen",
         {

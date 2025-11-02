@@ -9,24 +9,32 @@ import {
   Alert,
   StatusBar,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAlerts } from '../../../contexts/AlertsContext';
 import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 
 export default function FieldDataScreen() {
   const { addAlert } = useAlerts();
   
-  const [currentReportType, setCurrentReportType] = useState('incident');
+  const [currentReportType, setCurrentReportType] = useState('wildlife');
   const [formData, setFormData] = useState({
     type: '',
+    animalName: '',
     severity: '',
     species: '',
     count: 1,
     notes: '',
+    location: null,
+    photos: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showOtherOptions, setShowOtherOptions] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
   // Report type configurations
   const reportTypes = {
@@ -68,22 +76,96 @@ export default function FieldDataScreen() {
       types: [
         { label: 'Elephant', emoji: '🐘' },
         { label: 'Wildebeest', emoji: '🦬' },
+        { label: 'Other', emoji: '🦘' }
+      ],
+      otherOptions: [
         { label: 'Lion', emoji: '🦁' },
         { label: 'Rhino', emoji: '🦏' },
         { label: 'Giraffe', emoji: '🦒' },
         { label: 'Zebra', emoji: '🦓' },
         { label: 'Buffalo', emoji: '🐃' },
         { label: 'Leopard', emoji: '🐆' },
-        { label: 'Other', emoji: '🦘' }
+        { label: 'Cheetah', emoji: '🐆' },
+        { label: 'Hyena', emoji: '🐺' },
+        { label: 'Custom', emoji: '❓' }
       ],
       hasSeverity: false,
+      hasName: true,
+      hasPhotos: true,
+      hasLocation: true,
     }
   };
+
+  const otherWildlifeOptions = reportTypes.wildlife.otherOptions || [];
 
   const currentConfig = reportTypes[currentReportType];
 
   const updateFormData = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getCurrentLocation = async () => {
+    try {
+      setLoadingLocation(true);
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please enable location permissions');
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      updateFormData('location', {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      Alert.alert('Success', 'Location captured successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to get location');
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  const pickImage = async (source) => {
+    try {
+      let result;
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Please enable camera permissions');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Please enable photo library permissions');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled) {
+        updateFormData('photos', [...formData.photos, result.assets[0].uri]);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const removePhoto = (index) => {
+    const newPhotos = formData.photos.filter((_, i) => i !== index);
+    updateFormData('photos', newPhotos);
   };
 
   const handleSubmit = () => {
@@ -100,7 +182,17 @@ export default function FieldDataScreen() {
     setTimeout(() => {
       setIsSubmitting(false);
       Alert.alert('Success', `${currentConfig.title} report submitted successfully!`);
-      setFormData({ type: '', severity: '', species: '', count: 1, notes: '' });
+      setFormData({ 
+        type: '', 
+        animalName: '',
+        severity: '', 
+        species: '', 
+        count: 1, 
+        notes: '',
+        location: null,
+        photos: []
+      });
+      setShowOtherOptions(false);
     }, 1500);
   };
 
@@ -173,7 +265,14 @@ export default function FieldDataScreen() {
               {currentConfig.types.map((item) => (
                 <TouchableOpacity
                   key={item.label}
-                  onPress={() => updateFormData('type', item.label)}
+                  onPress={() => {
+                    updateFormData('type', item.label);
+                    if (item.label === 'Other' && currentReportType === 'wildlife') {
+                      setShowOtherOptions(true);
+                    } else {
+                      setShowOtherOptions(false);
+                    }
+                  }}
                   style={[
                     styles.typeCard,
                     formData.type === item.label && styles.typeCardSelected
@@ -184,8 +283,49 @@ export default function FieldDataScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {/* Show more wildlife options when "Other" is selected */}
+            {showOtherOptions && currentReportType === 'wildlife' && (
+              <View style={styles.otherOptionsContainer}>
+                <Text style={styles.otherOptionsTitle}>More Wildlife Options</Text>
+                <View style={styles.typeGrid}>
+                  {otherWildlifeOptions.map((item) => (
+                    <TouchableOpacity
+                      key={item.label}
+                      onPress={() => updateFormData('type', item.label)}
+                      style={[
+                        styles.typeCard,
+                        formData.type === item.label && styles.typeCardSelected
+                      ]}
+                    >
+                      <Text style={styles.typeEmoji}>{item.emoji}</Text>
+                      <Text style={styles.typeLabel}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         </View>
+
+        {/* Animal Name (Wildlife only) */}
+        {currentReportType === 'wildlife' && formData.type && (
+          <View style={styles.section}>
+            <View style={styles.sectionNumber}>
+              <Text style={styles.sectionNumberText}>2</Text>
+            </View>
+            <View style={styles.sectionContent}>
+              <Text style={styles.sectionTitle}>Animal Name (Optional)</Text>
+              <TextInput
+                value={formData.animalName}
+                onChangeText={(text) => updateFormData('animalName', text)}
+                placeholder="e.g., Simba, Big Tusk..."
+                placeholderTextColor={BRAND_COLORS.TEXT_SECONDARY}
+                style={styles.nameInput}
+              />
+            </View>
+          </View>
+        )}
 
         {/* Section 2: Severity (for Obstruction) or Details */}
         {currentConfig.hasSeverity && (
@@ -218,73 +358,95 @@ export default function FieldDataScreen() {
           </View>
         )}
 
-        {!currentConfig.hasSeverity && (
-          <View style={styles.section}>
-            <View style={styles.sectionNumber}>
-              <Text style={styles.sectionNumberText}>2</Text>
-            </View>
-            <View style={styles.sectionContent}>
-              <Text style={styles.sectionTitle}>Details</Text>
-              <TextInput
-                value={formData.notes}
-                onChangeText={(text) => updateFormData('notes', text)}
-                placeholder="Describe the incident..."
-                placeholderTextColor={BRAND_COLORS.TEXT_SECONDARY}
-                multiline
-                numberOfLines={4}
-                style={styles.detailsTextarea}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* Section 3: Notes */}
+        {/* Location Section (All report types) */}
         <View style={styles.section}>
           <View style={styles.sectionNumber}>
-            <Text style={styles.sectionNumberText}>{currentConfig.hasSeverity ? '3' : '3'}</Text>
+            <Text style={styles.sectionNumberText}>{currentConfig.hasSeverity ? '2' : currentReportType === 'wildlife' ? '3' : '2'}</Text>
           </View>
           <View style={styles.sectionContent}>
-            <Text style={styles.sectionTitle}>Additional Notes</Text>
+            <Text style={styles.sectionTitle}>Location</Text>
+            <TouchableOpacity
+              style={styles.locationButton}
+              onPress={getCurrentLocation}
+              disabled={loadingLocation}
+            >
+              {loadingLocation ? (
+                <ActivityIndicator color={BRAND_COLORS.SURFACE} />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="map-marker" size={20} color={BRAND_COLORS.SURFACE} />
+                  <Text style={styles.locationButtonText}>
+                    {formData.location ? 'Location Captured ✓' : 'Get Current Location'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {formData.location && (
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationText}>
+                  Lat: {formData.location.latitude.toFixed(6)}
+                </Text>
+                <Text style={styles.locationText}>
+                  Lng: {formData.location.longitude.toFixed(6)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Additionals Section (All report types) - Notes & Photos */}
+        <View style={styles.section}>
+          <View style={styles.sectionNumber}>
+            <Text style={styles.sectionNumberText}>{currentConfig.hasSeverity ? '3' : currentReportType === 'wildlife' ? '4' : '3'}</Text>
+          </View>
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionTitle}>Additionals (Optional)</Text>
+            
+            {/* Notes */}
+            <Text style={styles.subSectionLabel}>Notes</Text>
             <TextInput
               value={formData.notes}
               onChangeText={(text) => updateFormData('notes', text)}
-              placeholder="Add any additional information..."
+              placeholder="Add any additional notes or details..."
               placeholderTextColor={BRAND_COLORS.TEXT_SECONDARY}
               multiline
               numberOfLines={3}
               style={styles.notesTextarea}
             />
-          </View>
-        </View>
 
-        {/* Section 4: Location */}
-        <View style={styles.section}>
-          <View style={styles.sectionNumber}>
-            <Text style={styles.sectionNumberText}>4</Text>
-          </View>
-          <View style={styles.sectionContent}>
-            <Text style={styles.sectionTitle}>Location</Text>
-            
-            {/* Location Display */}
-            <View style={styles.locationDisplay}>
-              <View style={styles.locationInfo}>
-                <Text style={styles.locationEmoji}>📍</Text>
-                <View>
-                  <Text style={styles.locationName}>Maasai Mara Reserve</Text>
-                  <Text style={styles.locationCoords}>-1.4061° S, 35.0117° E</Text>
-                </View>
-              </View>
-              <TouchableOpacity>
-                <Text style={styles.editLink}>Edit</Text>
+            {/* Photos */}
+            <Text style={[styles.subSectionLabel, { marginTop: 16 }]}>Photos</Text>
+            <View style={styles.photoActions}>
+              <TouchableOpacity
+                style={styles.photoButton}
+                onPress={() => pickImage('camera')}
+              >
+                <MaterialCommunityIcons name="camera" size={20} color={BRAND_COLORS.SURFACE} />
+                <Text style={styles.photoButtonText}>Take Photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.photoButton}
+                onPress={() => pickImage('gallery')}
+              >
+                <MaterialCommunityIcons name="image" size={20} color={BRAND_COLORS.SURFACE} />
+                <Text style={styles.photoButtonText}>Choose from Gallery</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Map Preview */}
-            <View style={styles.simpleMap}>
-              <View style={styles.mapPin}>
-                <Text style={styles.mapPinText}>📍</Text>
-              </View>
-            </View>
+            {formData.photos.length > 0 && (
+              <ScrollView horizontal style={styles.photosContainer}>
+                {formData.photos.map((photo, index) => (
+                  <View key={index} style={styles.photoWrapper}>
+                    <Image source={{ uri: photo }} style={styles.photoPreview} />
+                    <TouchableOpacity
+                      style={styles.removePhotoButton}
+                      onPress={() => removePhoto(index)}
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={24} color={STATUS_COLORS.ERROR} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -432,6 +594,12 @@ const styles = StyleSheet.create({
     color: BRAND_COLORS.TEXT,
     marginBottom: 12,
   },
+  subSectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    marginBottom: 8,
+  },
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -515,16 +683,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: BRAND_COLORS.PRIMARY,
   },
-  detailsTextarea: {
-    backgroundColor: BRAND_COLORS.BACKGROUND,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 15,
-    color: BRAND_COLORS.TEXT,
-    textAlignVertical: 'top',
-    minHeight: 100,
-    borderWidth: 0,
-  },
   notesTextarea: {
     backgroundColor: BRAND_COLORS.BACKGROUND,
     borderRadius: 8,
@@ -535,52 +693,10 @@ const styles = StyleSheet.create({
     minHeight: 80,
     borderWidth: 0,
   },
-  locationDisplay: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: BRAND_COLORS.BACKGROUND,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
   locationInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  locationEmoji: {
-    fontSize: 20,
-  },
-  locationName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: BRAND_COLORS.TEXT,
-  },
-  locationCoords: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: BRAND_COLORS.TEXT_SECONDARY,
-  },
-  editLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: BRAND_COLORS.ACCENT,
-  },
-  simpleMap: {
-    height: 220,
-    backgroundColor: BRAND_COLORS.PRIMARY,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  mapPin: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mapPinText: {
-    fontSize: 40,
   },
   submitBar: {
     position: 'absolute',
@@ -606,5 +722,90 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: BRAND_COLORS.SURFACE,
+  },
+  otherOptionsContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: BRAND_COLORS.BORDER_LIGHT,
+  },
+  otherOptionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND_COLORS.TEXT,
+    marginBottom: 12,
+  },
+  nameInput: {
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: BRAND_COLORS.TEXT,
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)',
+  },
+  locationButton: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    borderRadius: 8,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  locationButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: BRAND_COLORS.SURFACE,
+  },
+  locationText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: BRAND_COLORS.TEXT_SECONDARY,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+    padding: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  photoActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  photoButton: {
+    flex: 1,
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  photoButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND_COLORS.SURFACE,
+  },
+  photosContainer: {
+    marginTop: 12,
+  },
+  photoWrapper: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  photoPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    borderRadius: 12,
   },
 });
