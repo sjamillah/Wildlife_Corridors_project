@@ -1,649 +1,804 @@
-# Aureynx - Wildlife Conservation Platform
+# Aureynx Wildlife Conservation Platform
 
-> **Protecting Wildlife Together Through Technology**
+Real-time wildlife tracking and conservation management with AI-powered predictions.
 
-A comprehensive digital solution for wildlife corridor monitoring, incident reporting, and conservation management. Aureynx empowers conservationists, researchers, and wildlife managers to track animal movements, report incidents, and maintain wildlife corridors effectively.
+---
 
 ## Table of Contents
 
-- [Demo Video](#demo-video)
-- [Description](#description)
-- [Repository](#repository)
-- [Dataset Overview](#dataset-overview)
-- [Project Structure](#project-structure)
-- [Environment Setup & Installation](#environment-setup--installation)
-  - [Prerequisites](#prerequisites)
-  - [Mobile Application Setup](#mobile-application-setup)
-  - [Web Application Setup](#web-application-setup)
-  - [Backend & Analytics Setup](#backend--analytics-setup)
-- [Technologies Used](#technologies-used)
-  - [Mobile Application](#mobile-application)
-  - [Web Application](#web-application)
-  - [Backend & Analytics](#backend--analytics)
-  - [Wildlife Movement Analysis (HMM Model)](#wildlife-movement-analysis-hmm-model)
-- [Mobile App Features](#mobile-app-features)
-  - [Authentication System](#authentication-system)
-  - [Dashboard](#dashboard)
-  - [Field Data Reporting](#field-data-reporting)
-  - [Interactive Mapping](#interactive-mapping)
-  - [Alert Management](#alert-management)
-  - [User Profile](#user-profile)
-- [Design System](#design-system)
-  - [Color Palette](#color-palette)
-  - [UI Components](#ui-components)
-  - [Figma Design Resources](#figma-design-resources)
-- [Available Scripts](#available-scripts)
-  - [Mobile Development](#mobile-development)
-  - [Web Development](#web-development)
-- [Key Features](#key-features)
-- [Deployment Plan](#deployment-plan)
-  - [Web Application Deployment](#web-application-deployment)
-  - [Mobile Application Deployment](#mobile-application-deployment)
-  - [Security & Monitoring](#security--monitoring)
-- [Development Guidelines](#development-guidelines)
-  - [Code Quality Standards](#code-quality-standards)
-  - [Best Practices](#best-practices)
-  - [Testing Strategy](#testing-strategy)
-- [Contributing](#contributing)
-  - [Getting Started](#getting-started)
-  - [Contribution Guidelines](#contribution-guidelines)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
-- [Contact & Support](#contact--support)
-  - [Links](#links)
+1. [Demo Video](#demo-video)
+2. [Deployed Application](#deployed-application)
+3. [Overview](#overview)
+4. [Project Structure](#project-structure)
+5. [Installation Guide](#installation-guide)
+6. [Key Features](#key-features)
+7. [Machine Learning Models](#machine-learning-models)
+8. [Testing Summary](#testing-summary)
+9. [API Documentation](#api-documentation)
+10. [Troubleshooting](#troubleshooting)
+11. [License](#license)
+
+---
 
 ## Demo Video
 
-**[Watch Demo Video](https://drive.google.com/file/d/1VoWrEZWwjJ4i3N6pkcuek_DrliQv9o2C/view?usp=drive_link)**
+**5-Minute Platform Demo**: [Insert Video Link Here]
 
-## Description
+The demo showcases:
+- Live animal tracking with intelligent map visualization
+- AI predictions for movement patterns and behavior
+- Corridor monitoring and risk assessment systems
+- Real-time alerts when animals enter danger zones
+- Ranger patrol coordination interface
+- Data analytics and reporting features
 
-Aureynx is a full-stack wildlife conservation platform designed to revolutionize how we monitor and protect wildlife corridors. The system provides real-time tracking, incident management, and data analytics to support conservation efforts globally.
+---
 
-**Key Features:**
+## Deployed Application
 
-- **Wildlife Movement Tracking**: Real-time monitoring of animal corridors and migration patterns
-- **Incident Management**: Comprehensive reporting system for wildlife events and obstructions
-- **Smart Alerts**: Automated notifications for critical wildlife situations
-- **Data Analytics**: Advanced visualization and insights for corridor effectiveness
-- **Cross-Platform**: Native mobile app and responsive web application
-- **HMM Analytics**: Hidden Markov Model for wildlife behavior prediction
+**Backend API**: https://wildlife-project-backend.onrender.com
 
-## Repository
+**API Documentation**: https://wildlife-project-backend.onrender.com/api/docs/
 
-**GitHub Repository**: [https://github.com/sjamillah/Wildlife_Corridors_project](https://github.com/sjamillah/Wildlife_Corridors_project)
+**Frontend**: Follow the installation steps below to run locally
 
-## Dataset Overview
+*Note: First API request may take 30-60 seconds as the free-tier server spins up*
 
-Aureynx leverages real-world wildlife tracking data to power its behavioral analysis and conservation insights. Our research utilizes high-quality GPS tracking datasets sourced from **Movebank**, a collaborative platform providing access to animal movement data collected by researchers worldwide.
+---
 
-### Data Source & Location
+## Overview
 
-- **Primary Dataset**: GPS tracking data from the **Greater Mara Ecosystem**, East Africa
-- **Species Analyzed**: Large mammals including elephants (_Loxodonta africana_) and wildebeest (_Connochaetes taurinus_)
-- **Collection Method**: Collar-mounted GPS sensors recording precise location coordinates at regular intervals
-- **Data Provider**: Movebank collaborative database
+This platform helps track wildlife and predict corridor usage using machine learning. Rangers can monitor animal locations in real-time, receive alerts when animals leave safe zones, and use AI predictions to anticipate where animals might move next.
 
-### Key Data Characteristics
+The system runs on Django REST backend with React dashboard. Five ML models trained on 472,307 GPS records from Kenya-Tanzania corridors handle behavior classification, movement prediction, habitat analysis, and corridor planning. The platform passed 137 automated tests before going live.
 
-**Original GPS Data Fields**:
+What makes this different: instead of just showing dots on a map, the system actually predicts what animals might do next and warns rangers before problems happen.
 
-- **event-id**: Unique identifier for each GPS location record
-- **visible**: Data quality indicator flagging successful GPS fixes
-- **timestamp**: Precise date/time of GPS recording (UTC)
-- **location-long**: Geographic longitude coordinate (decimal degrees)
-- **location-lat**: Geographic latitude coordinate (decimal degrees)
-- **sensor-type**: Type of tracking device used (e.g., GPS collar)
-- **individual-taxon-canonical-name**: Scientific species name
-- **tag-local-identifier**: Unique identifier for the physical tracking device
-- **individual-local-identifier**: Unique identifier for each tracked animal
-- **study-name**: Research project or study that collected the data
-
-**Derived Movement Features** (calculated for analysis):
-
-- **step_length**: Distance between consecutive GPS locations (meters)
-- **step_bearing**: Compass direction of movement between GPS points (degrees)
-- **turning_angle**: Change in direction between consecutive steps (radians)
-- **speed**: Movement velocity calculated from step length and time difference (km/hour)
-- **net_displacement**: Straight-line distance from starting location (meters)
-- **cumulative_distance**: Total distance traveled by each individual (meters)
-- **hour_of_day**: Extracted from timestamp for circadian activity analysis
-- **true_state**: Manually defined behavioral categories (resting, foraging, traveling)
-- **animal_id**: Simplified version of individual-local-identifier for analysis
-
-### Dataset Scale & Quality
-
-- **Temporal Coverage**: Multi-year tracking periods capturing seasonal patterns
-- **Spatial Resolution**: Sub-meter GPS accuracy for precise movement analysis
-- **Sample Size**: Thousands of GPS fixes per individual animal
-- **Quality Control**: Rigorous data cleaning and validation protocols
-
-This rich dataset enables Aureynx to automatically classify animal behaviors, identify movement patterns, and provide evidence-based insights for wildlife corridor management and conservation planning. For detailed methodology and analysis results, see [WILDLIFE_MOVEMENT_ANALYSIS.md](WILDLIFE_MOVEMENT_ANALYSIS.md).
+---
 
 ## Project Structure
 
 ```
 Wildlife_Corridors_project/
-├── README.md                    # Project documentation
-├── frontend/                    # Client-side applications
-│   ├── mobile/                     # React Native (Expo) mobile app
-│   │   ├── app/                    # App screens and routing
-│   │   │   ├── (tabs)/            # Tab-based navigation
-│   │   │   ├── screens/           # Authentication & main screens
-│   │   │   └── _layout.tsx        # Root layout
-│   │   ├── assets/                # Images, fonts, and static files
-│   │   ├── components/            # Reusable UI components
-│   │   ├── constants/             # App constants and themes
-│   │   ├── hooks/                 # Custom React hooks
-│   │   └── package.json           # Mobile dependencies
-│   └── web/                       # React web application
-│       ├── public/                # Static web assets
-│       ├── src/                   # Web source code
-│       │   ├── assets/           # Images and logos
-│       │   ├── auth/             # Authentication components
-│       │   ├── components/       # Reusable components
-│       │   ├── pages/            # Main application pages
-│       │   ├── screens/          # Screen components
-│       │   └── services/         # API services
-│       └── package.json          # Web dependencies
-└── backend/                    # Server-side services
-    └── notebooks/                 # Research and ML models
-        └── HMM_Model.ipynb        # Hidden Markov Model analysis
+├── backend-wildlife/
+│   ├── backend/
+│   │   ├── apps/              # 8 Django applications
+│   │   │   ├── animals/       # Animal management
+│   │   │   ├── tracking/      # GPS data handling
+│   │   │   ├── predictions/   # ML predictions
+│   │   │   ├── corridors/     # Corridor management
+│   │   │   ├── authentication/# Auth system
+│   │   │   ├── sync/          # Data synchronization
+│   │   │   ├── users/         # User management
+│   │   │   └── wildlife/      # Core wildlife logic
+│   │   ├── ml_models/         # Trained model files
+│   │   │   ├── hmm/           # Behavior classification
+│   │   │   ├── bbmm/          # Movement prediction
+│   │   │   ├── xgboost/       # Habitat suitability
+│   │   │   ├── lstm/          # Position forecasting
+│   │   │   └── rl/            # Corridor optimization
+│   │   └── requirements.txt   # Python dependencies
+│   ├── data/                  # Training datasets
+│   ├── notebooks/             # Jupyter analysis notebooks
+│   └── docker-compose.yml     # Database containers
+└── frontend/
+    └── web/
+        ├── src/
+        │   ├── screens/       # Main UI screens
+        │   │   ├── Dashboard.js
+        │   │   ├── AnimalTracking.js
+        │   │   ├── CorridorMap.js
+        │   │   └── Analytics.js
+        │   ├── components/    # Reusable UI components
+        │   │   ├── Map/
+        │   │   ├── Alerts/
+        │   │   └── Charts/
+        │   ├── services/      # API integration layer
+        │   │   ├── api.js
+        │   │   ├── auth.js
+        │   │   └── websocket.js
+        │   └── constants/     # Configuration
+        └── package.json       # Node dependencies
 ```
-
-## Environment Setup & Installation
-
-### Prerequisites
-
-- Node.js (v16 or higher)
-- npm or yarn
-- Git for version control
-- Expo CLI for mobile development
-- Python 3.8+ (for HMM model analysis)
-
-### Mobile Application Setup
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/sjamillah/Wildlife_Corridors_project.git
-   cd Wildlife_Corridors_project/frontend/mobile
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. Install Expo CLI globally:
-
-   ```bash
-   npm install -g @expo/cli
-   ```
-
-4. Start the development server:
-   ```bash
-   npm run web          # Run on web browser
-   npm run start        # Run on mobile device/emulator
-   ```
-
-### Web Application Setup
-
-1. Navigate to web directory:
-
-   ```bash
-   cd Wildlife_Corridors_project/frontend/web
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. Start development server:
-
-   ```bash
-   npm start
-   ```
-
-4. Build for production:
-   ```bash
-   npm run build
-   ```
-
-### Backend & Analytics Setup
-
-1. Navigate to backend:
-
-   ```bash
-   cd Wildlife_Corridors_project/backend
-   ```
-
-2. Set up Python environment:
-
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install Python packages:
-
-   ```bash
-   pip install jupyter pandas numpy matplotlib seaborn scikit-learn
-   ```
-
-4. Launch Jupyter notebook:
-   ```bash
-   jupyter notebook notebooks/HMM_Model.ipynb
-   ```
-
-## Technologies Used
-
-### Mobile Application
-
-- Framework: React Native with Expo Router
-- Navigation: File-based routing with Expo Router
-- UI Components: Custom themed components with consistent branding
-- State Management: React Context API
-- Authentication: Local Authentication (Face ID/Fingerprint)
-- Icons: MaterialCommunityIcons, Lucide React
-- Styling: StyleSheet with Aureynx brand colors
-
-### Web Application
-
-- Framework: React.js
-- Build Tool: Create React App
-- Styling: CSS3 with Tailwind-inspired classes
-- Routing: React Router
-- UI Library: Custom component library
-- State Management: React Context & Hooks
-- Package Manager: npm
-
-### Backend & Analytics
-
-- Architecture: Microservices (in development)
-- Data Processing: Python with Pandas & NumPy
-- Machine Learning: Hidden Markov Models (HMM) for behavioral analysis
-- Analytics: Jupyter Notebooks with comprehensive wildlife movement analysis
-- Data Visualization: Matplotlib, Seaborn for ecological insights
-- Data Source: Movebank wildlife tracking database (GPS collar data)
-
-### Wildlife Movement Analysis (HMM Model)
-
-The Aureynx platform includes advanced behavioral analysis using Hidden Markov Models to classify animal movement patterns:
-
-**Dataset**: GPS tracking data from Movebank featuring wildebeests and elephants in the Greater Mara Ecosystem
-
-**Key Features Analyzed**:
-
-- Step length (distance between GPS points)
-- Turning angles (directional changes)
-- Speed calculations
-- Temporal movement patterns
-- Net displacement tracking
-
-**Behavioral State Classification**:
-
-- **Resting**: Short steps (<50m), random directions - recovery and vigilance
-- **Foraging**: Intermediate steps (50-200m), frequent turns - active resource searching
-- **Traveling**: Long steps (>200m), straight trajectories - directed movement between areas
-
-**Model Performance**:
-
-- **Overall Accuracy**: 71.7% - reliable behavioral state identification
-- **Macro Precision**: 80.7% - low false positive rates across categories
-- **Macro Recall**: 61.5% - good detection of true behavioral instances
-- **Macro F1-Score**: 59.2% - balanced classification performance
-
-The HMM analysis provides critical insights for corridor design and wildlife management by automatically identifying movement patterns that inform conservation strategies.
-
-- Expo CLI (for mobile development)
-- Git
-
-### Mobile App Setup
-
-```bash
-# Navigate to mobile directory
-cd frontend/mobile
-
-# Install dependencies
-npm install
-
-# Install Expo CLI globally (if not already installed)
-npm install -g expo-cli
-
-# Start development server
-npx expo start
-```
-
-### Web App Setup
-
-```bash
-# Navigate to web directory
-cd frontend/web
-
-# Install dependencies
-npm install
-
-# Start development server
-npm start
-```
-
-## Mobile App Features
-
-### Authentication System
-
-- **Secure Sign In**: Username/password authentication
-- **User Registration**: Role-based user registration (Researcher, Ranger, Conservationist, Administrator)
-- **Multi-factor Authentication**: Enhanced security with MFA support
-- **Biometric Authentication**: Fingerprint/Face ID integration
-
-### Dashboard
-
-- **Wildlife Statistics**: Real-time corridor usage data
-- **Recent Incidents**: Quick access to latest reports
-- **Alert Summary**: Critical notifications at a glance
-- **Quick Actions**: Rapid access to reporting features
-
-### Field Data Reporting
-
-- **Incident Reports**: Document wildlife incidents with severity levels
-- **Obstruction Reports**: Report corridor blockages and barriers
-- **Wildlife Sightings**: Log animal observations with species data
-- **Rich Media**: Photo and location capture
-- **Offline Support**: Function without internet connectivity
-
-### Interactive Mapping
-
-- **Corridor Visualization**: View wildlife corridors and boundaries
-- **Incident Mapping**: Geospatial incident visualization
-- **Real-time Tracking**: Live corridor activity monitoring
-- **Layer Controls**: Toggle different data layers
-
-### Alert Management
-
-- **Real-time Notifications**: Instant critical incident alerts
-- **Severity Filtering**: Organize alerts by priority level
-- **Response Tracking**: Monitor incident resolution status
-- **Custom Notifications**: Personalized alert preferences
-
-### User Profile
-
-- **Profile Management**: Update user information and preferences
-- **Role-based Access**: Feature access based on user roles
-- **Settings**: App preferences and notification settings
-- **Data Synchronization**: Cloud backup and sync
-
-## Design System
-
-### Color Palette
-
-- **Primary**: Wildlife-inspired green tones
-- **Accent Colors**: Earth tones for different severities
-- **Dark Mode**: Full dark theme support
-- **Accessibility**: WCAG 2.1 compliant color contrasts
-
-### UI Components
-
-- **Themed Components**: Consistent design language
-- **Custom Icons**: Wildlife and conservation-focused iconography
-- **Responsive Design**: Adaptive layouts for all screen sizes
-- **Haptic Feedback**: Enhanced user interaction experience
-
-### Figma Design Resources
-
-Access our complete design system and user interface mockups on Figma:
-
-🎨 **[View Aureynx Design System on Figma](https://www.figma.com/design/jHjNYsHuYPhfDhbUUX5wo6/Wildlife-Corridor-System-Mobile-App?m=auto&t=ChfekUZkf1rbcVjQ-1)**
-
-**What's included:**
-
-- **UI Components Library**: Complete component system with variants and states
-- **Mobile App Screens**: All mobile application interfaces and user flows
-- **Web Application Designs**: Desktop and responsive web interface mockups
-- **Style Guide**: Typography, colors, spacing, and brand guidelines
-- **Icon Library**: Custom wildlife conservation iconography
-- **Prototypes**: Interactive user experience flows and animations
-- **Design Tokens**: Exportable design system variables for development
-
-**Design System Highlights:**
-
-- Emerald gradient theme (#3B6B3A primary color)
-- Accessibility-first approach with WCAG 2.1 compliance
-- Cross-platform consistency between mobile and web
-- Wildlife conservation-focused visual language
-- Professional card-based layouts with organic shadows
-
-> 💡 **For Developers**: Design tokens and component specifications are available in the Figma file for accurate implementation.
-
-## Available Scripts
-
-### Mobile Development
-
-```bash
-# Development
-npm run android          # Run on Android device/emulator
-npm run ios             # Run on iOS device/simulator (macOS only)
-npm run web             # Run in web browser
-
-# Building
-npm run build           # Build for production
-npm run export          # Export static files
-```
-
-### Web Development
-
-```bash
-# Development
-npm start               # Start development server
-npm test                # Run test suite
-npm run build          # Build for production
-npm run eject          # Eject from Create React App (irreversible)
-```
-
-## Project Structure
-
-### Mobile App Structure
-
-```
-frontend/mobile/
-├── app/                     # Expo Router file-based routing
-│   ├── index.jsx           # App entry point
-│   ├── _layout.jsx         # Root navigation layout
-│   ├── +not-found.jsx     # 404 error page
-│   └── screens/
-│       ├── auth/           # Authentication screens
-│       │   ├── SignInScreen.jsx
-│       │   └── SignUpScreen.jsx
-│       └── (tabs)/         # Main app tabs
-│           ├── _layout.jsx         # Tab navigation layout
-│           ├── DashboardScreen.jsx # Wildlife statistics dashboard
-│           ├── FieldDataScreen.jsx # Incident reporting
-│           ├── MapScreen.jsx       # Interactive mapping
-│           ├── AlertsScreen.jsx    # Alert management
-│           └── ProfileScreen.jsx   # User profile
-├── components/             # Reusable UI components
-│   ├── ui/                # Core UI components (Button, Card, etc.)
-│   ├── HapticTab.jsx      # Tab bar with haptic feedback
-│   ├── ThemedText.jsx     # Themed text component
-│   └── ThemedView.jsx     # Themed view container
-├── constants/             # App constants and configuration
-│   └── Colors.js          # Color theme definitions
-├── contexts/              # React Context providers
-│   ├── ThemeContext.js    # Theme management
-│   └── AlertsContext.js   # Alert state management
-├── hooks/                 # Custom React hooks
-│   ├── useColorScheme.js  # Device color scheme detection
-│   └── useThemeColor.js   # Theme color utilities
-└── assets/               # Static assets (images, fonts)
-    ├── images/
-    └── fonts/
-```
-
-## Key Features
-
-### Real-time Wildlife Monitoring
-
-- Live corridor usage tracking with GPS integration
-- Animal movement pattern analysis using HMM models
-- Seasonal migration monitoring and predictions
-- Habitat connectivity assessment tools
-
-### Comprehensive Incident Management
-
-- Multi-category incident reporting system
-- Severity-based alert system with push notifications
-- GPS-accurate location tracking and mapping
-- Rich media documentation (photos, videos, notes)
-
-### Advanced Analytics & Intelligence
-
-- Wildlife corridor effectiveness metrics and KPIs
-- Predictive modeling using Hidden Markov Models
-- Geographic hotspot identification and analysis
-- Conservation impact assessment reports
-
-### Collaborative Conservation Platform
-
-- Multi-user access with role-based permissions
-- Team communication and coordination features
-- Real-time data sharing across organizations
-- Comprehensive export and reporting tools
-
-## Deployment Plan
-
-### Web Application Deployment
-
-**Platform**: Vercel / Netlify
-
-1. **Build Optimization**
-   ```bash
-   npm run build
-   npm run optimize
-   ```
-2. **Environment Variables**
-   - API endpoints configuration
-   - Authentication keys setup
-   - Analytics tracking codes
-3. **CDN Configuration**
-   - Static asset optimization
-   - Global content delivery
-   - Caching strategies
-
-### Mobile Application Deployment
-
-**Platform**: Expo Application Services (EAS)
-
-1. **iOS App Store**
-   ```bash
-   eas build --platform ios
-   eas submit --platform ios
-   ```
-2. **Google Play Store**
-   ```bash
-   eas build --platform android
-   eas submit --platform android
-   ```
-3. **Over-the-Air Updates**
-   - Expo Updates for instant deployments
-   - A/B testing capabilities
-   - Progressive rollout strategies
-
-### Security & Monitoring
-
-- **SSL/TLS** certificates for secure communication
-- **Authentication** with JWT and biometric support
-- **API Rate Limiting** to prevent abuse
-- **Error Tracking** with Sentry integration
-- **Performance Monitoring** with analytics
-- **Backup Strategies** for data protection
-
-## Development Guidelines
-
-### Code Quality Standards
-
-- **ESLint**: Comprehensive linting and code formatting
-- **Naming Conventions**: PascalCase for components, camelCase for utilities
-- **Architecture**: Clean, modular folder structure
-- **Component Library**: Reusable UI component system
-- **Type Safety**: Comprehensive PropTypes validation
-
-### Best Practices
-
-- **File-based Routing**: Expo Router for intuitive navigation
-- **State Management**: Context API with custom hooks
-- **Design System**: Consistent Aureynx brand theming
-- **Responsive Design**: Mobile-first approach
-- **Accessibility**: WCAG 2.1 compliance
-- **Performance**: Optimized rendering and lazy loading
-
-### Testing Strategy
-
-- **Unit Tests**: Component and utility function testing
-- **Integration Tests**: API and data flow validation
-- **E2E Testing**: Complete user journey verification
-- **Performance Testing**: Load and stress testing
-
-## Contributing
-
-We welcome contributions to the Aureynx Wildlife Conservation Platform!
-
-### Getting Started
-
-1. **Fork** the repository
-2. **Clone** your fork locally
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/Wildlife_Corridors_project.git
-   ```
-3. **Create** a feature branch
-   ```bash
-   git checkout -b feature/amazing-wildlife-feature
-   ```
-4. **Make** your changes following our coding standards
-5. **Test** your changes thoroughly
-6. **Commit** with descriptive messages
-   ```bash
-   git commit -m "Add wildlife corridor mapping feature"
-   ```
-7. **Push** to your branch
-   ```bash
-   git push origin feature/amazing-wildlife-feature
-   ```
-8. **Open** a Pull Request with detailed description
-
-### Contribution Guidelines
-
-- Follow the existing code style and conventions
-- Write clear, descriptive commit messages
-- Include tests for new features
-- Update documentation as needed
-- Ensure all tests pass before submitting
-
-## License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- **Wildlife Conservation Organizations** for domain expertise and requirements
-- **React Native & Expo Communities** for excellent documentation and support
-- **Open Source Contributors** who make projects like this possible
-- **Conservation Researchers** providing valuable insights into wildlife behavior
-- **Field Teams** testing and providing feedback on usability
-
-## Contact & Support
-
-### Links
-
-- Repository: [Wildlife_Corridors_project](https://github.com/sjamillah/Wildlife_Corridors_project)
-- Issues: [Report Bugs & Feature Requests](https://github.com/sjamillah/Wildlife_Corridors_project/issues)
-- Documentation: [Wiki & Guides](https://github.com/sjamillah/Wildlife_Corridors_project/wiki)
-- Demo: [Live Demo Video](DEMO_VIDEO_LINK)
 
 ---
 
-**Building a better future for wildlife through technology**
+## Installation Guide
 
-_Aureynx - Where Conservation Meets Innovation_
+### Prerequisites
+
+Before starting, install:
+- **Python 3.9+** (backend)
+- **Node.js 16+** (frontend)
+- **Docker Desktop** (database)
+- **Git** (version control)
+
+Check installations:
+```bash
+python --version  # Should show 3.9 or higher
+node --version    # Should show 16 or higher
+docker --version  # Should show Docker version
+```
+
+---
+
+### Database Setup
+
+**Step 1: Navigate to backend directory**
+```bash
+cd Wildlife_Corridors_project/backend-wildlife
+```
+
+**Step 2: Start PostgreSQL and Redis containers**
+```bash
+docker-compose up -d
+```
+
+This starts:
+- PostgreSQL on port 5432 (main database)
+- Redis on port 6379 (caching and real-time data)
+
+**Step 3: Verify containers are running**
+```bash
+docker ps
+```
+
+Should see two containers: `postgres` and `redis`
+
+**Troubleshooting**: If port 5432 is already in use, stop any other PostgreSQL instances or modify `docker-compose.yml` to use different ports.
+
+---
+
+### Backend Setup
+
+**Step 1: Create virtual environment**
+```bash
+cd backend
+python -m venv venv
+```
+
+**Step 2: Activate virtual environment**
+
+On Mac/Linux:
+```bash
+source venv/bin/activate
+```
+
+On Windows:
+```bash
+venv\Scripts\activate
+```
+
+Terminal prompt should now show `(venv)` prefix.
+
+**Step 3: Install Python dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+This installs Django, Django REST Framework, ML libraries, and other dependencies. Takes 2-3 minutes.
+
+**Step 4: Configure environment variables**
+
+Create `.env` file in `backend/` directory:
+```
+SECRET_KEY=your-secret-key-here-change-this
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/wildlife_db
+REDIS_URL=redis://localhost:6379/0
+ALLOWED_HOSTS=localhost,127.0.0.1
+DEBUG=True
+
+# Email for OTP (optional for local development)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+```
+
+**Step 5: Run database migrations**
+```bash
+python manage.py migrate
+```
+
+This creates all database tables. Should see green "OK" messages for each migration.
+
+**Step 6: Create admin user**
+```bash
+python manage.py createsuperuser
+```
+
+Enter email, name, and password when prompted. This account accesses the admin panel.
+
+**Step 7: Load sample data (optional)**
+```bash
+python manage.py loaddata sample_animals
+python manage.py loaddata sample_corridors
+```
+
+**Step 8: Start Django server**
+```bash
+python manage.py runserver
+```
+
+Server starts on `http://localhost:8000/`
+
+**Verify backend is working**:
+- Open `http://localhost:8000/api/docs/` - should see API documentation
+- Open `http://localhost:8000/admin/` - should see Django admin login
+
+Keep this terminal window open. Backend must be running for frontend to work.
+
+---
+
+### Frontend Setup
+
+**Step 1: Open new terminal and navigate to frontend**
+```bash
+cd Wildlife_Corridors_project/frontend/web
+```
+
+**Step 2: Install Node dependencies**
+```bash
+npm install --legacy-peer-deps
+```
+
+The `--legacy-peer-deps` flag resolves React version conflicts. Takes 3-5 minutes.
+
+**Step 3: Configure environment**
+
+Create `.env` file in `frontend/web/` directory:
+```
+REACT_APP_ENV=development
+REACT_APP_API_URL=http://localhost:8000
+REACT_APP_MAPBOX_TOKEN=your-mapbox-token-here
+```
+
+To get Mapbox token:
+1. Go to https://www.mapbox.com/
+2. Sign up for free account
+3. Copy default public token from account dashboard
+4. Paste in `.env` file
+
+**Step 4: Start React development server**
+```bash
+npm start
+```
+
+Browser automatically opens to `http://localhost:3000/`
+
+**Verify frontend is working**:
+- Should see login screen
+- No console errors in browser DevTools (F12)
+- Map tiles load correctly (Mapbox is working)
+
+---
+
+### First Time Setup Complete
+
+Both servers should now be running:
+- Backend: `http://localhost:8000/`
+- Frontend: `http://localhost:3000/`
+
+**Test the connection**:
+1. On frontend login screen, click "Register"
+2. Enter email, name, and select role
+3. Check email for 4-digit code (or check backend terminal for code if email not configured)
+4. Enter code to complete registration
+5. Should see dashboard with sample animals on map
+
+**Common issues**:
+- If map doesn't load: Check Mapbox token in `.env`
+- If API calls fail: Ensure backend is running on port 8000
+- If OTP doesn't arrive: Check backend terminal for code (it prints there during development)
+
+---
+
+## Key Features
+
+### Interactive Wildlife Tracking Map
+
+The map shows live animal positions with color-coded risk indicators:
+
+- **Green markers**: Animals safely inside corridors
+- **Orange markers**: Animals outside designated zones
+- **Red markers**: Animals in poaching hotspots or danger areas
+
+Click any marker to see animal details, recent movement history, and AI predictions for where it might go next.
+
+### Corridor Visualization
+
+Sky blue polylines show designated wildlife corridors with semi-transparent buffer zones. Corridors display:
+- Target species
+- Protection status  
+- Usage statistics (how many animals use it)
+- Risk zones along the route
+
+### Real-Time Alert System
+
+Automatic alerts trigger when:
+- Animals exit corridor boundaries
+- Animals approach human settlements
+- Animals enter known conflict zones
+- Unusual behavior patterns detected by ML
+
+Each alert shows animal name, species, location, and risk level. Rangers can acknowledge or dismiss alerts after responding.
+
+### Movement Predictions
+
+Purple dotted lines show where AI predicts animals will move in the next few hours. Predictions update every 30 seconds as new GPS data arrives. Based on two models:
+- BBMM for trajectory forecasting
+- LSTM for directional trends
+
+### Ranger Patrol Routes
+
+Cyan dashed lines show active ranger patrols with live position markers. Click routes to see:
+- Team member names
+- Current patrol status
+- Estimated arrival times at key locations
+
+### Behavioral Analysis
+
+Hidden Markov Models automatically classify animal behavior from GPS patterns:
+- Resting (low movement, random directions)
+- Foraging (moderate movement, some direction changes)
+- Traveling (high movement, straight lines)
+
+The system alerts rangers to unusual behavior that might indicate stress or danger.
+
+### Layer Controls
+
+Toggle visibility for different map layers:
+- Wildlife corridors
+- Risk zones
+- Predicted paths
+- Ranger patrols
+- Habitat suitability overlays
+
+Filter by species to focus on specific animals during operations.
+
+### Data Analytics
+
+Dashboard includes:
+- Time spent in each behavioral state
+- Distance traveled per day
+- Corridor usage rates
+- Human-wildlife conflict statistics
+- Movement pattern visualizations
+
+Export data as CSV or GeoJSON for GIS analysis.
+
+---
+
+## Machine Learning Models
+
+Five specialized models handle different prediction tasks. All trained on 472,307 real GPS records from elephants and wildebeest in Kenya-Tanzania.
+
+### Behavioral Analysis (HMM)
+
+**What it does**: Automatically figures out if animals are resting, foraging, or traveling just from GPS movement patterns.
+
+**Elephant model performance**:
+- Trained on 187,937 GPS points from 30 elephants
+- 61.5% accuracy (accounting for class imbalance)
+- Identifies 5 behavioral states
+
+Elephant time budget turns out pretty interesting. They spend almost half their time (47%) resting across two different rest patterns - one where they barely move (median 0.44 km steps), another with slightly more movement (median 0.46 km). Foraging takes up 40% of their time with step lengths around 0.5 km and high directional persistence (0.83) - meaning they move purposefully while feeding, not randomly wandering. Only 13% goes to actual traveling, but when they travel they're extremely direct (0.97 persistence), basically moving in straight lines toward wherever they're headed.
+
+**Wildebeest model performance**:
+- Trained on 278,532 GPS points from 36 wildebeest  
+- 65.1% accuracy
+- Better performance than elephants
+
+Wildebeest are more balanced: 42% resting, 41% foraging, 18% traveling. They move in much smaller steps (median 0.12-0.22 km vs elephants' 0.44-0.58 km), which makes sense for grazers constantly moving while eating grass. When traveling, they show even higher directional persistence (0.94) than elephants, consistent with those famous long-distance migrations where the whole herd moves together.
+
+**Prediction errors**: Step length predictions have relatively high errors (0.83 km MAE for elephants, 0.35 km for wildebeest). Turning angle predictions are better (0.36 and 0.31 radians). The model is better at classifying what animals are doing than predicting exactly where they'll step next.
+
+**Real use**: Runs automatically on incoming GPS data. When an animal's movement pattern doesn't match what's expected for that location and time, rangers get alerted. Helps catch early signs of stress, injury, or approaching danger before serious problems develop.
+
+### Movement Prediction (BBMM)
+
+**What it does**: Predicts where animals will be in the next few hours based on recent movement and typical patterns.
+
+**Elephant predictions**:
+- 193,225 GPS records processed
+- Average error: 344 meters
+- Movement variance: 0.314 km²/hour
+
+For elephants moving at typical speeds (2-5 km/h), predicting position within 344 meters gives rangers about 7-17 minutes of lead time. That's enough to respond before animals reach conflict zones or exit corridors. The high movement variance (0.314) reflects how unpredictable elephants can be - they might suddenly stop to investigate food, respond to herd dynamics, or avoid perceived threats.
+
+**Wildebeest predictions**:
+- 279,082 GPS records processed  
+- Average error: 108 meters (3x better than elephants!)
+- Movement variance: 0.085 km²/hour
+
+Wildebeest are way more predictable. The 108-meter average error reflects their coordinated herd movement. During migrations, they follow consistent trajectories toward seasonal grazing areas. Lower variance (0.085) means they rarely make sudden unexpected moves.
+
+Interestingly, turning angle errors are reversed - wildebeest have higher errors (2.03 degrees) than elephants (0.10 degrees). Suggests that while wildebeest trajectories are predictable overall, they make more frequent small direction adjustments following vegetation gradients while grazing.
+
+**Real use**: Powers the purple prediction arrows on the tracking map. Updates every 30 seconds. Rangers use this to position ahead of animal movements, coordinate traffic during road crossings, and prepare villages before animals approach agricultural areas.
+
+### Habitat Suitability (XGBoost)
+
+**What it does**: Identifies which areas provide good habitat for each species based on environmental variables.
+
+**Performance**:
+- Elephant model: 79% AUC-ROC, 52% F1-score
+- Wildebeest model: 75% AUC-ROC, 62% F1-score
+- Geographic scope: Kenya-Tanzania corridor (29.0°E to 42.0°E)
+
+Time of day emerged as the strongest predictor - 15% importance for elephants, 29% for wildebeest. Animals use different areas at different times based on temperature, water availability, and predation risk. Elephants are more flexible (hence lower importance), while wildebeest show stronger temporal patterns, probably driven by needing water at specific times.
+
+The AUC-ROC scores (79% and 75%) mean the models successfully distinguish suitable from unsuitable habitat most of the time. Given a random good habitat patch and a random poor patch, the elephant model correctly ranks the good one 79% of the time.
+
+F1-scores are moderate (52% and 62%), reflecting the real challenge of habitat modeling. These scores are good enough to prioritize conservation areas but not good enough to exclude areas from consideration based solely on model output.
+
+**Real use**: Identifies core areas needing the highest protection. Helps place new corridors connecting high-quality habitat patches. The time-of-day importance enables dynamic management - monitoring certain corridor segments more intensively during predicted high-usage periods.
+
+### Position Forecasting (LSTM)
+
+**What it does**: Neural network learns sequential patterns in animal movement to predict future positions.
+
+**Performance**:
+- Mean error: 57 meters
+- RMSE: 111 meters  
+- R² score: 0.155 (explains only 15% of variance)
+
+Being honest here - the LSTM shows limited predictive power. The R² of 0.155 means animal movement is way more complex than simple trajectory continuation. Animals respond to environmental cues, social dynamics, and threats that aren't captured in raw GPS sequences.
+
+However, the 57-meter average error for very short-term predictions (next few minutes) still provides useful heading information. At this timescale, momentum and immediate behavior dominate, making sequential patterns more relevant.
+
+The distance error of 151 meters (higher than MAE of 57m) indicates occasional large mistakes when animals suddenly change behavior. Like when an elephant traveling consistently suddenly stops to feed, or wildebeest abruptly change direction responding to perceived threat.
+
+**Why LSTM struggles**:
+- GPS coordinates alone don't show vegetation quality, water sources, or other animals
+- Can't predict when animals switch between behavioral states  
+- GPS fixes every 15-60 minutes create huge information gaps
+- Individual animals have unique personalities not captured in population data
+
+**Real use**: Combined with BBMM for ensemble forecasting. When LSTM and BBMM agree, confidence increases. When they diverge, signals potential behavior change needing investigation. Also useful for high-speed situations where even 2-5 minute predictions matter.
+
+### Corridor Optimization (Reinforcement Learning)
+
+**What it does**: Learns optimal corridor routes through trial-and-error, balancing animal safety against human-wildlife conflict.
+
+**Algorithm comparison** (5 training episodes each):
+- PPO (Proximal Policy Optimization): 136.0 mean reward - **Winner**
+- A2C (Advantage Actor-Critic): 103.9 mean reward
+- DQN (Deep Q-Network): 66.8 mean reward
+
+PPO crushed it - 2x better than DQN and 30% better than A2C. This isn't surprising since PPO is designed for exactly this type of continuous control problem. PPO limits how much the policy can change per update, preventing it from forgetting good solutions while exploring. Also more sample-efficient than DQN, important since running environmental simulations is computationally expensive.
+
+The high variance in PPO results (±52.3) reflects genuine problem difficulty. Some scenarios have obvious solutions (short direct path through uniform good habitat), others require complex routing around multiple constraints (settlements, industrial areas, degraded habitat while maintaining water access).
+
+A2C has lower variance (±11.4) and decent average performance, making it a reliable backup. But its lower maximum reward (118 vs 238) means it struggles with complex scenarios.
+
+DQN's poor performance (67 mean reward) shows value-based approaches don't work well for continuous corridor design problems.
+
+**Reward function** balances:
+- Habitat quality (higher scores for good habitat)
+- Human avoidance (penalties near settlements)
+- Water access (rewards for regular water along route)
+- Path directness (penalties for excessive detours)
+- Connectivity (rewards for linking protected areas)
+
+**Real use**: Generates corridor recommendations between user-specified points. Conservation planners can run multiple scenarios with different constraint weights to explore trade-offs. As habitat suitability shifts with climate, corridors can be re-optimized for projected future conditions.
+
+### What These Numbers Actually Mean
+
+**Behavior classification works**: 61-65% accuracy means the system correctly identifies what animals are doing most of the time. Good enough for automatic alerting, not perfect enough to ignore human judgment.
+
+**Movement predictions are useful**: Errors of 100-350 meters give enough lead time for rangers to respond before animals reach problem areas.
+
+**Habitat models are actionable**: 75-79% discrimination ability works for prioritizing conservation areas and predicting corridor usage.
+
+**LSTM has limits**: Only 15% explained variance, but short-term predictions still add value when combined with other models.
+
+**PPO dominates corridor planning**: Doubling DQN's performance makes it the obvious choice for automated corridor design.
+
+The models augment ranger capabilities rather than replacing human expertise. Conservation decisions still need local knowledge and ground-truthing. These tools just help focus limited resources on the highest-priority situations.
+
+### Model Limitations
+
+**Geographic specificity**: Everything trained on Kenya-Tanzania corridor data only. Performance likely degrades in other regions with different terrain, climate, or species populations. Before deploying elsewhere, retrain on local data or at minimum validate thoroughly.
+
+**Class imbalance**: Both HMM models deal with 3:1 ratios between common and rare behaviors. Rare behaviors might get underdetected. Don't rely solely on automated alerts - maintain regular observation protocols.
+
+**Temporal coverage**: Models reflect seasonal patterns in training data. May perform differently during droughts, floods, or unusual migration years. Interpret predictions cautiously during extraordinary conditions.
+
+**Species specificity**: Only elephants and wildebeest have dedicated models currently. Other species use rule-based heuristics until enough GPS data accumulates. Each species needs 20-30 individuals tracked over multiple seasons for reliable models.
+
+**Missing context**: Models use GPS patterns and basic environmental variables but miss weather conditions, predator presence, human activity patterns, social dynamics, and vegetation phenology. Animals may change behavior due to factors the models can't see.
+
+---
+
+## Testing Summary
+
+The backend went through comprehensive testing before deployment. Started with 106 failing tests due to database configuration issues, ended with 137 passing tests.
+
+### Test Results
+
+![Test Overview](./tests/test_results_overview.png)
+
+| Category | Passing Tests | Coverage |
+|----------|--------------|----------|
+| API Tests | 65 | CRUD, filtering, pagination, real-time features |
+| Unit Tests | 27 | Model validation, calculations, utilities |
+| Integration Tests | 11 | End-to-end workflows |
+| Geospatial Tests | 30 | Corridor management, spatial operations |
+| Performance Tests | 1 | Bulk data processing |
+| **Total** | **137** | **100% pass rate** |
+
+### What Broke Initially
+
+![Initial Failures](./tests/initial_test_failures.png)
+
+All tests failed at first because Django couldn't create database tables. Root cause: models had `managed = False` (for external Supabase production database) combined with `--nomigrations` flag. Test environment ended up with no tables at all.
+
+Fixed by configuring conditional SQLite for testing, setting `managed = True` in test mode, and removing the no-migrations flag. Let Django handle test database setup normally.
+
+### Major Issues Fixed
+
+![Debugging Process](./tests/debugging_process.png)
+
+**Model misalignment**: Prediction model switched from separate fields to JSON fields for input/results. Test fixtures still used old schema. Fixed by updating all fixtures to current models.
+
+**API configuration**: List endpoints didn't support filtering because Django Filter Backend wasn't in settings. URL patterns had conflicts between `live/` endpoint and tracking records with id='live'. Fixed by adding filter backend and refactoring URLs with more specific patterns.
+
+**Response handling**: Tests expected lists but APIs returned paginated dictionaries with 'results', 'count', 'next', 'previous'. Standardized pattern:
+```python
+response = self.client.get(url)
+results = response.data.get('results', response.data)
+```
+
+**Authentication flow**: Tests written for password auth, but system uses OTP. Rewrote entire auth test suite for two-step OTP verification.
+
+**ML service degradation**: Tests failed when optional ML service unavailable. Implemented fallback logic so core functionality works even when ML service is down.
+
+### Test Coverage
+
+Tests validate:
+- All 55+ API endpoints
+- OTP authentication workflows
+- GPS data synchronization
+- Real-time tracking updates
+- Geospatial operations (point-in-polygon, buffer zones)
+- Behavioral classification
+- Movement predictions
+- Corridor optimization
+- Bulk data processing (10,000+ records)
+
+Coverage at 87% of codebase:
+- Models: 94%
+- API views: 89%  
+- Utilities: 92%
+- Business logic: 85%
+
+Platform considered production-ready after passing all tests.
+
+---
+
+## API Documentation
+
+Backend provides 55+ REST endpoints across six categories:
+
+**Authentication (10 endpoints)**
+- OTP-based registration and login
+- JWT token management and refresh
+- User profile retrieval and updates
+- Password reset for legacy accounts
+
+**Animals (7 endpoints)**
+- Create, retrieve, update, delete animals
+- List with filtering (species, status, risk level)
+- Live tracking with real-time positions
+- Bulk animal import
+
+**Tracking (14 endpoints)**
+- GPS location upload
+- Bulk data synchronization
+- Historical trajectory queries
+- Field observation recording
+- Movement pattern analysis
+- Corridor crossing detection
+
+**Predictions (8 endpoints)**
+- Behavioral state classification
+- Movement trajectory forecasting
+- Habitat suitability scoring
+- Risk assessment
+- Prediction confidence metrics
+
+**Corridors (6 endpoints)**
+- Corridor creation and management
+- Usage statistics
+- Containment checking
+- RL-based optimization
+- GeoJSON export
+
+**Sync (10 endpoints)**
+- Offline queue management
+- Conflict resolution
+- Sync status tracking
+- Data integrity verification
+
+Full documentation with examples: https://wildlife-project-backend.onrender.com/api/docs/
+
+### Example API Calls
+
+**Get all animals**:
+```bash
+GET /api/animals/
+```
+
+**Get live tracking data**:
+```bash
+GET /api/tracking/live/?species=elephant
+```
+
+**Predict movement**:
+```bash
+POST /api/predictions/movement/
+{
+  "animal_id": 123,
+  "hours_ahead": 3
+}
+```
+
+**Check corridor containment**:
+```bash
+POST /api/corridors/check-containment/
+{
+  "latitude": -1.2345,
+  "longitude": 36.7890,
+  "animal_id": 123
+}
+```
+
+All endpoints require JWT authentication except registration and login.
+
+---
+
+## Troubleshooting
+
+### Backend won't start
+
+**Error**: `django.db.utils.OperationalError: FATAL: database "wildlife_db" does not exist`
+
+**Fix**: Docker containers aren't running. Start them:
+```bash
+cd backend-wildlife
+docker-compose up -d
+```
+
+Then rerun migrations:
+```bash
+cd backend
+python manage.py migrate
+```
+
+---
+
+### Frontend shows "Network Error"
+
+**Problem**: Can't connect to backend API
+
+**Check**:
+1. Backend server running on port 8000?
+2. `.env` file has correct API_URL?
+3. First request after inactivity takes 30-60 seconds on free tier
+
+**Fix**: Ensure backend terminal shows:
+```
+Starting development server at http://127.0.0.1:8000/
+```
+
+---
+
+### Map doesn't load
+
+**Problem**: White screen or missing map tiles
+
+**Check**: Mapbox token in `frontend/web/.env`
+
+**Get token**:
+1. Sign up at https://www.mapbox.com
+2. Copy default public token
+3. Add to `.env`:
+```
+REACT_APP_MAPBOX_TOKEN=pk.eyJ1IjoieW91cnVzZXJuYW1lIiwiYSI6ImNrZX...
+```
+
+Restart frontend server after adding token.
+
+---
+
+### OTP codes not arriving
+
+**During development**: Check backend terminal - codes print there:
+```
+OTP Code for user@example.com: 1234
+```
+
+**In production**: Check email spam folder. Codes expire after 2 minutes.
+
+---
+
+### "401 Unauthorized" errors
+
+**Problem**: JWT token expired (valid 24 hours)
+
+**Fix**: Logout and login again to get fresh tokens. System should auto-refresh, but manual login works if that fails.
+
+---
+
+### Tests failing after git pull
+
+**Problem**: Database schema changed but test DB not updated
+
+**Fix**: Delete test database and rerun:
+```bash
+python manage.py test --keepdb=False
+```
+
+For specific failing tests:
+```bash
+python manage.py test wildlife.tests.test_api --verbosity=2
+```
+
+---
+
+### Docker containers won't start
+
+**Error**: `port is already allocated`
+
+**Fix**: Another service using ports 5432 or 6379
+
+**Check what's using ports**:
+```bash
+# Mac/Linux
+lsof -i :5432
+lsof -i :6379
+
+# Windows
+netstat -ano | findstr :5432
+netstat -ano | findstr :6379
+```
+
+**Options**:
+1. Stop conflicting service
+2. Modify `docker-compose.yml` to use different ports
+
+---
+
+### Python packages won't install
+
+**Error**: `error: Microsoft Visual C++ 14.0 is required` (Windows)
+
+**Fix**: Install C++ build tools:
+https://visualstudio.microsoft.com/visual-cpp-build-tools/
+
+**Error**: `command 'gcc' failed` (Mac)
+
+**Fix**: Install Xcode command line tools:
+```bash
+xcode-select --install
+```
+
+---
+
+## License
+
+MIT License
+
+Copyright (c) 2024 Aureynx Conservation Technology
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
+
+Built for wildlife conservation. Powered by machine learning. Tested for production.
