@@ -1,12 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Wifi, AlertTriangle, Activity, Calendar, TrendingUp, Settings, LogOut } from '@/components/shared/Icons';
+import { Home, Wifi, AlertTriangle, Activity, TrendingUp, Settings, LogOut } from '@/components/shared/Icons';
 import { COLORS } from '../../constants/Colors';
+import { auth } from '../../services';
 const AureynxLogo = '/assets/Aureynx_Logo.webp';
 
 const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [userProfile, setUserProfile] = useState({
+    name: 'User',
+    email: '',
+    role: 'Manager',
+    initials: 'U'
+  });
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profile = await auth.getProfile();
+        const name = profile.name || profile.email?.split('@')[0] || 'User';
+        const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        
+        setUserProfile({
+          name: name,
+          email: profile.email,
+          role: profile.role === 'ranger' ? 'Field Ranger' : 'Conservation Manager',
+          initials: initials
+        });
+      } catch (error) {
+        console.log('Using cached profile');
+      }
+    };
+
+    loadProfile();
+  }, []);
   
   return (
     <div style={{
@@ -41,11 +69,10 @@ const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
       <nav style={{ flex: 1, padding: '20px 0', overflowY: 'auto' }}>
         {[
           { icon: Home, label: 'Dashboard', route: '/dashboard' },
-          { icon: Wifi, label: 'Live Devices', badge: 6, route: '/tracking' },
-          { icon: AlertTriangle, label: 'Alerts', badge: 8, route: '/alerts' },
+          { icon: Wifi, label: 'Live Devices', route: '/tracking' },
           { icon: Activity, label: 'Wildlife', route: '/wildlife-tracking' },
-          { icon: Calendar, label: 'Patrols', route: '/patrol-operations' },
-          { icon: TrendingUp, label: 'Reports', route: '/reports' },
+          { icon: AlertTriangle, label: 'Alerts', route: '/alerts' },
+          { icon: TrendingUp, label: 'Analytics', route: '/analytics' },
           { icon: Settings, label: 'Settings', route: '/settings' }
         ].map((item, idx) => {
           const isActive = location.pathname === item.route;
@@ -129,7 +156,7 @@ const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
               fontWeight: 700,
               fontSize: '15px'
             }}>
-              JD
+              {userProfile.initials}
             </div>
             <div style={{
               position: 'absolute',
@@ -143,8 +170,8 @@ const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
             }}></div>
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontWeight: 600, fontSize: '14px', color: COLORS.textPrimary }}>Jane Doe</p>
-            <p style={{ fontSize: '12px', color: COLORS.textSecondary }}>Conservation Manager</p>
+            <p style={{ fontWeight: 600, fontSize: '14px', color: COLORS.textPrimary }}>{userProfile.name}</p>
+            <p style={{ fontSize: '12px', color: COLORS.textSecondary }}>{userProfile.role}</p>
           </div>
         </div>
         

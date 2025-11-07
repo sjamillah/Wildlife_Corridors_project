@@ -1,54 +1,343 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, Tooltip, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, Tooltip, Rectangle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { COLORS } from '../../constants/Colors';
 import ReactDOMServer from 'react-dom/server';
-import { MapPin, Shield, AlertTriangle, Activity, Heart, Navigation } from './Icons';
+import { MapPin, Shield, AlertTriangle, ANIMAL_ICONS } from './Icons';
 
-// Map-specific colors using CSS variables
+const MovementTrailLayer = ({ trail, isPlaying, onComplete }) => {
+  const map = useMap();
+  const [animatedMarker, setAnimatedMarker] = useState(null);
+  const animationRef = useRef(null);
+
+  const calculateAnimationDelay = (activityType, timeSinceLast) => {
+    if (timeSinceLast?.is_large_gap) {
+      return 100;
+    }
+
+    const baseDelays = {
+      'resting': 1500,
+      'feeding': 800,
+      'moving': 400
+    };
+
+    return baseDelays[activityType] || 800;
+  };
+
+  const animateTrail = React.useCallback(() => {
+    if (!trail?.segments) return;
+    
+    const segments = trail.segments;
+    let segmentIndex = 0;
+    let pointIndex = 0;
+
+    const animateNextPoint = () => {
+      if (segmentIndex >= segments.length) {
+        console.log('Trail animation complete');
+        if (onComplete) onComplete();
+        return;
+      }
+
+      const segment = segments[segmentIndex];
+      if (!segment.points || segment.points.length === 0) {
+        segmentIndex++;
+        animateNextPoint();
+        return;
+      }
+
+      const point = segment.points[pointIndex];
+      if (!point) {
+        segmentIndex++;
+        pointIndex = 0;
+        animateNextPoint();
+        return;
+      }
+
+      setAnimatedMarker({
+        position: [point.lat, point.lon],
+        activity: segment.activity_type,
+        speed: point.speed_kmh,
+        timestamp: point.timestamp
+      });
+
+      map.panTo([point.lat, point.lon], { animate: true, duration: 0.5 });
+
+      const delay = calculateAnimationDelay(segment.activity_type, point.time_since_last);
+
+      pointIndex++;
+      if (pointIndex >= segment.points.length) {
+        segmentIndex++;
+        pointIndex = 0;
+      }
+
+      animationRef.current = setTimeout(animateNextPoint, delay);
+    };
+
+    animateNextPoint();
+  }, [trail, map, onComplete]);
+
+  useEffect(() => {
+    if (!trail || !trail.trail || trail.trail.length === 0 || !isPlaying) {
+      return;
+    }
+
+    animateTrail();
+
+    return () => {
+      if (animationRef.current) {
+        clearTimeout(animationRef.current);
+      }
+    };
+  }, [trail, isPlaying, animateTrail]);
+
+  const getActivityColor = (activity) => {
+    const colors = {
+      'resting': '#ef4444',
+      'feeding': '#f59e0b',
+      'moving': '#10b981'
+    };
+    return colors[activity] || '#6b7280';
+  };
+
+  const getActivityIcon = (activity, speed) => {
+    const color = getActivityColor(activity);
+    const isPulsing = activity === 'moving';
+    
+    return L.divIcon({
+      html: `
+        <div style="
+          width: 20px;
+          height: 20px;
+          background: ${color};
+          border: 3px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+          ${isPulsing ? 'animation: pulse 1s infinite;' : ''}
+        "></div>
+      `,
+      className: 'animated-trail-marker',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+  };
+
+  if (!trail) return null;
+
+  return (
+    <>
+      {trail.segments && trail.segments.map((segment, idx) => {
+        const positions = segment.points?.map(p => [p.lat, p.lon]) || [];
+        if (positions.length < 2) return null;
+        
+        const color = getActivityColor(segment.activity_type);
+
+        return (
+          <Polyline
+            key={`trail-segment-${idx}`}
+            positions={positions}
+            pathOptions={{
+              color: color,
+              weight: 3,
+              opacity: 0.7,
+              dashArray: segment.activity_type === 'resting' ? '5, 10' : undefined
+            }}
+          >
+            <Tooltip>
+              <div style={{ fontSize: '11px', fontWeight: 600 }}>
+                {segment.activity_type.toUpperCase()}<br/>
+                <span style={{ fontSize: '10px', opacity: 0.8 }}>
+                  {segment.point_count} points • {segment.total_duration_hours?.toFixed(1)}h
+                </span>
+              </div>
+            </Tooltip>
+          </Polyline>
+        );
+      })}
+
+      {animatedMarker && (
+        <Marker
+          position={animatedMarker.position}
+          icon={getActivityIcon(animatedMarker.activity, animatedMarker.speed)}
+        >
+          <Popup>
+            <div style={{ fontSize: '12px' }}>
+              <strong>{animatedMarker.activity.toUpperCase()}</strong><br/>
+              Speed: {animatedMarker.speed?.toFixed(1)} km/h<br/>
+              <span style={{ fontSize: '10px', color: '#6B5E4F' }}>
+                {new Date(animatedMarker.timestamp).toLocaleString()}
+              </span>
+            </div>
+          </Popup>
+        </Marker>
+      )}
+    </>
+  );
+};
+
+const AnimatedMarker = ({ marker, icon, children }) => {
+  const [currentPosition, setCurrentPosition] = useState(marker.position);
+  const animationRef = useRef(null);
+  const wobbleRef = useRef(null);
+
+  useEffect(() => {
+    const activityType = marker.activityType;
+    const speed = marker.speed || 0;
+    const predictedPosition = marker.predictedPosition;
+    const showAnimalMovement = marker.showAnimalMovement !== false;
+
+    if (animationRef.current) clearInterval(animationRef.current);
+    if (wobbleRef.current) clearInterval(wobbleRef.current);
+
+    const isDifferentPosition = predictedPosition && 
+      (Math.abs(predictedPosition[0] - marker.position[0]) > 0.00001 || 
+       Math.abs(predictedPosition[1] - marker.position[1]) > 0.00001);
+
+    console.log(`🔍 [MAP ANIMATION CHECK] ${marker.title}:`, {
+      activityType,
+      speed,
+      isDifferentPosition,
+      showAnimalMovement,
+      willTriggerAnimation: showAnimalMovement && activityType === 'moving' && speed > 2 && isDifferentPosition
+    });
+
+    if (showAnimalMovement && activityType === 'moving' && speed > 2 && isDifferentPosition) {
+      console.log(`🏃 [ANIMATION] ${marker.title} - MOVING animation started:`, {
+        current: marker.position,
+        predicted: predictedPosition,
+        speed: speed,
+        distance: Math.sqrt(
+          Math.pow(predictedPosition[0] - marker.position[0], 2) + 
+          Math.pow(predictedPosition[1] - marker.position[1], 2)
+        ) * 111
+      });
+      const steps = 50;
+      const duration = 5000;
+      const interval = duration / steps;
+      
+      const startLat = marker.position[0];
+      const startLon = marker.position[1];
+      const endLat = predictedPosition[0];
+      const endLon = predictedPosition[1];
+      
+      let step = 0;
+      animationRef.current = setInterval(() => {
+        step++;
+        if (step >= steps) {
+          setCurrentPosition(predictedPosition);
+          clearInterval(animationRef.current);
+          console.log(`✅ [ANIMATION] ${marker.title} - COMPLETED movement to [${predictedPosition[0].toFixed(4)}, ${predictedPosition[1].toFixed(4)}]`);
+          return;
+        }
+        
+        const progress = step / steps;
+        const newLat = startLat + (endLat - startLat) * progress;
+        const newLon = startLon + (endLon - startLon) * progress;
+        setCurrentPosition([newLat, newLon]);
+      }, interval);
+      
+    } else if (activityType === 'feeding' && speed > 0.5 && speed <= 2) {
+      console.log(`🌿 [ANIMATION] ${marker.title} - FEEDING wobble started`);
+      const baseLat = marker.position[0];
+      const baseLon = marker.position[1];
+      const wobbleRadius = 0.0005;
+      
+      wobbleRef.current = setInterval(() => {
+        const angle = Math.random() * 2 * Math.PI;
+        const distance = Math.random() * wobbleRadius;
+        const newLat = baseLat + distance * Math.cos(angle);
+        const newLon = baseLon + distance * Math.sin(angle);
+        setCurrentPosition([newLat, newLon]);
+      }, 2000);
+      
+    } else {
+      if (speed > 2 && activityType === 'moving') {
+        console.log(`⚠️ [ANIMATION] ${marker.title} - NOT animating:`, {
+          current: marker.position,
+          predicted: predictedPosition,
+          isDifferent: isDifferentPosition,
+          reason: !isDifferentPosition ? 'Predicted position same as current' : 'Unknown'
+        });
+      }
+      setCurrentPosition(marker.position);
+    }
+
+    return () => {
+      if (animationRef.current) clearInterval(animationRef.current);
+      if (wobbleRef.current) clearInterval(wobbleRef.current);
+    };
+  }, [marker.position, marker.predictedPosition, marker.activityType, marker.speed, marker.title, marker.showAnimalMovement]);
+
+  const isMoving = marker.activityType === 'moving' && marker.speed > 2;
+  const showMovement = marker.showAnimalMovement !== false;
+  
+  return (
+    <>
+      {showMovement && isMoving && (
+        <Circle
+          center={currentPosition}
+          radius={100}
+          pathOptions={{
+            color: '#9333ea',
+            fillColor: '#9333ea',
+            fillOpacity: 0.2,
+            weight: 2,
+            opacity: 0.6
+          }}
+        />
+      )}
+      <Marker position={currentPosition} icon={icon}>
+        {children}
+      </Marker>
+    </>
+  );
+};
+
 const MAP_COLORS = {
-  WILDLIFE_NORMAL: 'var(--forest-green)',
-  ALERT_CRITICAL: 'var(--status-error)',
-  ALERT_WARNING: 'var(--status-warning)',
-  PATROL: 'var(--status-info)',
-  MIGRATION: 'var(--ochre)',
-  BREEDING: 'var(--burnt-orange)',
-  ROUTE: 'var(--burnt-orange)',
-  LOCATION: 'var(--status-info)',
+  SAFE: '#059669',
+  CAUTION: '#ea580c',
+  DANGER: '#dc2626',
+  
+  CORRIDOR: '#2563eb',
+  CORRIDOR_BUFFER: '#60a5fa',
+  RISK_ZONE: '#f87171',
+  RISK_ZONE_BORDER: '#991b1b',
+  
+  PREDICTED_PATH: '#7c3aed',
+  LSTM_PATH: '#9333ea',
+  BBMM_PATH: '#a855f7',
+  
+  RANGER_PATROL: '#0891b2',
+  RANGER_ACTIVE: '#06b6d4',
+  CAMERA_TRAP: '#f59e0b',
+  
+  FORAGING: '#65a30d',
+  RESTING: '#4f46e5',
+  MIGRATING: '#d97706',
+  ALERT_STATE: '#ef4444',
+  
   GRAY_DEFAULT: '#6B7280',
 };
 
-// ML Model Helper Functions
-const getBehaviorColor = (state) => {
-  switch (state) {
-    case 'Foraging':
-      return COLORS.success;
-    case 'Resting':
-      return COLORS.info;
-    case 'Migrating':
-      return COLORS.ochre;
-    default:
-      return COLORS.textSecondary;
-  }
+const isValidCoordinate = (coord) => {
+  return Array.isArray(coord) && 
+         coord.length === 2 && 
+         typeof coord[0] === 'number' && 
+         typeof coord[1] === 'number' &&
+         !isNaN(coord[0]) && 
+         !isNaN(coord[1]) &&
+         isFinite(coord[0]) &&
+         isFinite(coord[1]);
 };
 
-const getBehaviorIcon = (state) => {
-  switch (state) {
-    case 'Foraging':
-      return <Heart size={16} color="white" />;
-    case 'Resting':
-      return <Activity size={16} color="white" />;
-    case 'Migrating':
-      return <Navigation size={16} color="white" />;
-    default:
-      return <MapPin size={16} color="white" />;
-  }
+const isValidPath = (path) => {
+  return Array.isArray(path) && 
+         path.length >= 2 && 
+         path.every(isValidCoordinate);
 };
 
-// ML Visualization Components
 const PredictedPath = ({ path, confidence, model, color }) => {
-  if (!path || path.length < 2) return null;
+  if (!path || path.length < 2 || !isValidPath(path)) return null;
   const opacity = Math.max(0.3, confidence || 0.5);
   const dashArray = model === 'BBMM' ? '10, 10' : '5, 15';
   
@@ -117,7 +406,7 @@ const RiskHeatmapPoint = ({ position, intensity, type }) => {
 };
 
 const BehaviorGlow = ({ position, state, confidence }) => {
-  const glowColor = getBehaviorColor(state);
+  const glowColor = '#059669';
   
   return (
     <Circle
@@ -134,42 +423,6 @@ const BehaviorGlow = ({ position, state, confidence }) => {
   );
 };
 
-const ConfidenceBadge = ({ confidence }) => {
-  const getConfidenceLevel = (conf) => {
-    if (conf >= 0.8) return { label: 'High', color: COLORS.success };
-    if (conf >= 0.5) return { label: 'Medium', color: COLORS.warning };
-    return { label: 'Low', color: COLORS.error };
-  };
-  
-  const { label, color } = getConfidenceLevel(confidence);
-  
-  return (
-    <div style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '4px',
-      padding: '2px 6px',
-      background: `${color}20`,
-      borderRadius: '4px',
-      border: `1px solid ${color}40`,
-      fontSize: '10px',
-      fontWeight: 600
-    }}>
-      <div style={{
-        width: '6px',
-        height: '6px',
-        borderRadius: '50%',
-        background: color
-      }}></div>
-      <span style={{ color: color }}>{label}</span>
-      <span style={{ color: COLORS.textSecondary, marginLeft: '2px' }}>
-        ({(confidence * 100).toFixed(0)}%)
-      </span>
-    </div>
-  );
-};
-
-// Fix for default markers in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.webp',
@@ -177,50 +430,42 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.webp',
 });
 
-// Custom icons for different marker types using emoji (from animal data)
-const createCustomIcon = (color, type, emoji) => {
-  // Use emoji if provided (from animal list), otherwise use defaults
-  let iconContent = emoji || '📍';
+const createCustomIcon = (color, type) => {
+  let iconContent;
   
-  // Default emojis for different types if not provided
-  if (!emoji) {
-    switch (type) {
-      case 'elephant':
-        iconContent = '🐘';
-        break;
-      case 'wildebeest':
-        iconContent = '🦌';
-        break;
-      case 'wildlife':
-        iconContent = '🦁';
-        break;
-      case 'alert':
-        // Use Lucide icon for alerts
-        iconContent = ReactDOMServer.renderToString(
-          React.createElement(AlertTriangle, {
-            size: 20,
-            color: 'white',
-            strokeWidth: 2.5
-          })
-        );
-        break;
-      case 'patrol':
-        // Use Lucide icon for patrols
-        iconContent = ReactDOMServer.renderToString(
-          React.createElement(Shield, {
-            size: 20,
-            color: 'white',
-            strokeWidth: 2.5
-          })
-        );
-        break;
-      default:
-        iconContent = '📍';
-        break;
-    }
+  switch (type) {
+    case 'elephant':
+      iconContent = ANIMAL_ICONS.ELEPHANT;
+      break;
+    case 'wildebeest':
+      iconContent = ANIMAL_ICONS.WILDEBEEST;
+      break;
+    case 'wildlife':
+      iconContent = ANIMAL_ICONS.WILDLIFE;
+      break;
+    case 'alert':
+      iconContent = ReactDOMServer.renderToString(
+        React.createElement(AlertTriangle, {
+          size: 20,
+          color: 'white',
+          strokeWidth: 2.5
+        })
+      );
+      break;
+    case 'patrol':
+      iconContent = ReactDOMServer.renderToString(
+        React.createElement(Shield, {
+          size: 20,
+          color: 'white',
+          strokeWidth: 2.5
+        })
+      );
+      break;
+    default:
+      iconContent = ANIMAL_ICONS.DEFAULT;
+      break;
   }
 
-  // Check if it's an emoji or SVG
   const isEmoji = !iconContent.startsWith('<');
   
   const iconHtml = `
@@ -297,11 +542,7 @@ const KENYA_TANZANIA_BBOX = {
   name: 'Kenya-Tanzania Wildlife Corridor'
 };
 
-// Calculate center point from bounding box
-const calculateCenter = (bbox) => [
-  (bbox.min_lat + bbox.max_lat) / 2,
-  (bbox.min_lon + bbox.max_lon) / 2
-];
+// Helper functions removed - using only backend data
 
 // Default center for Kenya-Tanzania region
 const DEFAULT_CENTER = [-3.25, 35.5]; // Center of Kenya-Tanzania corridor
@@ -313,7 +554,7 @@ const MapComponent = ({
   height = '500px',
   markers = [],
   showGeofence = false,
-  geofenceRadius = 50000, // Larger radius for regional view
+  geofenceRadius = 50000,
   patrolRoutes = [],
   onMapClick,
   showCoordinates = false,
@@ -321,30 +562,36 @@ const MapComponent = ({
   hideControls = false,
   hideLegend = false,
   hideMapInfo = false,
-  showLegendBox = false, // New prop to show the detailed legend box
+  showLegendBox = false,
   // ML Model Integration Props
-  predictedPaths = [], // Array of {animalId, path: [[lat,lng]...], confidence, model: 'BBMM'|'LSTM'}
-  behavioralStates = {}, // Object {animalId: {state: 'Foraging'|'Resting'|'Migrating', confidence}}
-  riskHeatmap = [], // Array of {position: [lat,lng], intensity: 0-1, type: 'conflict'|'poaching'}
-  // Optional props for seasonal tone and overlays (non-breaking, default off)
-  season = null, // 'wet' | 'dry' | null
-  showPredictedPaths = false,
+  predictedPaths = [],
+  behavioralStates = {},
+  riskHeatmap = [],
+  // Enhanced features
+  riskZones = [],
+  rangerPatrols = [],
+  corridors = [], // Dynamic corridors from backend
+  showCorridors = false,
+  showRiskZones = false,
+  showPredictions = false,
+  showRangerPatrols = false,
+  showAnimalMovement = true,
+  season = null,
   onModeChange,
-  corridors = [] // optional: [{ name, status, path: [[lat,lng], ...] }]
+  movementTrail = null,
+  isPlayingTrail = false,
+  onTrailComplete = null,
+  historicalPaths = []
 }) => {
-  // Use default center if not provided or invalid
   const validCenter = (center && Array.isArray(center) && center.length === 2) ? center : DEFAULT_CENTER;
   const validZoom = zoom || DEFAULT_ZOOM;
   
-  const [mapCenter, setMapCenter] = useState(validCenter);
-  const [mapZoom, setMapZoom] = useState(validZoom);
+  const [mapCenter] = useState(validCenter);
+  const [mapZoom] = useState(validZoom);
   const mapRef = useRef(null);
-  const [mode, setMode] = useState('live'); // 'live' | 'historical'
-  const [visibleSpecies, setVisibleSpecies] = useState({ elephant: true, zebra: true, wildebeest: true, wildlife: true });
+  const [visibleSpecies] = useState({ elephant: true, zebra: true, wildebeest: true, wildlife: true });
 
-  // Ensure map initializes properly after mount
   useEffect(() => {
-    // Delay to ensure container is rendered and sized
     const timer = setTimeout(() => {
       if (mapRef.current) {
         try {
@@ -357,84 +604,7 @@ const MapComponent = ({
     return () => clearTimeout(timer);
   }, [height]);
 
-  // Sample data for East Africa demonstration
-  const defaultMarkers = [
-    // Kenya locations
-    {
-      id: 1,
-      position: [-1.4100, 35.0200], // Maasai Mara
-      type: 'wildlife',
-      title: 'Maasai Mara - Elephant Herd',
-      description: 'Family of 12 elephants spotted near Mara River',
-  color: 'var(--brand-primary)'
-    },
-    {
-      id: 2,
-      position: [-0.0236, 37.9062], // Nairobi National Park
-      type: 'wildlife',
-      title: 'Nairobi National Park - Lions',
-      description: 'Urban wildlife pride spotted near city skyline',
-      color: MAP_COLORS.MIGRATION
-    },
-    {
-      id: 3,
-      position: [-2.1540, 36.7073], // Amboseli
-      type: 'wildlife',
-      title: 'Amboseli - Elephant Migration',
-      description: 'Large herd crossing towards Kilimanjaro',
-  color: 'var(--brand-primary)'
-    },
-    // Tanzania locations
-    {
-      id: 4,
-      position: [-2.3333, 34.8333], // Serengeti
-      type: 'wildlife',
-      title: 'Serengeti - Great Migration',
-      description: 'Wildebeest migration in full swing',
-      color: MAP_COLORS.BREEDING
-    },
-    {
-      id: 5,
-      position: [-3.2167, 35.7500], // Ngorongoro Crater
-      type: 'wildlife',
-      title: 'Ngorongoro Crater - Rhino Sanctuary',
-      description: 'Black rhino population thriving in crater',
-      color: MAP_COLORS.PATROL
-    },
-    {
-      id: 6,
-      position: [-6.3690, 34.8917], // Ruaha National Park
-      type: 'wildlife',
-      title: 'Ruaha - Elephant Corridor',
-      description: 'Critical elephant migration route',
-  color: 'var(--brand-primary)'
-    },
-    // Alert locations
-    {
-      id: 7,
-      position: [-2.0000, 35.5000], // Kenya-Tanzania border
-      type: 'alert',
-      title: 'Cross-Border Poaching Alert',
-      description: 'Coordinated anti-poaching operation needed',
-      color: MAP_COLORS.ALERT_CRITICAL
-    },
-    {
-      id: 8,
-      position: [-1.0000, 36.0000], // Central Kenya
-      type: 'patrol',
-      title: 'KWS Ranger Station',
-      description: 'Kenya Wildlife Service patrol base',
-      color: MAP_COLORS.PATROL
-    },
-    {
-      id: 9,
-      position: [-4.0000, 35.0000], // Central Tanzania
-      type: 'patrol',
-      title: 'TANAPA Headquarters',
-      description: 'Tanzania National Parks Authority',
-      color: MAP_COLORS.PATROL
-    }
-  ];
+  const defaultMarkers = [];
 
   const rawMarkers = markers.length > 0 ? markers : defaultMarkers;
   const displayMarkers = rawMarkers.filter(m => {
@@ -445,187 +615,23 @@ const MapComponent = ({
     return visibleSpecies.wildlife;
   });
 
-  // East Africa wildlife corridors and patrol routes
-  const defaultPatrolRoutes = [
-    // Maasai Mara - Serengeti corridor
-    [
-      [-1.4061, 35.0117], // Maasai Mara
-      [-2.0000, 35.0000], // Border crossing
-      [-2.3333, 34.8333], // Serengeti
-    ],
-    // Kenya internal corridor
-    [
-      [-0.0236, 37.9062], // Nairobi
-      [-1.4061, 35.0117], // Maasai Mara
-      [-2.1540, 36.7073], // Amboseli
-    ],
-    // Tanzania coastal to interior
-    [
-      [-6.3690, 34.8917], // Ruaha
-      [-3.2167, 35.7500], // Ngorongoro
-      [-2.3333, 34.8333], // Serengeti
-    ]
-  ];
+  // No demo patrol routes - using only real backend data
+  const defaultPatrolRoutes = [];
 
   const displayRoutes = patrolRoutes.length > 0 ? patrolRoutes : defaultPatrolRoutes;
 
-  const handleMarkerClick = (marker) => {
-    console.log('Marker clicked:', marker);
-  };
+  console.log('[MAP] MapComponent rendering:', {
+    markers: displayMarkers.length,
+    showCorridors: showCorridors,
+    riskZones: riskZones?.length || 0,
+    predictedPaths: predictedPaths?.length || 0,
+    center: mapCenter,
+    zoom: mapZoom
+  });
 
-  const recenterMap = (lat, lng) => {
-    setMapCenter([lat, lng]);
-    setMapZoom(15);
-  };
-
-  const toggleSpecies = (key) => {
-    setVisibleSpecies(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleModeSwitch = (nextMode) => {
-    setMode(nextMode);
-    if (onModeChange) onModeChange(nextMode);
-  };
-
+  try {
   return (
     <div className={`map-container ${className}`}>
-      {/* Map Controls */}
-      {!hideControls && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            onClick={() => recenterMap(-1.4061, 35.0117)}
-            className="px-3 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-highlight transition-colors"
-          >
-            🇰🇪 Maasai Mara
-          </button>
-          <button
-            onClick={() => recenterMap(-2.3333, 34.8333)}
-            className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            🇹🇿 Serengeti
-          </button>
-          <button
-            onClick={() => recenterMap(-0.0236, 37.9062)}
-            className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-          >
-            🇰🇪 Nairobi NP
-          </button>
-          <button
-            onClick={() => recenterMap(-3.2167, 35.7500)}
-            className="px-3 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
-          >
-            🇹🇿 Ngorongoro
-          </button>
-          <button
-            onClick={() => recenterMap(-2.1540, 36.7073)}
-            className="px-3 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
-          >
-            🇰🇪 Amboseli
-          </button>
-          <button
-            onClick={() => recenterMap(-6.3690, 34.8917)}
-            className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-          >
-            🇹🇿 Ruaha
-          </button>
-          <button
-            onClick={() => setMapZoom(mapZoom + 1)}
-            className="px-2 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-          >
-            🔍+
-          </button>
-          <button
-            onClick={() => setMapZoom(mapZoom - 1)}
-            className="px-2 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-          >
-            🔍-
-          </button>
-          <button
-            onClick={() => { setMapCenter(calculateCenter(KENYA_TANZANIA_BBOX)); setMapZoom(6); }}
-            className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            🌍 Kenya-Tanzania View
-          </button>
-          {/* View mode */}
-          <div className="ml-auto flex gap-2">
-            <button
-              onClick={() => handleModeSwitch('live')}
-              className={`px-3 py-2 rounded-md transition-colors ${mode === 'live' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Live
-            </button>
-            <button
-              onClick={() => handleModeSwitch('historical')}
-              className={`px-3 py-2 rounded-md transition-colors ${mode === 'historical' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Historical
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Floating Toolbar - species filters and predicted paths */}
-      {!hideControls && (
-        <div className="pointer-events-auto absolute z-[400] m-3">
-          <div className="rounded-xl bg-white/90 backdrop-blur border border-brand-border shadow-md p-3 flex flex-col gap-2 w-[220px]">
-            <div className="text-sm font-semibold text-text-primary">Filters</div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm"><span className="w-3 h-3 rounded-full bg-forest-green"></span>Elephants</span>
-              <button onClick={() => toggleSpecies('elephant')} className={`w-10 h-6 rounded-full transition-colors ${visibleSpecies.elephant ? 'bg-forest-green' : 'bg-gray-300'}`}> 
-                <span className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${visibleSpecies.elephant ? 'translate-x-5' : 'translate-x-0'}`}></span>
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm"><span className="w-3 h-3 rounded-full bg-amber-600"></span>Zebras</span>
-              <button onClick={() => toggleSpecies('zebra')} className={`w-10 h-6 rounded-full transition-colors ${visibleSpecies.zebra ? 'bg-amber-600' : 'bg-gray-300'}`}>
-                <span className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${visibleSpecies.zebra ? 'translate-x-5' : 'translate-x-0'}`}></span>
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm"><span className="w-3 h-3 rounded-full bg-orange-600"></span>Wildebeest</span>
-              <button onClick={() => toggleSpecies('wildebeest')} className={`w-10 h-6 rounded-full transition-colors ${visibleSpecies.wildebeest ? 'bg-orange-600' : 'bg-gray-300'}`}>
-                <span className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${visibleSpecies.wildebeest ? 'translate-x-5' : 'translate-x-0'}`}></span>
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm"><span className="w-3 h-3 rounded-full bg-gray-700"></span>Other Wildlife</span>
-              <button onClick={() => toggleSpecies('wildlife')} className={`w-10 h-6 rounded-full transition-colors ${visibleSpecies.wildlife ? 'bg-gray-700' : 'bg-gray-300'}`}>
-                <span className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${visibleSpecies.wildlife ? 'translate-x-5' : 'translate-x-0'}`}></span>
-          </button>
-            </div>
-            <div className="pt-1 border-t border-brand-border"></div>
-            <label className="flex items-center justify-between text-sm">
-              <span>Show predicted paths</span>
-              <input type="checkbox" defaultChecked={showPredictedPaths} className="h-4 w-4" readOnly />
-            </label>
-          </div>
-        </div>
-      )}
-
-      {/* Legend */}
-      {!hideLegend && (
-        <div className="mb-4 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
-          <h4 className="font-semibold text-gray-800 mb-2">Map Legend</h4>
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-brand-primary rounded-full"></div>
-              <span>Wildlife</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-              <span>Alerts</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-              <span>Patrol Points</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-1 bg-purple-500"></div>
-              <span>Patrol Routes</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Map Container */}
       <div style={{ 
@@ -701,7 +707,7 @@ const MapComponent = ({
           <MapEventHandler onMapClick={onMapClick} showCoordinates={showCoordinates} />
 
           {/* Predicted Movement Paths - BBMM/LSTM Models */}
-          {showPredictedPaths && predictedPaths.map((prediction, idx) => (
+          {showPredictions && predictedPaths && Array.isArray(predictedPaths) && predictedPaths.map((prediction, idx) => (
             <PredictedPath
               key={`prediction-${idx}`}
               path={prediction.path}
@@ -712,7 +718,7 @@ const MapComponent = ({
           ))}
 
           {/* Risk Heatmap - XGBoost Model */}
-          {riskHeatmap && riskHeatmap.length > 0 && riskHeatmap.map((risk, idx) => (
+          {riskHeatmap && Array.isArray(riskHeatmap) && riskHeatmap.length > 0 && riskHeatmap.filter(risk => risk.position && isValidCoordinate(risk.position)).map((risk, idx) => (
             <RiskHeatmapPoint
               key={`risk-${idx}`}
               position={risk.position}
@@ -722,7 +728,7 @@ const MapComponent = ({
           ))}
 
           {/* Behavioral State Glows - HMM Model */}
-          {behavioralStates && Object.keys(behavioralStates).length > 0 && displayMarkers.map((marker) => {
+          {behavioralStates && Object.keys(behavioralStates).length > 0 && displayMarkers.filter(marker => marker.position && isValidCoordinate(marker.position)).map((marker) => {
             const behaviorState = behavioralStates[marker.id];
             if (!behaviorState) return null;
             
@@ -736,11 +742,55 @@ const MapComponent = ({
             );
           })}
 
-          {/* Markers with pulse and optional heading arrow */}
-          {displayMarkers.map((marker) => {
-            // Get behavioral state for this animal
-            const behaviorState = behavioralStates[marker.id];
+          {/* Movement Arrows - Show predicted movement for moving animals */}
+          {showPredictions && displayMarkers.filter(marker => 
+            marker.position && 
+            isValidCoordinate(marker.position) && 
+            marker.predictedPosition && 
+            isValidCoordinate(marker.predictedPosition) &&
+            marker.speed > 0.5 && // Only show for moving animals
+            (marker.position[0] !== marker.predictedPosition[0] || marker.position[1] !== marker.predictedPosition[1])
+          ).map((marker) => {
+            // Determine arrow color based on activity type
+            const arrowColor = marker.activityType === 'moving' ? '#9333ea' : marker.activityType === 'feeding' ? '#65a30d' : '#7c3aed';
             
+            return (
+              <React.Fragment key={`movement-${marker.id}`}>
+                {/* Solid line from current to predicted position */}
+                <Polyline
+                  positions={[marker.position, marker.predictedPosition]}
+                  pathOptions={{
+                    color: arrowColor,
+                    weight: 3,
+                    opacity: 0.7,
+                    dashArray: marker.activityType === 'feeding' ? '5, 5' : undefined
+                  }}
+                />
+                {/* Small circle at predicted position */}
+                <Circle
+                  center={marker.predictedPosition}
+                  radius={50}
+                  pathOptions={{
+                    color: arrowColor,
+                    fillColor: arrowColor,
+                    fillOpacity: 0.3,
+                    weight: 2,
+                    opacity: 0.6
+                  }}
+                >
+                  <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
+                    <div style={{ fontSize: '11px', fontWeight: 600 }}>
+                      Predicted Position<br/>
+                      <span style={{ fontSize: '10px', opacity: 0.8 }}>{marker.activityType || 'Moving'}</span>
+                    </div>
+                  </Tooltip>
+                </Circle>
+              </React.Fragment>
+            );
+          })}
+
+          {/* Markers with pulse and optional heading arrow */}
+          {displayMarkers.filter(marker => marker.position && isValidCoordinate(marker.position)).map((marker) => {
             // Handle color - convert CSS variables to actual colors if needed
             let markerColor = marker.color || '#2E5D45';
             if (typeof markerColor === 'string' && markerColor.includes('var(--')) {
@@ -761,67 +811,59 @@ const MapComponent = ({
             }
 
             return (
-              <Marker
+              <AnimatedMarker
                 key={marker.id}
-                position={marker.position}
-                icon={createCustomIcon(markerColor, marker.type || 'wildlife', marker.emoji)}
-                eventHandlers={{ click: () => handleMarkerClick(marker) }}
+                marker={{ ...marker, showAnimalMovement }}
+                icon={createCustomIcon(markerColor, marker.type || 'wildlife')}
               >
-                <Popup>
-                  <div style={{ maxWidth: '280px', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <h3 style={{ fontWeight: 700, fontSize: '14px', color: '#2C2416' }}>{marker.title}</h3>
-                      {marker?.timestamp && <span style={{ fontSize: '11px', color: '#6B5E4F' }}>{marker.timestamp}</span>}
-                    </div>
+                <Popup maxWidth={300} maxHeight={400}>
+                  <div style={{ padding: '8px', fontFamily: 'system-ui, sans-serif' }}>
+                    {/* Animal Name */}
+                    <h3 style={{ 
+                      fontSize: '15px', 
+                      fontWeight: 600, 
+                      color: '#1F2937',
+                      margin: '0 0 12px 0',
+                      borderBottom: '2px solid #e5e7eb',
+                      paddingBottom: '8px'
+                    }}>
+                      {marker.popupContent?.title || marker.title || 'Animal'}
+                    </h3>
                     
-                    {/* Behavioral State - HMM Model */}
-                    {behaviorState && (
+                    {/* Quick Info Grid */}
+                    <div style={{ marginBottom: '12px' }}>
                       <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '6px', 
-                        padding: '6px 8px', 
-                        background: `${getBehaviorColor(behaviorState.state)}15`,
-                        borderRadius: '6px', 
-                        marginBottom: '8px',
-                        border: `1px solid ${getBehaviorColor(behaviorState.state)}30`
+                        display: 'grid', 
+                        gridTemplateColumns: '75px 1fr', 
+                        gap: '8px',
+                        fontSize: '13px'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px' }}>
-                          {getBehaviorIcon(behaviorState.state)}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: getBehaviorColor(behaviorState.state) }}>
-                            {behaviorState.state}
-                          </div>
-                          <div style={{ fontSize: '10px', color: '#6B5E4F' }}>
-                            HMM Model • {(behaviorState.confidence * 100).toFixed(0)}% confidence
-                          </div>
-                        </div>
+                        <strong>Species:</strong>
+                        <span>{marker.type || 'Unknown'}</span>
+                        
+                        <strong>Activity:</strong>
+                        <span style={{ 
+                          color: marker.activityType === 'moving' ? '#9333ea' : 
+                                 marker.activityType === 'feeding' ? '#65a30d' : '#6b7280',
+                          fontWeight: 600
+                        }}>
+                          {marker.activityType || 'Unknown'}
+                        </span>
+                        
+                        <strong>Latitude:</strong>
+                        <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                          {marker.position[0].toFixed(6)}°
+                        </span>
+                        
+                        <strong>Longitude:</strong>
+                        <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                          {marker.position[1].toFixed(6)}°
+                        </span>
                       </div>
-                    )}
-                    
-                    <div style={{ fontSize: '12px', color: '#4A4235', marginBottom: '8px' }}>{marker.description}</div>
-                    
-                    {/* Model Confidence Indicators */}
-                    {behaviorState && (
-                      <div style={{ marginBottom: '8px' }}>
-                        <div style={{ fontSize: '10px', color: '#6B5E4F', marginBottom: '4px' }}>
-                          Prediction Confidence:
-                        </div>
-                        <ConfidenceBadge 
-                          confidence={behaviorState.confidence} 
-                          modelType="HMM"
-                        />
-                      </div>
-                    )}
-                    
-                    <div style={{ fontSize: '11px', color: '#6B5E4F', borderTop: '1px solid #E8E3D6', paddingTop: '8px' }}>
-                      {marker.type && <span style={{ marginRight: '8px', textTransform: 'capitalize' }}>{marker.type}</span>}
-                      <span>Lat: {marker.position[0].toFixed(4)}, Lng: {marker.position[1].toFixed(4)}</span>
                     </div>
                   </div>
                 </Popup>
-              </Marker>
+              </AnimatedMarker>
             );
           })}
 
@@ -841,7 +883,7 @@ const MapComponent = ({
           )}
 
           {/* Patrol Routes */}
-          {displayRoutes.map((route, index) => (
+          {displayRoutes.filter(route => isValidPath(route)).map((route, index) => (
             <React.Fragment key={`route-fragment-${index}`}>
               <Polyline
                 positions={route}
@@ -864,23 +906,348 @@ const MapComponent = ({
             </React.Fragment>
           ))}
 
-          {/* Optional corridors overlay (semi-transparent with glow) */}
-          {corridors && corridors.map((c, idx) => (
-            <React.Fragment key={`corridor-fragment-${idx}`}>
+          {/* Wildlife Corridors - Single Surrounding Boxes (Real East African Corridors) */}
+          {/* Only show when corridors toggle is enabled */}
+          {/* Dynamic Backend Corridors */}
+          {showCorridors && corridors && Array.isArray(corridors) && corridors.map((corridor, idx) => {
+            const path = corridor.path?.map(p => [p.lat || p[0], p.lon || p[1]]) || [];
+            if (path.length < 2) return null;
+
+            return (
               <Polyline
-                positions={c.path}
-                pathOptions={{ color: 'rgba(46,93,69,0.25)', weight: 12, opacity: 0.6 }}
-              />
-              <Polyline
-                positions={c.path}
-                pathOptions={{ color: 'var(--forest-green)', weight: 4, opacity: 0.9, className: 'corridor-glow' }}
+                key={`corridor-${corridor.id || idx}`}
+                positions={path}
+                pathOptions={{
+                  color: corridor.species === 'elephant' ? '#3b82f6' : '#8b5cf6',
+                  weight: 6,
+                  opacity: 0.7,
+                  dashArray: '10, 10'
+                }}
               >
-                <Tooltip direction="top" offset={[0, -6]} opacity={1} permanent={false} className="!rounded-md !bg-white !px-2 !py-1 !text-xs !shadow">
-                  {c.name || 'Corridor'}{c.status ? ` • ${c.status}` : ''}
+                <Popup>
+                  <div style={{ padding: '10px', minWidth: '200px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', color: '#2563eb' }}>
+                      {corridor.name}
+                    </div>
+                    <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                      Species: {corridor.species}
+                    </div>
+                    <div style={{ fontSize: '12px', color: COLORS.textSecondary }}>
+                      Score: {corridor.optimization_score?.toFixed(2) || 'N/A'}
+                    </div>
+                  </div>
+                </Popup>
+              </Polyline>
+            );
+          })}
+
+          {/* Static Corridor Zones (Backup - shown if no backend corridors) */}
+          {showCorridors && (!corridors || corridors.length === 0) && (
+          <>
+          <Rectangle
+            bounds={[[-2.96, 37.25], [-2.65, 38.02]]}
+            pathOptions={{
+              color: '#2563eb',
+              weight: 2,
+              fillColor: '#2563eb',
+              fillOpacity: 0.08,
+              dashArray: '5, 3'
+            }}
+              >
+            <Popup>
+              <div style={{ padding: '14px', minWidth: '320px' }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: '#2563eb', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MapPin size={18} color="#2563eb" />
+                  Kimana-Kuku Corridor
+      </div>
+                <div style={{ fontSize: '12px', color: COLORS.textSecondary, marginBottom: '10px', lineHeight: '1.6' }}>
+                  Critical elephant dispersal corridor within the Amboseli-Tsavo ecosystem. This corridor enables seasonal movement between protected areas and is vital for maintaining genetic diversity and access to water resources.
+            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', padding: '6px 8px', background: '#05966915', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 600, color: '#059669', marginBottom: '2px' }}>Start</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '10px' }}>Amboseli NP</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '9px', fontFamily: 'monospace' }}>2.65°S, 37.25°E</div>
+              </div>
+                  <div style={{ fontSize: '11px', padding: '6px 8px', background: '#05966915', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 600, color: '#059669', marginBottom: '2px' }}>End</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '10px' }}>Tsavo West NP</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '9px', fontFamily: 'monospace' }}>2.96°S, 38.02°E</div>
+              </div>
+              </div>
+                <div style={{ fontSize: '11px', padding: '6px 8px', background: '#f9fafb', borderRadius: '4px', marginBottom: '8px' }}>
+                  <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: '4px' }}>Species:</div>
+                  <div style={{ color: COLORS.textSecondary, lineHeight: '1.5' }}>African Elephants (critical), Lions, Cheetahs, Leopards, Wildebeest, Zebras, Elands, African Wild Dogs</div>
+            </div>
+                <div style={{ fontSize: '11px', color: '#2563eb', fontWeight: 600, padding: '8px', background: '#2563eb10', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Shield size={14} color="#2563eb" />
+                  Protected Dispersal Area - Kenya
+          </div>
+              </div>
+            </Popup>
+          </Rectangle>
+          
+          {/* 2. Great Migration Route / Mara-Serengeti Trans-boundary (Kenya-Tanzania) - Real Coordinates */}
+          <Rectangle
+            bounds={[[-2.3, 34.8], [-1.5, 35.2]]}
+            pathOptions={{
+              color: '#2563eb',
+              weight: 2,
+              fillColor: '#2563eb',
+              fillOpacity: 0.08,
+              dashArray: '5, 3'
+            }}
+          >
+            <Popup>
+              <div style={{ padding: '14px', minWidth: '340px' }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: '#2563eb', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MapPin size={18} color="#2563eb" />
+                  Great Migration Route (Mara River Area)
+            </div>
+                <div style={{ fontSize: '12px', color: COLORS.textSecondary, marginBottom: '10px', lineHeight: '1.6' }}>
+                  The world-famous Great Migration trans-boundary corridor connecting Serengeti National Park (Tanzania) to Maasai Mara National Reserve (Kenya). Key crossing point at the Mara River.
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', padding: '6px 8px', background: '#05966915', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 600, color: '#059669', marginBottom: '2px' }}>Start</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '10px' }}>Serengeti NP (TZ)</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '9px', fontFamily: 'monospace' }}>2.3°S, 34.8°E</div>
+              </div>
+                  <div style={{ fontSize: '11px', padding: '6px 8px', background: '#05966915', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 600, color: '#059669', marginBottom: '2px' }}>End</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '10px' }}>Maasai Mara NR (KE)</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '9px', fontFamily: 'monospace' }}>1.5°S, 35.2°E</div>
+                </div>
+              </div>
+                <div style={{ fontSize: '11px', padding: '6px 8px', background: '#f9fafb', borderRadius: '4px', marginBottom: '8px' }}>
+                  <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: '4px' }}>Species:</div>
+                  <div style={{ color: COLORS.textSecondary, lineHeight: '1.5' }}>Wildebeest & Zebra (millions during migration), Lions, Cheetahs, Leopards, African Elephants, various plains game</div>
+                </div>
+                <div style={{ fontSize: '11px', color: '#2563eb', fontWeight: 600, padding: '8px', background: '#2563eb10', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Shield size={14} color="#2563eb" />
+                  Trans-boundary Protected Corridor - Kenya & Tanzania
+              </div>
+            </div>
+            </Popup>
+          </Rectangle>
+
+          {/* 3. Kwakuchinja Corridor / Tarangire-Manyara (Tanzania) - Real Coordinates */}
+          <Rectangle
+            bounds={[[-3.83, 35.8], [-3.6, 36.0]]}
+            pathOptions={{
+              color: '#2563eb',
+              weight: 2,
+              fillColor: '#2563eb',
+              fillOpacity: 0.08,
+              dashArray: '5, 3'
+            }}
+          >
+            <Popup>
+              <div style={{ padding: '14px', minWidth: '330px' }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: '#2563eb', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MapPin size={18} color="#2563eb" />
+                  Kwakuchinja Corridor
+            </div>
+                <div style={{ fontSize: '12px', color: COLORS.textSecondary, marginBottom: '10px', lineHeight: '1.6' }}>
+                  Primary wildlife corridor connecting Tarangire National Park to Lake Manyara National Park. Critical for seasonal elephant migrations and supports globally significant populations. Part of the Manyara Ranch dispersal area.
+              </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', padding: '6px 8px', background: '#05966915', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 600, color: '#059669', marginBottom: '2px' }}>Start</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '10px' }}>Tarangire NP</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '9px', fontFamily: 'monospace' }}>3.83°S, 36.0°E</div>
+                </div>
+                  <div style={{ fontSize: '11px', padding: '6px 8px', background: '#05966915', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 600, color: '#059669', marginBottom: '2px' }}>End</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '10px' }}>Lake Manyara NP</div>
+                    <div style={{ color: COLORS.textSecondary, fontSize: '9px', fontFamily: 'monospace' }}>3.6°S, 35.8°E</div>
+              </div>
+                </div>
+                <div style={{ fontSize: '11px', padding: '6px 8px', background: '#f9fafb', borderRadius: '4px', marginBottom: '8px' }}>
+                  <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: '4px' }}>Species:</div>
+                  <div style={{ color: COLORS.textSecondary, lineHeight: '1.5' }}>African Elephants (globally significant population), Wildebeest, Zebras, Lions, Cheetahs, Leopards, African Wild Dogs, Impala</div>
+                </div>
+                <div style={{ fontSize: '11px', color: '#2563eb', fontWeight: 600, padding: '8px', background: '#2563eb10', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Shield size={14} color="#2563eb" />
+                  Seasonal Migration Route - Tanzania
+                </div>
+              </div>
+            </Popup>
+          </Rectangle>
+          </>
+          )}
+
+          {/* Historical Movement Paths (Last 24 hours) */}
+          {historicalPaths && Array.isArray(historicalPaths) && historicalPaths.map((pathData, idx) => {
+            if (!pathData.path || pathData.path.length < 2) return null;
+            
+            return (
+              <Polyline
+                key={`historical-path-${pathData.animalId || idx}`}
+                positions={pathData.path}
+                pathOptions={{
+                  color: pathData.color || '#8b5cf6',
+                  weight: 3,
+                  opacity: 0.6,
+                  dashArray: '5, 5'
+                }}
+              >
+                <Tooltip>
+                  <div style={{ fontSize: '11px', fontWeight: 600 }}>
+                    {pathData.animalName || 'Animal'} - Historical Path
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>
+                      Last 24 hours ({pathData.path.length} points)
+                    </div>
+                  </div>
                 </Tooltip>
               </Polyline>
-            </React.Fragment>
-          ))}
+            );
+          })}
+
+          {/* Risk/Poaching Zones (Red circles) */}
+          {showRiskZones && riskZones && Array.isArray(riskZones) && riskZones.map((zone, idx) => {
+            const position = zone.geometry?.coordinates || zone.position || [0, 0];
+            if (position[0] === 0 && position[1] === 0) return null;
+            
+            return (
+              <Circle
+                key={`risk-${zone.id || idx}`}
+                center={[position[0], position[1]]}
+                radius={zone.radius || 5000}
+                pathOptions={{
+                  color: MAP_COLORS.RISK_ZONE_BORDER,
+                  fillColor: MAP_COLORS.DANGER,
+                  fillOpacity: 0.45,
+                  weight: 4,
+                  opacity: 0.9,
+                  dashArray: '10, 5'
+                }}
+              >
+                <Popup>
+                  <div style={{ padding: '12px', minWidth: '200px' }}>
+                <div style={{
+                      fontWeight: 700, 
+                      fontSize: '14px', 
+                      marginBottom: '8px', 
+                      color: MAP_COLORS.DANGER,
+                  display: 'flex',
+                  alignItems: 'center',
+                      gap: '6px'
+                }}>
+                      <AlertTriangle size={16} />
+                      {zone.name || `High-Risk Zone ${idx + 1}`}
+                </div>
+                    <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                      <strong>Type:</strong> {zone.type || 'Poaching Activity'}
+              </div>
+                    <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                      <strong>Threat Level:</strong> {zone.threat_level || 'High'}
+            </div>
+                    {zone.description && (
+                      <div style={{ fontSize: '11px', color: COLORS.textSecondary, marginTop: '8px', fontStyle: 'italic' }}>
+                        {zone.description}
+          </div>
+      )}
+      </div>
+                </Popup>
+              </Circle>
+            );
+          })}
+
+          {/* Ranger Patrol Routes and Markers */}
+          {showRangerPatrols && rangerPatrols && Array.isArray(rangerPatrols) && rangerPatrols.map((patrol, idx) => {
+            // Check if this is a route with polyline or just a position marker
+            const hasRoute = patrol.route && isValidPath(patrol.route);
+            const hasPosition = patrol.current_position && isValidCoordinate(patrol.current_position);
+            
+            if (!hasRoute && !hasPosition) return null;
+            
+            return (
+              <React.Fragment key={`patrol-${patrol.id || idx}`}>
+                {/* Draw route polyline if available */}
+                {hasRoute && (
+                  <Polyline
+                    positions={patrol.route}
+                    pathOptions={{
+                      color: MAP_COLORS.RANGER_PATROL,
+                      weight: 6,
+                      opacity: 0.9,
+                      dashArray: '15, 8'
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ padding: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                          <Shield size={16} color={MAP_COLORS.RANGER_PATROL} />
+                          <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                            {patrol.team_name || `Patrol Team ${idx + 1}`}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                          Status: {patrol.status || 'Active'}
+                        </div>
+                        <div style={{ fontSize: '12px' }}>
+                          Rangers: {patrol.ranger_count || 1}
+                        </div>
+                      </div>
+                    </Popup>
+                  </Polyline>
+                )}
+                
+                {/* Ranger current position marker (always show if position exists) */}
+                {hasPosition && (
+                  <Marker
+                    position={[patrol.current_position[0], patrol.current_position[1]]}
+                    icon={createCustomIcon(MAP_COLORS.RANGER_ACTIVE, 'patrol')}
+                  >
+                    <Popup maxWidth={280}>
+                      <div style={{ padding: '8px', fontFamily: 'system-ui, sans-serif' }}>
+                        <h3 style={{ 
+                          fontSize: '15px', 
+                          fontWeight: 600, 
+                          color: '#1F2937',
+                          margin: '0 0 8px 0',
+                          borderBottom: '2px solid #e5e7eb',
+                          paddingBottom: '8px'
+                        }}>
+                          {patrol.team_name || 'Ranger'}
+                        </h3>
+                        <div style={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: '75px 1fr', 
+                          gap: '6px',
+                          fontSize: '13px'
+                        }}>
+                          <strong>Badge:</strong>
+                          <span>{patrol.badge || 'N/A'}</span>
+                          
+                          <strong>Status:</strong>
+                          <span style={{ 
+                            color: patrol.status === 'on_duty' ? '#10b981' : '#6b7280',
+                            fontWeight: 600
+                          }}>
+                            {patrol.status === 'on_duty' ? 'ON DUTY' : 'OFF DUTY'}
+                          </span>
+                          
+                          <strong>Activity:</strong>
+                          <span>{patrol.activity || 'Patrolling'}</span>
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+              </React.Fragment>
+            );
+          })}
+
+          {/* Movement Trail Animation */}
+          {movementTrail && (
+            <MovementTrailLayer 
+              trail={movementTrail} 
+              isPlaying={isPlayingTrail}
+              onComplete={onTrailComplete}
+            />
+          )}
         </MapContainer>
 
         {/* Seasonal tone overlay */}
@@ -889,207 +1256,7 @@ const MapComponent = ({
         )}
       </div>
 
-      {/* Map Legend - Only show on Wildlife Tracking */}
-      {showLegendBox && (
-      <div style={{
-        marginTop: '16px',
-        background: COLORS.whiteCard,
-        border: `2px solid ${COLORS.borderLight}`,
-        borderRadius: '12px',
-        padding: '20px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-      }}>
-        <h4 style={{
-          fontSize: '15px',
-          fontWeight: 700,
-          color: COLORS.textPrimary,
-          marginBottom: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="16" x2="12" y2="12"></line>
-            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-          </svg>
-          Map Legend
-        </h4>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          {/* Risk Levels */}
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-              Risk Levels
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  background: COLORS.error,
-                  borderRadius: '50%',
-                  border: `2px solid ${COLORS.white}`,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}></div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>High Risk</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  background: COLORS.ochre,
-                  borderRadius: '50%',
-                  border: `2px solid ${COLORS.white}`,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}></div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>Medium Risk</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  background: COLORS.forestGreen,
-                  borderRadius: '50%',
-                  border: `2px solid ${COLORS.white}`,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}></div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>Normal / Safe</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Animal Types */}
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-              Animal Types
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  background: COLORS.burntOrange,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `2px solid ${COLORS.white}`,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}>
-                  <Heart size={14} color="white" strokeWidth={2.5} />
-                </div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>African Elephant</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  background: COLORS.ochre,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `2px solid ${COLORS.white}`,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}>
-                  <Heart size={14} color="white" strokeWidth={2.5} />
-                </div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>Wildebeest</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  background: COLORS.forestGreen,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `2px solid ${COLORS.white}`,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}>
-                  <Heart size={14} color="white" strokeWidth={2.5} />
-                </div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>Other Wildlife</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Map Elements */}
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-              Map Elements
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '3px',
-                  background: COLORS.burntOrange,
-                  borderRadius: '2px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                }}></div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>Patrol Routes</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  background: COLORS.info,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `2px solid ${COLORS.white}`,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}>
-                  <Shield size={14} color="white" strokeWidth={2.5} />
-                </div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>Ranger Stations</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  background: COLORS.error,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `2px solid ${COLORS.white}`,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}>
-                  <AlertTriangle size={14} color="white" strokeWidth={2.5} />
-                </div>
-                <span style={{ fontSize: '13px', color: COLORS.textPrimary, fontWeight: 500 }}>Alert Locations</span>
-              </div>
-            </div>
-          </div>
-      </div>
-
-        {/* Additional Info */}
-        <div style={{
-          marginTop: '16px',
-          paddingTop: '16px',
-          borderTop: `1px solid ${COLORS.borderLight}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '12px',
-          color: COLORS.textSecondary
-        }}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-            <path d="M2 17l10 5 10-5"></path>
-            <path d="M2 12l10 5 10-5"></path>
-          </svg>
-          <span style={{ fontWeight: 500 }}>
-            Click on any marker to view detailed information • Use filters to show/hide species
-          </span>
-        </div>
-      </div>
-      )}
+      {/* Map Legend removed - All legend information now shown in bottom panel of WildlifeTracking screen */}
 
       {/* Map Info */}
       {!hideMapInfo && mapCenter && Array.isArray(mapCenter) && mapCenter.length === 2 && (
@@ -1109,6 +1276,33 @@ const MapComponent = ({
       )}
     </div>
   );
+  } catch (error) {
+    console.error('MapComponent rendering error:', error);
+    return (
+      <div style={{
+        height: height || '500px',
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: COLORS.secondaryBg,
+        border: `2px solid ${COLORS.borderLight}`,
+        borderRadius: '12px',
+        flexDirection: 'column',
+        gap: '16px',
+        padding: '40px'
+      }}>
+        <MapPin style={{ width: 64, height: 64 }} color={COLORS.error} />
+        <div style={{ fontSize: '18px', fontWeight: 700, color: COLORS.error }}>Map Error</div>
+        <div style={{ fontSize: '13px', color: COLORS.textSecondary, textAlign: 'center', maxWidth: '400px' }}>
+          Unable to render map. Check console for details.
+        </div>
+        <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontFamily: 'monospace', background: '#f5f5f5', padding: '8px', borderRadius: '4px' }}>
+          {error.message}
+        </div>
+      </div>
+    );
+  }
 };
 
 export default MapComponent;

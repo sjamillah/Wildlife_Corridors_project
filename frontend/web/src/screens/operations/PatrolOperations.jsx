@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, MapPin, Clock, Route, CheckCircle, AlertTriangle, Plus, Search, Navigation, X, Play, Square } from '@/components/shared/Icons';
+import { Users, MapPin, Clock, Route, CheckCircle, AlertTriangle, Search, Navigation, X, Play, Square } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 import { BRAND_COLORS, COLORS, rgba } from '../../constants/Colors';
+import { auth } from '../../services';
 
 const PatrolOperations = () => {
   const [selectedPatrol, setSelectedPatrol] = useState(null);
   const [viewMode, setViewMode] = useState('active');
-  const [showDeployModal, setShowDeployModal] = useState(false);
-  const [selectedTeamMembers, setSelectedTeamMembers] = useState([]);
-  const [selectedArea, setSelectedArea] = useState('');
   const [showPatrolDetails, setShowPatrolDetails] = useState(false);
   const [trackingPatrols, setTrackingPatrols] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,158 +116,27 @@ const PatrolOperations = () => {
     }
   ]);
 
-  // Available team members for deployment
-  const availableTeamMembers = [
-    {
-      id: 1,
-      name: 'John Kamau',
-      role: 'Senior Ranger',
-      experience: '8 years',
-      specialization: 'Anti-Poaching',
-      status: 'Available',
-      phone: '+254 712 345 678',
-      lastDeployment: '2 days ago'
-    },
-    {
-      id: 2,
-      name: 'Mary Wanjiku',
-      role: 'Wildlife Tracker',
-      experience: '5 years',
-      specialization: 'Animal Behavior',
-      status: 'Available',
-      phone: '+254 723 456 789',
-      lastDeployment: '1 day ago'
-    },
-    {
-      id: 3,
-      name: 'Peter Mwangi',
-      role: 'Communications Officer',
-      experience: '6 years',
-      specialization: 'Radio Operations',
-      status: 'Available',
-      phone: '+254 734 567 890',
-      lastDeployment: '3 days ago'
-    },
-    {
-      id: 4,
-      name: 'Sarah Achieng',
-      role: 'Veterinary Assistant',
-      experience: '4 years',
-      specialization: 'Animal Health',
-      status: 'Available',
-      phone: '+254 745 678 901',
-      lastDeployment: '1 week ago'
-    },
-    {
-      id: 5,
-      name: 'David Kipchoge',
-      role: 'Community Liaison',
-      experience: '7 years',
-      specialization: 'Public Relations',
-      status: 'Available',
-      phone: '+254 756 789 012',
-      lastDeployment: '4 days ago'
-    },
-    {
-      id: 6,
-      name: 'Grace Njoki',
-      role: 'Equipment Specialist',
-      experience: '3 years',
-      specialization: 'Tech Maintenance',
-      status: 'Available',
-      phone: '+254 767 890 123',
-      lastDeployment: '5 days ago'
+  const handleLogout = async () => {
+    try {
+      await auth.logout();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userProfile');
+      navigate('/auth', { replace: true });
     }
-  ];
-
-  // Available deployment areas
-  const deploymentAreas = [
-    {
-      id: 1,
-      name: 'Northern Perimeter',
-      zone: 'Zone A',
-      priority: 'High',
-      terrain: 'Grassland',
-      riskLevel: 'Moderate',
-      coordinates: 'Grid A1-A5'
-    },
-    {
-      id: 2,
-      name: 'Eastern Ridge Trail',
-      zone: 'Zone B',
-      priority: 'Medium',
-      terrain: 'Rocky',
-      riskLevel: 'Low',
-      coordinates: 'Grid B3-B7'
-    },
-    {
-      id: 3,
-      name: 'Village Outskirts',
-      zone: 'Zone C',
-      priority: 'Critical',
-      terrain: 'Mixed',
-      riskLevel: 'High',
-      coordinates: 'Grid C2-C6'
-    },
-    {
-      id: 4,
-      name: 'Waterhole Sector',
-      zone: 'Zone D',
-      priority: 'High',
-      terrain: 'Wetland',
-      riskLevel: 'Moderate',
-      coordinates: 'Grid D1-D4'
-    },
-    {
-      id: 5,
-      name: 'Research Station Area',
-      zone: 'Zone E',
-      priority: 'Low',
-      terrain: 'Forest',
-      riskLevel: 'Low',
-      coordinates: 'Grid E5-E8'
-    }
-  ];
-
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    navigate('/auth');
-  };
-
-  const handleDeployTeam = () => {
-    if (selectedTeamMembers.length === 0 || !selectedArea) {
-      return;
-    }
-
-    const selectedMembers = availableTeamMembers
-      .filter(member => selectedTeamMembers.includes(member.id))
-      .map(member => member.name);
-
-    const selectedAreaDetails = deploymentAreas.find(area => area.id === selectedArea);
-
-    const deploymentData = {
-      teamMembers: selectedMembers,
-      area: selectedAreaDetails?.name,
-      zone: selectedAreaDetails?.zone,
-      timestamp: new Date().toLocaleString(),
-      id: `PTRL-${String(patrols.length + 1).padStart(3, '0')}`
-    };
-
-    alert(`✅ Team Successfully Deployed!\n\nMission ID: ${deploymentData.id}\nTeam: ${selectedMembers.join(', ')}\nArea: ${deploymentData.area} (${deploymentData.zone})\nTime: ${deploymentData.timestamp}\n\nThe team has been notified and deployment is now active.`);
-
-    setSelectedTeamMembers([]);
-    setSelectedArea('');
-    setShowDeployModal(false);
   };
 
   const handleTrackPatrol = (patrol, e) => {
     e.stopPropagation();
     if (trackingPatrols[patrol.id]) {
       setTrackingPatrols(prev => ({ ...prev, [patrol.id]: false }));
-      alert(`🔴 Stopped tracking ${patrol.name}\n\nPatrol ID: ${patrol.id}\nTeam: ${patrol.team}\nLocation: ${patrol.currentLocation}\n\nLive tracking has been disabled for this patrol.`);
+      console.log('Stopped tracking patrol:', patrol.id);
     } else {
       setTrackingPatrols(prev => ({ ...prev, [patrol.id]: true }));
-      alert(`🟢 Started live tracking ${patrol.name}\n\nPatrol ID: ${patrol.id}\nTeam: ${patrol.team}\nCurrent Location: ${patrol.currentLocation}\nProgress: ${patrol.progress}%\n\nYou will now receive real-time updates for this patrol team.`);
+      console.log('Started tracking patrol:', patrol.id);
     }
   };
 
@@ -330,29 +197,6 @@ const PatrolOperations = () => {
               <AlertTriangle className="w-4 h-4" />
               Critical: {priorityCounts.critical}
                 </div>
-            {/* Deploy button */}
-              <button 
-                onClick={() => setShowDeployModal(true)}
-              style={{
-                background: COLORS.burntOrange,
-                border: `2px solid ${COLORS.burntOrange}`,
-                color: COLORS.white,
-                padding: '10px 20px',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; e.currentTarget.style.borderColor = COLORS.terracotta; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; e.currentTarget.style.borderColor = COLORS.burntOrange; }}
-            >
-              <Plus className="w-4 h-4" />
-                Deploy Team
-              </button>
             </div>
         </section>
 
@@ -784,124 +628,6 @@ const PatrolOperations = () => {
             </div>
         </section>
       </div>
-
-      {/* Deploy Team Modal - Functionality preserved, UI can be styled later if needed */}
-      {showDeployModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-          <div style={{ background: 'white', borderRadius: '12px', maxWidth: '800px', width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ background: '#2E5D45', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'white', marginBottom: '4px' }}>Deploy New Team</h2>
-                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>Select team members and deployment area</p>
-              </div>
-              <button onClick={() => setShowDeployModal(false)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>Select Team Members</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto' }}>
-                    {availableTeamMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        onClick={() => {
-                          if (selectedTeamMembers.includes(member.id)) {
-                            setSelectedTeamMembers(selectedTeamMembers.filter(id => id !== member.id));
-                          } else {
-                            setSelectedTeamMembers([...selectedTeamMembers, member.id]);
-                          }
-                        }}
-                        style={{
-                          padding: '12px',
-                          border: `2px solid ${selectedTeamMembers.includes(member.id) ? '#2E5D45' : '#E8E3D6'}`,
-                          borderRadius: '8px',
-                          background: selectedTeamMembers.includes(member.id) ? '#EDF5F0' : 'white',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, marginBottom: '4px' }}>{member.name}</div>
-                        <div style={{ fontSize: '12px', color: '#6B5E4F' }}>{member.role}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>Select Deployment Area</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto' }}>
-                    {deploymentAreas.map((area) => (
-                      <div
-                        key={area.id}
-                        onClick={() => setSelectedArea(area.id)}
-                        style={{
-                          padding: '12px',
-                          border: `2px solid ${selectedArea === area.id ? '#2E5D45' : '#E8E3D6'}`,
-                          borderRadius: '8px',
-                          background: selectedArea === area.id ? '#EDF5F0' : 'white',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, marginBottom: '4px' }}>{area.name}</div>
-                        <div style={{ fontSize: '12px', color: '#6B5E4F' }}>{area.zone} • {area.coordinates}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div style={{ padding: '16px', borderTop: '1px solid #E8E3D6', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-              <button
-                onClick={() => setShowDeployModal(false)}
-                style={{
-                  padding: '10px 20px',
-                  background: 'transparent',
-                  border: '1px solid #E8E3D6',
-                  borderRadius: '6px',
-                  color: '#6B5E4F',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#D4CCBA'; e.currentTarget.style.background = '#FAFAF8'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E8E3D6'; e.currentTarget.style.background = 'transparent'; }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeployTeam}
-                disabled={selectedTeamMembers.length === 0 || !selectedArea}
-                style={{
-                  padding: '10px 20px',
-                  background: selectedTeamMembers.length > 0 && selectedArea ? '#D84315' : '#E8E3D6',
-                  border: 'none',
-                  borderRadius: '6px',
-                  color: selectedTeamMembers.length > 0 && selectedArea ? 'white' : '#6B5E4F',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  cursor: selectedTeamMembers.length > 0 && selectedArea ? 'pointer' : 'not-allowed',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  if (selectedTeamMembers.length > 0 && selectedArea) {
-                    e.currentTarget.style.background = '#BF3812';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (selectedTeamMembers.length > 0 && selectedArea) {
-                    e.currentTarget.style.background = '#D84315';
-                  }
-                }}
-              >
-                Deploy Team ({selectedTeamMembers.length} members)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Patrol Details Modal - Functionality preserved */}
       {showPatrolDetails && selectedPatrol && (

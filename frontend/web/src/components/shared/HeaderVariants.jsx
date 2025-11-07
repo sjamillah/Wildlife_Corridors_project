@@ -1,7 +1,6 @@
 import React from 'react';
 import { Bell, Activity, TrendingUp } from '@/components/shared/Icons';
 
-// Dashboard Header - Mission Control Style
 export const DashboardHeader = ({ stats, onNotificationClick }) => (
   <div className="bg-white min-h-[88px] flex items-center w-full px-6 py-4">
     <div className="flex flex-row items-center justify-between w-full gap-4">
@@ -31,7 +30,6 @@ export const DashboardHeader = ({ stats, onNotificationClick }) => (
   </div>
 );
 
-// Wildlife Tracking Header - Nature Theme
 export const WildlifeHeader = ({ animals, onRefresh }) => (
   <div className="bg-white min-h-[88px] flex items-center w-full px-6 py-4">
     <div className="flex flex-row items-center justify-between w-full gap-4">
@@ -56,7 +54,6 @@ export const WildlifeHeader = ({ animals, onRefresh }) => (
   </div>
 );
 
-// Live Tracking Header - Tech Theme
 export const LiveTrackingHeader = ({ devices, lastSync }) => (
   <div className="bg-white min-h-[88px] flex items-center w-full px-6 py-4">
     <div className="flex flex-row items-center justify-between w-full gap-4">
@@ -77,7 +74,6 @@ export const LiveTrackingHeader = ({ devices, lastSync }) => (
   </div>
 );
 
-// Alert Hub Header - Emergency Theme
 export const AlertHubHeader = ({ alerts, onNewAlert, onExport }) => (
   <div className="bg-white min-h-[88px] flex items-center w-full px-6 py-4">
     <div className="flex flex-row items-center justify-between w-full gap-4">
@@ -103,7 +99,6 @@ export const AlertHubHeader = ({ alerts, onNewAlert, onExport }) => (
   </div>
 );
 
-// Analytics Header - Data Theme
 export const AnalyticsHeader = ({ metrics, onRefresh }) => (
   <div className="bg-white min-h-[88px] flex items-center w-full px-6 py-4">
     <div className="flex flex-row items-center justify-between w-full gap-4">
@@ -128,7 +123,6 @@ export const AnalyticsHeader = ({ metrics, onRefresh }) => (
   </div>
 );
 
-// Settings Header - Professional Theme
 export const SettingsHeader = ({ onSave, hasChanges }) => (
   <div className="bg-white min-h-[88px] flex items-center w-full px-6 py-4">
     <div className="flex flex-row items-center justify-between w-full gap-4">
@@ -159,7 +153,6 @@ export const SettingsHeader = ({ onSave, hasChanges }) => (
   </div>
 );
 
-// Generic Header for other screens
 export const GenericHeader = ({ title, subtitle, icon: Icon, actions, theme = 'default' }) => {
   return (
     <div className="bg-white min-h-[88px] flex items-center w-full px-6 py-4">

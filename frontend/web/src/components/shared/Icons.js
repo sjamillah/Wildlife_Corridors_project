@@ -1,5 +1,4 @@
 export {
-  // Navigation & UI
   Home,
   Settings,
   LogOut,
@@ -14,46 +13,32 @@ export {
   Filter,
   Eye,
   EyeOff,
-  
-  // Alerts & Status
   Bell,
   AlertTriangle,
   CheckCircle,
   Activity,
   Zap,
   Shield,
-  
-  // User & Team
   Users,
   User,
   Mail,
   Phone,
   Smartphone,
   Award,
-  
-  // Location & Navigation
   MapPin,
   Globe,
   Navigation,
   Route,
   Wifi,
-  
-  // Time & Calendar
   Calendar,
   Clock,
-  
-  // Wildlife & Nature
   Heart,
   Battery,
   Signal,
-  
-  // Data & Analytics
   TrendingUp,
   TrendingDown,
   BarChart,
   BarChart3,
-  
-  // Media & Actions
   Download,
   Camera,
   Edit,
@@ -62,11 +47,7 @@ export {
   Square,
   SkipBack,
   SkipForward,
-  
-  // Files & Documents
   FileText,
-  
-  // Misc
   Brain,
   Database,
   Lock,
@@ -82,5 +63,11 @@ export {
   RefreshCw,
   Trash2,
   Menu
-  
 } from 'lucide-react';
+
+export const ANIMAL_ICONS = {
+  ELEPHANT: '🐘',
+  WILDEBEEST: '🦌',
+  WILDLIFE: '🦁',
+  DEFAULT: '📍'
+};

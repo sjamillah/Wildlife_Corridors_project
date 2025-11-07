@@ -4,14 +4,27 @@ import { MapPin } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 import MapComponent from '../../components/shared/MapComponent';
 import { COLORS } from '../../constants/Colors';
+import { auth } from '../../services';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [alertMessage, setAlertMessage] = useState('');
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    navigate('/auth');
+  // Removed live animals fetch - add back when dashboard displays this data
+
+  const handleLogout = async () => {
+    try {
+      // Use auth service to properly logout (clears all tokens and notifies backend)
+      await auth.logout();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if API call fails, still clear local storage and navigate
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userProfile');
+      navigate('/auth', { replace: true });
+    }
   };
 
   const handleEmergency = () => {
@@ -25,7 +38,7 @@ const Dashboard = () => {
     navigate('/patrol-operations');
   };
 
-  // Incident data for Security Operations
+  // Incident data - will be replaced with real data
   const incidents = [
     { 
       id: 1, 

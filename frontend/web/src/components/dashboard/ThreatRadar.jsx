@@ -2,7 +2,6 @@ import React, { memo, useMemo } from 'react';
 import { AlertTriangle, Shield, Radio, Users } from '@/components/shared/Icons';
 
 const ThreatRadar = () => {
-  // Focus on real-time security incidents and ranger operations
   const securityIncidents = useMemo(() => ([
     { 
       id: 1, 
@@ -43,17 +42,14 @@ const ThreatRadar = () => {
   ]), []);
 
   const getSeverityColor = (severity) => {
-    // Remove colors from listings - use neutral styling
     return 'bg-gray-50 border-gray-200 text-gray-800';
   };
 
   const getSeverityIcon = (severity) => {
-    // Use neutral gray icons for cleaner look
     return <Shield className="w-4 h-4 text-gray-600" />;
   };
 
   const getStatusColor = (status) => {
-    // Remove colors from status indicators - use neutral styling
     return 'bg-white text-gray-700 border border-gray-300';
   };
 
@@ -64,7 +60,6 @@ const ThreatRadar = () => {
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-      {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div className="flex items-center justify-between">
           <div>
@@ -87,7 +82,6 @@ const ThreatRadar = () => {
         </div>
       </div>
 
-      {/* Incident Summary */}
       <div className="px-6 py-4 bg-gray-50">
         <div className="grid grid-cols-4 gap-4">
           <div className="text-center">
@@ -111,7 +105,6 @@ const ThreatRadar = () => {
         </div>
       </div>
 
-      {/* Active Security Incidents */}
       <div className="px-6 py-4">
         <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
           <AlertTriangle className="w-4 h-4 text-red-500 mr-2" />
@@ -147,7 +140,6 @@ const ThreatRadar = () => {
         </div>
       </div>
 
-      {/* Ranger Operations Status */}
       <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
         <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
           <Shield className="w-4 h-4 text-brand-primary mr-2" />

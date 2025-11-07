@@ -1,8 +1,47 @@
-import React from 'react';
-import { X, Activity, Zap, Battery, Heart, Navigation, CheckCircle, AlertTriangle, Eye, Edit } from '@/components/shared/Icons';
+import React, { useState } from 'react';
+import { X, Activity, Zap, Battery, Heart, Navigation, CheckCircle, AlertTriangle, Eye } from '@/components/shared/Icons';
+import { tracking, animals as animalsService } from '@/services';
 
-const DetailModal = ({ animal, onClose }) => {
+const DetailModal = ({ animal, onClose, onPlayTrail }) => {
+  const [trackingHistory, setTrackingHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingTrail, setLoadingTrail] = useState(false);
+  
   if (!animal) return null;
+  
+  const fetchTrackingHistory = async () => {
+    if (showHistory) {
+      setShowHistory(false);
+      return;
+    }
+    
+    setLoadingHistory(true);
+    try {
+      const history = await tracking.getByAnimal(animal.id, { limit: 20, ordering: '-timestamp' });
+      setTrackingHistory(history.results || history || []);
+      setShowHistory(true);
+    } catch (error) {
+      console.error('Failed to load tracking history:', error);
+    }
+    setLoadingHistory(false);
+  };
+
+  const playMovementTrail = async () => {
+    setLoadingTrail(true);
+    try {
+      const trail = await animalsService.getMovementTrail(animal.id, { points: 100, all: true });
+      console.log('Movement trail loaded:', trail);
+      if (onPlayTrail) {
+        onPlayTrail(trail);
+        onClose();
+      }
+    } catch (error) {
+      console.error('Failed to load movement trail:', error);
+      alert('Movement trail not available for this animal');
+    }
+    setLoadingTrail(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -91,13 +130,21 @@ const DetailModal = ({ animal, onClose }) => {
                 <h3 className="text-sm font-bold text-brand-primary uppercase tracking-wide mb-4">Location Data</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Current Location:</span>
-                    <span className="font-semibold text-gray-900">{animal.location}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-gray-600">Coordinates:</span>
                     <span className="font-mono text-sm font-semibold text-gray-900">
                       {animal.coordinates[0].toFixed(4)}°, {animal.coordinates[1].toFixed(4)}°
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Latitude:</span>
+                    <span className="font-mono text-sm font-semibold text-gray-900">
+                      {animal.coordinates[0].toFixed(6)}°
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Longitude:</span>
+                    <span className="font-mono text-sm font-semibold text-gray-900">
+                      {animal.coordinates[1].toFixed(6)}°
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -240,19 +287,66 @@ const DetailModal = ({ animal, onClose }) => {
 
           {/* Action Buttons */}
           <div className="grid grid-cols-3 gap-4">
-            <button className="px-6 py-4 bg-brand-primary hover:bg-brand-secondary text-white font-semibold rounded-xl transition flex items-center justify-center space-x-2">
-              <Eye className="w-5 h-5" />
-              <span>Live Track</span>
-            </button>
-            <button className="px-6 py-4 bg-brand-primary/100 hover:bg-brand-secondary text-white font-semibold rounded-xl transition flex items-center justify-center space-x-2">
+            <button 
+              onClick={fetchTrackingHistory}
+              disabled={loadingHistory}
+              className="px-6 py-4 bg-brand-primary hover:bg-brand-secondary text-white font-semibold rounded-xl transition flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
               <Activity className="w-5 h-5" />
-              <span>View History</span>
+              <span>{loadingHistory ? 'Loading...' : showHistory ? 'Hide History' : 'View History'}</span>
             </button>
-            <button className="px-6 py-4 bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary font-semibold rounded-xl transition flex items-center justify-center space-x-2">
-              <Edit className="w-5 h-5" />
-              <span>Edit Details</span>
+            <button 
+              onClick={playMovementTrail}
+              disabled={loadingTrail}
+              className="px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              <Navigation className="w-5 h-5" />
+              <span>{loadingTrail ? 'Loading...' : 'Play Trail'}</span>
+            </button>
+            <button 
+              onClick={onClose}
+              className="px-6 py-4 bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary font-semibold rounded-xl transition flex items-center justify-center space-x-2"
+            >
+              <Eye className="w-5 h-5" />
+              <span>Close</span>
             </button>
           </div>
+
+          {/* Tracking History Section */}
+          {showHistory && trackingHistory.length > 0 && (
+            <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-6">
+              <h3 className="text-sm font-bold text-brand-primary uppercase tracking-wide mb-4">
+                Movement History (Last 20 Points)
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {trackingHistory.map((point, idx) => (
+                  <div key={point.id || idx} className="flex items-center justify-between p-3 bg-brand-accent rounded-lg border border-brand-moss/30">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-brand-primary/20 rounded-full flex items-center justify-center">
+                        <Navigation className="w-4 h-4 text-brand-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-mono text-gray-900">
+                          {point.lat?.toFixed(6)}°, {point.lon?.toFixed(6)}°
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(point.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {point.speed_kmh?.toFixed(1) || '0.0'} km/h
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {point.activity_type || 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Recent Activity Log */}
           <div className="mt-6 bg-brand-primary/10 border border-brand-primary/20 rounded-2xl p-6">

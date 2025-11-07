@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, Download, Users, CheckCircle, Clock } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 import { COLORS, rgba } from '../../constants/Colors';
+import { rangers, animals, auth } from '../../services';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Analytics = () => {
   const [selectedMetric] = useState('wildlife');
   const [viewTab, setViewTab] = useState('7d');
+  const [chartData, setChartData] = useState([]);
   const navigate = useNavigate();
 
   // Sample analytics data
@@ -79,28 +82,95 @@ const Analytics = () => {
     { label: 'Community Engaged', value: '89%', color: COLORS.success }
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    navigate('/auth');
+  const handleLogout = async () => {
+    try {
+      await auth.logout();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userProfile');
+      navigate('/auth', { replace: true });
+    }
   };
 
-  const handleRefresh = () => {
-    console.log('Refreshing analytics data...');
+  // Generate chart data for the last 7 days
+  const generateChartData = () => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const data = days.map((day, index) => ({
+      name: day,
+      animals: Math.floor(Math.random() * 50) + 280, // Will be replaced with real data
+      alerts: Math.floor(Math.random() * 20) + 5,
+      patrols: Math.floor(Math.random() * 15) + 10,
+    }));
+    setChartData(data);
   };
 
-  // Simulated real-time data updates
+  // Fetch real analytics data
   useEffect(() => {
-    const interval = setInterval(() => {
-      setAnalyticsData(prev => ({
-        ...prev,
+    generateChartData();
+    
+    const fetchAnalytics = async () => {
+      try {
+        const logsData = await rangers.logs.getAll({ days: 7 });
+        const logs = logsData.results || logsData || [];
+        
+        const animalsData = await animals.getLiveStatus();
+        const animalsList = animalsData.results || animalsData || [];
+
+        setAnalyticsData({
         wildlife: {
-          ...prev.wildlife,
-          activeTracking: prev.wildlife.activeTracking + (Math.random() > 0.5 ? 1 : -1)
+            totalAnimals: animalsList.length,
+            activeTracking: animalsList.filter(a => a.status === 'active').length,
+            healthAlerts: animalsList.filter(a => a.risk_level === 'High').length,
+            lowBattery: animalsList.filter(a => a.battery < 30).length,
+            speciesBreakdown: [
+              { name: 'Elephants', count: animalsList.filter(a => a.species === 'elephant').length, percentage: 0 },
+              { name: 'Wildebeest', count: animalsList.filter(a => a.species === 'wildebeest').length, percentage: 0 }
+            ]
+          },
+          patrols: {
+            totalPatrols: logs.filter(l => l.log_type === 'patrol_start').length,
+            successRate: 94.3,
+            avgDuration: '6.2h',
+            incidentsResolved: logs.filter(l => l.log_type === 'emergency' && l.is_resolved).length
+          },
+          alerts: {
+            totalAlerts: logs.length,
+            resolved: logs.filter(l => l.is_resolved).length,
+            avgResponseTime: '12.4 min',
+            criticalAlerts: logs.filter(l => l.priority === 'critical').length
         }
-      }));
-    }, 5000);
+        });
+      } catch (error) {
+        console.error('Failed to fetch analytics:', error);
+      }
+    };
+
+    fetchAnalytics();
+    const interval = setInterval(fetchAnalytics, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleExportReport = () => {
+    const reportData = {
+      generated: new Date().toISOString(),
+      analytics_data: analyticsData,
+      threats: threats,
+      conservation_impact: conservationImpact
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wildlife-analytics-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const getThreatColor = (level) => {
     switch (level) {
@@ -144,7 +214,7 @@ const Analytics = () => {
             </div>
             {/* Export button */}
                     <button
-              onClick={handleRefresh}
+              onClick={handleExportReport}
               style={{
                 background: COLORS.burntOrange,
                 border: `2px solid ${COLORS.burntOrange}`,
@@ -362,20 +432,61 @@ const Analytics = () => {
                   ))}
                           </div>
                         </div>
-              {/* Chart Placeholder */}
-              <div style={{
-                height: '300px',
-                background: COLORS.secondaryBg,
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: COLORS.textSecondary,
-                fontSize: '14px',
-                border: `1px dashed ${COLORS.borderLight}`
-              }}>
-                📊 Chart: Wildlife tracking trends over time
-              </div>
+              {/* Interactive Chart using Recharts */}
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorAnimals" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.forestGreen} stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor={COLORS.forestGreen} stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorAlerts" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.burntOrange} stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor={COLORS.burntOrange} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.borderLight} />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke={COLORS.textSecondary}
+                    style={{ fontSize: '12px', fontWeight: 600 }}
+                  />
+                  <YAxis 
+                    stroke={COLORS.textSecondary}
+                    style={{ fontSize: '12px', fontWeight: 600 }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: COLORS.whiteCard, 
+                      border: `1px solid ${COLORS.borderLight}`,
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 600
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ fontSize: '13px', fontWeight: 600 }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="animals" 
+                    stroke={COLORS.forestGreen} 
+                    fillOpacity={1} 
+                    fill="url(#colorAnimals)"
+                    strokeWidth={2}
+                    name="Animals Tracked"
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="alerts" 
+                    stroke={COLORS.burntOrange} 
+                    fillOpacity={1} 
+                    fill="url(#colorAlerts)"
+                    strokeWidth={2}
+                    name="Alerts"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
 
             {/* Right Side - Species Distribution / Tracking Overview */}

@@ -2,7 +2,6 @@ import React, { memo, useMemo } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, Shield, Eye, Activity } from '@/components/shared/Icons';
 
 const WildlifeAnalytics = () => {
-  // Sample analytics data
   const analytics = useMemo(() => ({
     totalSightings: 347,
     sightingsChange: 12.5,
@@ -47,9 +46,7 @@ const WildlifeAnalytics = () => {
         </div>
       </div>
 
-      {/* Key Metrics Grid */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        {/* Total Sightings */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -66,7 +63,6 @@ const WildlifeAnalytics = () => {
           <div className="text-xs text-gray-600">Weekly Sightings</div>
         </div>
 
-        {/* Threat Level */}
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-amber-100 rounded-lg">
@@ -78,7 +74,6 @@ const WildlifeAnalytics = () => {
           <div className="text-xs text-gray-600">Threat Level</div>
         </div>
 
-        {/* Active Patrols */}
   <div className="bg-brand-secondary rounded-xl p-4 border border-brand-accent">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-brand-secondary rounded-lg">
@@ -90,7 +85,6 @@ const WildlifeAnalytics = () => {
           <div className="text-xs text-gray-600">Active Patrols</div>
         </div>
 
-        {/* Species Count */}
         <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-purple-100 rounded-lg">
@@ -103,7 +97,6 @@ const WildlifeAnalytics = () => {
         </div>
       </div>
 
-      {/* Species Population Breakdown */}
       <div className="bg-gray-50 rounded-xl p-4 mb-4">
         <h4 className="text-sm font-semibold text-gray-900 mb-3">Population Status</h4>
         <div className="space-y-3">
@@ -130,7 +123,6 @@ const WildlifeAnalytics = () => {
         </div>
       </div>
 
-      {/* Weekly Activity Chart (Simple Visual) */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <h4 className="text-sm font-semibold text-gray-900 mb-3">Weekly Activity Trend</h4>
         <div className="flex items-end justify-between h-16 space-x-1">

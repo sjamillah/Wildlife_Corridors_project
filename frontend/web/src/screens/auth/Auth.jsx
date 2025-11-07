@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Login from './Login';
 import Register from './Register';
@@ -12,6 +12,14 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [verificationData, setVerificationData] = useState({ method: 'email', contact: '' });
   const navigate = useNavigate();
+
+  // Check if user is already logged in on mount
+  useEffect(() => {
+    if (auth.isAuthenticated()) {
+      console.log('User already logged in, redirecting to dashboard...');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   const handleSuccessfulLogin = (token) => {
     // auth.register/login already stores token in localStorage

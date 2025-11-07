@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, AlertTriangle, MapPin, Users, Clock, Zap, Plus, Download } from '@/components/shared/Icons';
+import { Search, AlertTriangle, MapPin, Users, Clock, Zap, Download, CheckCircle } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 import { BRAND_COLORS, COLORS, rgba } from '../../constants/Colors';
+import { rangers } from '../../services';
 
 const AlertHub = () => {
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [emergencies, setEmergencies] = useState([]);
+  const [resolving, setResolving] = useState(null);
   const navigate = useNavigate();
 
+  // Static alerts data
   const [alerts] = useState([
     {
       id: 'ALT-001',
@@ -123,16 +127,72 @@ const AlertHub = () => {
     }
   ]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    navigate('/auth');
+  // Fetch emergencies from backend
+  const fetchEmergencies = useCallback(async () => {
+    try {
+      const data = await rangers.logs.getEmergencies();
+      setEmergencies(data || []);
+      console.log(`Loaded ${(data || []).length} active emergencies`);
+    } catch (error) {
+      console.error('Failed to fetch emergencies:', error);
+      setEmergencies([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEmergencies();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchEmergencies, 30000);
+    return () => clearInterval(interval);
+  }, [fetchEmergencies]);
+
+  const resolveEmergency = async (emergencyId) => {
+    setResolving(emergencyId);
+    try {
+      await rangers.logs.resolve(emergencyId);
+      await fetchEmergencies();
+      console.log('Emergency resolved:', emergencyId);
+    } catch (error) {
+      console.error('Failed to resolve emergency:', error);
+    } finally {
+      setResolving(null);
+    }
   };
 
-  const handleNewAlert = () => {
-    console.log('Creating new alert...');
+  // Combine static alerts with backend emergencies
+  const combinedAlerts = [
+    ...alerts,
+    ...emergencies.map(emergency => ({
+      id: emergency.id,
+      type: 'Emergency',
+      title: emergency.emergency_type || 'Emergency Alert',
+      description: emergency.description || 'Active emergency situation',
+      location: `${emergency.lat?.toFixed(4)}, ${emergency.lon?.toFixed(4)}`,
+      timestamp: new Date(emergency.timestamp).toLocaleString(),
+      status: emergency.status || 'active',
+      priority: emergency.priority || 'high',
+      isEmergency: true,
+      emergencyData: emergency,
+    }))
+  ];
+
+  const handleLogout = async () => {
+    try {
+      // Use auth service to properly logout (clears all tokens and notifies backend)
+      await rangers.logout();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if API call fails, still clear local storage and navigate
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userProfile');
+      navigate('/auth', { replace: true });
+    }
   };
 
-  const filteredAlerts = alerts.filter(alert => {
+  const filteredAlerts = combinedAlerts.filter(alert => {
     const matchesSearch = alert.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          alert.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          alert.location.toLowerCase().includes(searchQuery.toLowerCase());
@@ -150,11 +210,11 @@ const AlertHub = () => {
   }, [filteredAlerts, selectedAlert]);
 
   const alertCounts = {
-    all: alerts.length,
-    active: alerts.filter(a => a.status === 'active').length,
-    acknowledged: alerts.filter(a => a.status === 'acknowledged').length,
-    investigating: alerts.filter(a => a.status === 'investigating').length,
-    resolved: alerts.filter(a => a.status === 'resolved').length
+    all: combinedAlerts.length,
+    active: combinedAlerts.filter(a => a.status === 'active').length,
+    acknowledged: combinedAlerts.filter(a => a.status === 'acknowledged').length,
+    investigating: combinedAlerts.filter(a => a.status === 'investigating').length,
+    resolved: combinedAlerts.filter(a => a.status === 'resolved').length
   };
 
   const getSeverityColor = (priority) => {
@@ -217,29 +277,6 @@ const AlertHub = () => {
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS.error }}></div>
               Active: {alertCounts.active}
             </div>
-            {/* New Alert button */}
-            <button
-              onClick={handleNewAlert}
-              style={{
-                background: COLORS.burntOrange,
-                border: `2px solid ${COLORS.burntOrange}`,
-                color: 'white',
-                padding: '10px 20px',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; e.currentTarget.style.borderColor = COLORS.terracotta; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; e.currentTarget.style.borderColor = COLORS.burntOrange; }}
-            >
-              <Plus className="w-4 h-4" />
-              New Alert
-            </button>
           </div>
         </section>
 
@@ -446,9 +483,6 @@ const AlertHub = () => {
             <div style={{ display: 'grid', gap: '20px' }}>
               {filteredAlerts.map((alert) => {
                 const severityColor = getSeverityColor(alert.priority);
-                const severityBg = getSeverityBg(alert.priority);
-                const statusColor = getStatusColor(alert.status);
-                const statusBg = getStatusBg(alert.status);
 
                 return (
                   <div
@@ -485,81 +519,15 @@ const AlertHub = () => {
                       background: severityColor
                     }}></div>
 
-                    {/* Card Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                      {/* Left Section */}
-                      <div style={{ flex: 1 }}>
-                        {/* Icon wrapper */}
-                        <div style={{
-                          width: '44px',
-                          height: '44px',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '22px',
-                          background: severityBg,
-                          marginBottom: '12px'
-                        }}>
-                          <AlertTriangle className="w-6 h-6" style={{ color: severityColor }} />
-                        </div>
-                        {/* Title */}
-                        <div style={{ fontSize: '15px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '8px' }}>
-                          {alert.title}
-                        </div>
-                      </div>
-
-                      {/* Right Section - Badges */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
-                        {/* Status pill */}
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          background: statusBg,
-                          color: statusColor
-                        }}>
-                          {alert.status}
-                        </span>
-                        {/* Severity pill */}
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          background: alert.priority === 'critical' ? COLORS.error :
-                                     alert.priority === 'high' ? COLORS.ochre :
-                                     alert.priority === 'medium' ? COLORS.info : COLORS.success,
-                          color: 'white'
-                        }}>
-                          {alert.priority}
-                        </span>
-                      </div>
+                    {/* Name */}
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '12px' }}>
+                      {alert.title}
                     </div>
 
-                    {/* Description */}
-                    <div style={{ fontSize: '14px', color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: '16px', textAlign: 'left' }}>
-                      {alert.description}
-                    </div>
-
-                    {/* Meta Tags */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', paddingTop: '14px', borderTop: `1px solid ${COLORS.creamBg}` }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: COLORS.textSecondary, fontWeight: 600 }}>
-                        <MapPin className="w-3.5 h-3.5" />
-                        {alert.location}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: COLORS.textSecondary, fontWeight: 600 }}>
-                        <Clock className="w-3.5 h-3.5" />
-                        {alert.timestamp}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: COLORS.textSecondary, fontWeight: 600 }}>
-                        <Users className="w-3.5 h-3.5" />
-                        {alert.responseTeam}
-                      </div>
+                    {/* Location */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: COLORS.textSecondary }}>
+                      <MapPin className="w-4 h-4" />
+                      <span>{alert.location}</span>
                     </div>
                   </div>
                 );
@@ -627,14 +595,53 @@ const AlertHub = () => {
                 </div>
 
                 {/* Story Section */}
-                <div style={{ background: COLORS.secondaryBg, padding: '20px', marginBottom: '32px', borderRadius: '8px' }}>
+                <div style={{ background: COLORS.secondaryBg, padding: '20px', marginBottom: '24px', borderRadius: '8px' }}>
                   <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>
-                    Story
+                    {selectedAlert.isEmergency ? 'Emergency Details' : 'Story'}
                   </div>
                   <div style={{ fontSize: '15px', color: COLORS.textPrimary, lineHeight: 1.8, textAlign: 'left' }}>
-                    {selectedAlert.story}
+                    {selectedAlert.story || selectedAlert.description}
                   </div>
                 </div>
+
+                {/* Emergency Actions */}
+                {selectedAlert.isEmergency && selectedAlert.status === 'active' && (
+                  <div style={{ marginBottom: '32px' }}>
+                    <button
+                      onClick={() => resolveEmergency(selectedAlert.id)}
+                      disabled={resolving === selectedAlert.id}
+                      style={{
+                        width: '100%',
+                        padding: '14px 20px',
+                        background: resolving === selectedAlert.id ? COLORS.borderLight : COLORS.success,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        cursor: resolving === selectedAlert.id ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (resolving !== selectedAlert.id) {
+                          e.currentTarget.style.background = '#059669';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (resolving !== selectedAlert.id) {
+                          e.currentTarget.style.background = COLORS.success;
+                        }
+                      }}
+                    >
+                      <CheckCircle style={{ width: 18, height: 18 }} />
+                      {resolving === selectedAlert.id ? 'Resolving...' : 'Mark as Resolved'}
+                    </button>
+                  </div>
+                )}
 
                 {/* Info Grid */}
                 <div style={{ display: 'grid', gap: '16px', marginBottom: '32px' }}>

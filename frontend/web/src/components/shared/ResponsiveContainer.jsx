@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Responsive container component for consistent spacing and layout
 export const ResponsiveContainer = ({ children, className = '', padding = 'default' }) => {
   const paddingClasses = {
     none: '',
@@ -17,7 +16,6 @@ export const ResponsiveContainer = ({ children, className = '', padding = 'defau
   );
 };
 
-// Responsive grid component
 export const ResponsiveGrid = ({ 
   children, 
   cols = { default: 1, sm: 2, lg: 3, xl: 4 },
@@ -52,7 +50,6 @@ export const ResponsiveGrid = ({
   );
 };
 
-// Responsive card component
 export const ResponsiveCard = ({ 
   children, 
   variant = 'default',
@@ -85,7 +82,6 @@ export const ResponsiveCard = ({
   );
 };
 
-// Responsive text component
 export const ResponsiveText = ({ 
   children, 
   size = 'base',
@@ -129,7 +125,6 @@ export const ResponsiveText = ({
   );
 };
 
-// Responsive button component
 export const ResponsiveButton = ({ 
   children, 
   variant = 'primary',
@@ -181,7 +176,6 @@ export const ResponsiveButton = ({
   );
 };
 
-// Responsive spacing component
 export const ResponsiveSpacing = ({ 
   children, 
   direction = 'vertical',

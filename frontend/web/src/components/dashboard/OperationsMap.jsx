@@ -5,7 +5,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation } from '@/components/shared/Icons';
 
-// Map-specific colors using CSS variables
 const MAP_COLORS = {
   WILDLIFE_NORMAL: '#2E5D45',
   PATROL: '#3B82F6',
@@ -15,7 +14,6 @@ const MAP_COLORS = {
   GRAY_DEFAULT: '#6B7280',
 };
 
-// Fix for default markers in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.webp',
@@ -23,7 +21,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.webp',
 });
 
-// Custom marker icons for different conservation status levels
 const createCustomIcon = (status) => {
   const colors = {
     'Normal': MAP_COLORS.WILDLIFE_NORMAL,
@@ -47,7 +44,6 @@ const createCustomIcon = (status) => {
   });
 };
 
-// Current location marker
 const currentLocationIcon = L.divIcon({
   className: 'current-location-marker',
   html: `<div style="
@@ -74,7 +70,6 @@ const OperationsMap = () => {
   const navigate = useNavigate();
   const [currentLocation, setCurrentLocation] = useState(null);
 
-  // Wildlife locations data with conservation focus (not threat focus)
   const wildlifeLocations = useMemo(() => ([
     { id: 1, name: 'Serengeti National Park', latitude: -2.3333, longitude: 34.8333, status: 'Normal', animals: 127, species: 'Wildebeest, Zebra', lastCount: '2 days ago' },
     { id: 2, name: 'Ngorongoro Crater', latitude: -3.2167, longitude: 35.5833, status: 'High Activity', animals: 89, species: 'Rhino, Elephant', lastCount: '1 day ago' },
@@ -84,7 +79,6 @@ const OperationsMap = () => {
     { id: 6, name: 'Tarangire National Park', latitude: -3.8333, longitude: 36.0000, status: 'Normal', animals: 134, species: 'Elephant, Buffalo', lastCount: '2 days ago' }
   ]), []);
 
-  // Get user's current location
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -96,7 +90,6 @@ const OperationsMap = () => {
         },
         (error) => {
           console.log('Error getting location:', error);
-          // Fallback to Nairobi, Kenya coordinates
           setCurrentLocation({
             latitude: -1.2921,
             longitude: 36.8219
@@ -104,7 +97,6 @@ const OperationsMap = () => {
         }
       );
     } else {
-      // Fallback to Nairobi, Kenya coordinates
       setCurrentLocation({
         latitude: -1.2921,
         longitude: 36.8219
@@ -120,7 +112,6 @@ const OperationsMap = () => {
     console.log('Location clicked:', location);
   };
 
-  // Center the map on East Africa region
   const mapCenter = useMemo(() => [-2.0, 36.0], []);
   const mapZoom = 6;
   return (
@@ -144,7 +135,6 @@ const OperationsMap = () => {
         </button>
       </div>
       
-      {/* Interactive Map */}
       <div className="relative h-80">
         <MapContainer 
           center={mapCenter} 
@@ -158,7 +148,6 @@ const OperationsMap = () => {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
           
-          {/* Wildlife Location Markers */}
           {wildlifeLocations.map((location) => (
             <Marker
               key={location.id}
@@ -200,7 +189,6 @@ const OperationsMap = () => {
             </Marker>
           ))}
           
-          {/* Current Location Marker */}
           {currentLocation && (
             <Marker
               position={[currentLocation.latitude, currentLocation.longitude]}
@@ -249,7 +237,6 @@ const OperationsMap = () => {
         </div>
       </div>
 
-      {/* Conservation Summary */}
       <div className="p-4 bg-gray-50 border-t border-gray-200">
         <div className="grid grid-cols-4 gap-4 text-center">
           <div>

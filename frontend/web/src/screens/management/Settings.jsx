@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, Bell, Shield, Database, Save, RotateCcw, Plus, Lock, Calendar, Mail, Phone, Award } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 import { COLORS } from '../../constants/Colors';
+import { auth } from '../../services';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -56,9 +57,17 @@ const Settings = () => {
     }
   });
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    navigate('/auth');
+  const handleLogout = async () => {
+    try {
+      await auth.logout();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userProfile');
+      navigate('/auth', { replace: true });
+    }
   };
 
   const handleSettingChange = (category, key, value) => {
@@ -147,15 +156,35 @@ const Settings = () => {
     }
   };
 
-  // Simulate fetching user data from backend
+  // Fetch real user data from backend
   useEffect(() => {
-    // TODO: Replace with actual API call
-    // const fetchUserData = async () => {
-    //   const response = await fetch('/api/user/profile');
-    //   const data = await response.json();
-    //   setSettings(prev => ({ ...prev, profile: data }));
-    // };
-    // fetchUserData();
+    const fetchUserData = async () => {
+      try {
+        const profile = await auth.getProfile();
+        const name = profile.name || profile.email?.split('@')[0] || 'User';
+        const nameParts = name.split(' ');
+        const firstName = nameParts[0] || 'User';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        
+        setSettings(prev => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            firstName: firstName,
+            lastName: lastName,
+            email: profile.email || prev.profile.email,
+            role: profile.role === 'ranger' ? 'Field Ranger' : 'Conservation Manager',
+            avatar: initials,
+            userId: profile.id || prev.profile.userId,
+          }
+        }));
+      } catch (error) {
+        console.error('Failed to load user profile:', error);
+      }
+    };
+
+    fetchUserData();
   }, []);
 
   const tabs = [

@@ -2,7 +2,6 @@ import React from 'react';
 import { TrendingUp, AlertTriangle, Shield, Activity, Users, Clock, Zap, Eye, CheckCircle } from '@/components/shared/Icons';
 
 const ConservationInsights = ({ className }) => {
-  // Conservation data for dashboard insights
   const conservationData = {
     speciesStats: {
       elephants: { count: 89, trend: '+5.2%', status: 'stable' },
@@ -48,7 +47,6 @@ const ConservationInsights = ({ className }) => {
 
   return (
     <div className={`bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden ${className}`} style={{fontFamily: 'Inter, system-ui, -apple-system, sans-serif'}}>
-      {/* Header */}
       <div className="px-6 py-4 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div>
@@ -63,7 +61,6 @@ const ConservationInsights = ({ className }) => {
       </div>
 
       <div className="p-6">
-        {/* Species Statistics */}
         <div className="mb-6">
           <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Species Population</h4>
           <div className="grid grid-cols-2 gap-4">
@@ -99,7 +96,6 @@ const ConservationInsights = ({ className }) => {
           </div>
         </div>
 
-        {/* Threat Assessment */}
         <div className="mb-6">
           <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Threat Assessment</h4>
           <div className="grid grid-cols-4 gap-3">
@@ -122,7 +118,6 @@ const ConservationInsights = ({ className }) => {
           </div>
         </div>
 
-        {/* Corridor Status */}
         <div className="mb-6">
           <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Corridor Network</h4>
           <div className="space-y-3">
@@ -152,7 +147,6 @@ const ConservationInsights = ({ className }) => {
           </div>
         </div>
 
-        {/* Recent Activity */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Recent Activity</h4>
           <div className="space-y-3">
@@ -174,7 +168,6 @@ const ConservationInsights = ({ className }) => {
         </div>
       </div>
 
-      {/* Footer */}
       <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>Last updated: {new Date().toLocaleTimeString()}</span>

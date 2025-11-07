@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff } from '@/components/shared/Icons';
 import auth from '../../services/auth';
 import { COLORS } from '../../constants/Colors';
 
@@ -8,17 +7,31 @@ const ElephantBackground = '/assets/ele_background.jpg';
 
 const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLogin }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  const [showOTP, setShowOTP] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpMessage, setOtpMessage] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     try {
-      await auth.login({ email, password });
+      const response = await auth.sendLoginOTP(email);
+      setOtpMessage(response.message || 'OTP sent to your email');
+      setShowOTP(true);
+    } catch (err) {
+      setError(err.message || 'Failed to send OTP');
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await auth.verifyLoginOTP(email, otp);
       onSuccessfulLogin();
     } catch (err) {
-      setError(err.message || 'Login failed');
+      setError(err.message || 'OTP verification failed');
     }
   };
 
@@ -123,53 +136,21 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px' }}>
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: `1px solid ${COLORS.borderLight}`,
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontFamily: 'inherit',
-                  background: COLORS.whiteCard,
-                  outline: 'none',
-                  transition: 'all 0.2s ease',
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.forestGreen;
-                  e.currentTarget.style.boxShadow = `0 0 0 3px ${COLORS.forestGreen}15`;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.borderLight;
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-                placeholder="Enter your email"
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px' }}>
-                Password
-              </label>
-              <div style={{ position: 'relative' }}>
+          {!showOTP ? (
+            /* Email Form */
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px' }}>
+                  Email Address
+                </label>
                 <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    paddingRight: '48px',
                     border: `1px solid ${COLORS.borderLight}`,
                     borderRadius: '8px',
                     fontSize: '14px',
@@ -186,51 +167,128 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
                     e.currentTarget.style.borderColor = COLORS.borderLight;
                     e.currentTarget.style.boxShadow = 'none';
                   }}
-                  placeholder="Enter your password"
+                  placeholder="Enter your email"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: COLORS.textSecondary,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              style={{
-                width: '100%',
-                padding: '14px',
-                background: COLORS.burntOrange,
-                border: 'none',
-                borderRadius: '8px',
-                color: COLORS.white,
-                fontSize: '15px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                marginTop: '8px',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; }}
-            >
-              Sign In
-            </button>
-          </form>
+              <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: COLORS.burntOrange,
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: COLORS.white,
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  marginTop: '8px',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = COLORS.terracotta; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = COLORS.burntOrange; }}
+              >
+                Send Verification Code
+              </button>
+            </form>
+          ) : (
+            /* OTP Verification Form */
+            <form onSubmit={handleVerifyOTP} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ 
+                padding: '12px', 
+                background: '#F0F9FF', 
+                color: COLORS.forestGreen, 
+                borderRadius: '6px', 
+                fontSize: '13px',
+                marginBottom: '8px',
+              }}>
+                {otpMessage}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px' }}>
+                  Verification Code (4 digits)
+                </label>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  required
+                  maxLength={4}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    border: `1px solid ${COLORS.borderLight}`,
+                    borderRadius: '8px',
+                    fontSize: '24px',
+                    fontFamily: 'monospace',
+                    textAlign: 'center',
+                    letterSpacing: '8px',
+                    background: COLORS.whiteCard,
+                    outline: 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.forestGreen;
+                    e.currentTarget.style.boxShadow = `0 0 0 3px ${COLORS.forestGreen}15`;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.borderLight;
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                  placeholder="0000"
+                />
+                <p style={{ fontSize: '12px', color: COLORS.textSecondary, marginTop: '4px', textAlign: 'center' }}>
+                  Check your email inbox for the OTP code
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={otp.length !== 4}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: otp.length === 4 ? COLORS.burntOrange : COLORS.borderLight,
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: COLORS.white,
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  cursor: otp.length === 4 ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.2s ease',
+                  marginTop: '8px',
+                }}
+                onMouseEnter={(e) => { 
+                  if (otp.length === 4) e.currentTarget.style.background = COLORS.terracotta; 
+                }}
+                onMouseLeave={(e) => { 
+                  if (otp.length === 4) e.currentTarget.style.background = COLORS.burntOrange; 
+                }}
+              >
+                Verify & Sign In
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowOTP(false)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'transparent',
+                  border: `1px solid ${COLORS.borderLight}`,
+                  borderRadius: '8px',
+                  color: COLORS.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Back to Login
+              </button>
+            </form>
+          )}
 
           <div style={{ marginTop: '24px', textAlign: 'center' }}>
             {error && (
@@ -245,22 +303,7 @@ const Login = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfulLo
                 {error}
               </div>
             )}
-            <button
-              onClick={() => setCurrentScreen('forgot')}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: COLORS.burntOrange,
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                marginBottom: '16px',
-              }}
-            >
-              Forgot your password?
-            </button>
-            
-            <div style={{ borderTop: `1px solid ${COLORS.borderLight}`, paddingTop: '20px' }}>
+            <div style={{ borderTop: `1px solid ${COLORS.borderLight}`, paddingTop: '20px', marginTop: '20px' }}>
               <span style={{ color: COLORS.textSecondary, fontSize: '14px' }}>Don't have an account? </span>
               <button
                 onClick={() => setCurrentScreen('register')}

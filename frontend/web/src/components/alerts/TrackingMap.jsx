@@ -1,7 +1,6 @@
 import React from 'react';
-import MapComponent from '../shared/MapComponent';
+import MapComponent from '@/components/shared/MapComponent';
 
-// Map-specific colors using CSS variables
 const MAP_COLORS = {
   WILDLIFE_NORMAL: '#2E5D45',
   ALERT_CRITICAL: '#EF4444',
@@ -9,9 +8,7 @@ const MAP_COLORS = {
 };
 
 const TrackingMap = ({ animals, onAnimalSelect }) => {
-  // Convert animals data to markers format for MapComponent with proper colors
   const markers = animals ? animals.map(animal => {
-    // Determine color based on risk level
     let color;
     switch (animal.risk) {
       case 'High':
@@ -27,7 +24,6 @@ const TrackingMap = ({ animals, onAnimalSelect }) => {
         break;
     }
 
-    // Determine marker type based on species
     let markerType;
     if (animal.species.includes('Elephant')) {
       markerType = 'elephant';
@@ -39,9 +35,9 @@ const TrackingMap = ({ animals, onAnimalSelect }) => {
 
     return {
       id: animal.id,
-      position: [animal.coordinates[1], animal.coordinates[0]], // [lat, lng] for Leaflet
+      position: [animal.coordinates[1], animal.coordinates[0]],
       title: animal.name,
-      description: `${animal.species} - Status: ${animal.status} - Location: ${animal.location}`,
+      description: `${animal.species} - Status: ${animal.status} - Coordinates: ${animal.coordinates[0].toFixed(4)}°, ${animal.coordinates[1].toFixed(4)}°`,
       type: markerType,
       color: color,
       risk: animal.risk,

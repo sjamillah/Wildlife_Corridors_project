@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Plus, Wifi, Settings } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 import { COLORS, rgba } from '../../constants/Colors';
+import { rangers as rangersService, animals as animalsService } from '../../services';
 
 const LiveTracking = () => {
   const navigate = useNavigate();
@@ -19,148 +20,73 @@ const LiveTracking = () => {
   };
 
   useEffect(() => {
-    // Mock data for tracking devices - Animals and Rangers
-    const mockDevices = [
-      // Animal devices
-      {
-        id: 'WC-001',
-        name: 'Elephant #001',
-        deviceId: 'WC-001',
-        status: 'Active',
-        battery: 78,
-        signalStrength: 85,
-        lastPing: Date.now() - 300000, // 5 minutes ago
-        location: 'Northern Reserve, Zone A',
-        type: 'GPS Collar',
-        category: 'animal',
-        species: 'Elephant'
-      },
-      {
-        id: 'WC-002',
-        name: 'Wildebeest #002',
-        deviceId: 'WC-002',
-        status: 'Active',
-        battery: 92,
-        signalStrength: 72,
-        lastPing: Date.now() - 120000, // 2 minutes ago
-        location: 'Eastern Ridge Trail',
-        type: 'Satellite Collar',
-        category: 'animal',
-        species: 'Wildebeest'
-      },
-      {
-        id: 'WC-003',
-        name: 'Zebra #003',
-        deviceId: 'WC-003',
-        status: 'Critical',
-        battery: 23,
-        signalStrength: 41,
-        lastPing: Date.now() - 900000, // 15 minutes ago
-        location: 'Southern Valley',
-        type: 'GPS Collar',
-        category: 'animal',
-        species: 'Zebra'
-      },
-      {
-        id: 'WC-004',
-        name: 'Elephant #004',
-        deviceId: 'WC-004',
-        status: 'Low Battery',
-        battery: 15,
-        signalStrength: 38,
-        lastPing: Date.now() - 1800000, // 30 minutes ago
-        location: 'Western Forest Edge',
-        type: 'Light Collar',
-        category: 'animal',
-        species: 'Elephant'
-      },
-      {
-        id: 'WC-005',
-        name: 'Lion #005',
-        deviceId: 'WC-005',
-        status: 'Offline',
-        battery: 0,
-        signalStrength: 0,
-        lastPing: Date.now() - 3600000, // 1 hour ago
-        location: 'Unknown',
-        type: 'GPS Collar',
-        category: 'animal',
-        species: 'Lion'
-      },
-      // Ranger devices
-      {
-        id: 'RG-001',
-        name: 'Ranger Team Alpha',
-        deviceId: 'RG-001',
-        status: 'Active',
-        battery: 95,
-        signalStrength: 92,
-        lastPing: Date.now() - 60000, // 1 minute ago
-        location: 'Northern Sector Patrol',
-        type: 'Ranger Device',
-        category: 'ranger',
-        team: 'Alpha Team'
-      },
-      {
-        id: 'RG-002',
-        name: 'Ranger Team Bravo',
-        deviceId: 'RG-002',
-        status: 'Active',
-        battery: 88,
-        signalStrength: 78,
-        lastPing: Date.now() - 180000, // 3 minutes ago
-        location: 'Eastern Corridor',
-        type: 'Ranger Device',
-        category: 'ranger',
-        team: 'Bravo Team'
-      },
-      {
-        id: 'RG-003',
-        name: 'Ranger Team Charlie',
-        deviceId: 'RG-003',
-        status: 'Offline',
-        battery: 45,
-        signalStrength: 0,
-        lastPing: Date.now() - 7200000, // 2 hours ago
-        location: 'Last seen: Command Center',
-        type: 'Ranger Device',
-        category: 'ranger',
-        team: 'Charlie Team'
-      },
-      {
-        id: 'RG-004',
-        name: 'Ranger Team Delta',
-        deviceId: 'RG-004',
-        status: 'Active',
-        battery: 72,
-        signalStrength: 65,
-        lastPing: Date.now() - 240000, // 4 minutes ago
-        location: 'Southern Valley Patrol',
-        type: 'Ranger Device',
-        category: 'ranger',
-        team: 'Delta Team'
+    const fetchTrackingData = async () => {
+      try {
+        console.log('Fetching live devices (animals + rangers)...');
+        
+        const [animalsResponse, rangersResponse] = await Promise.all([
+          animalsService.getAll({ status: 'active' }).catch(err => { 
+            console.log('Animals fetch error:', err);
+            return { results: [] };
+          }),
+          rangersService.getAll().catch(err => {
+            console.log('Rangers fetch error:', err);
+            return { results: [] };
+          })
+        ]);
+        
+        const animalsList = animalsResponse.results || animalsResponse || [];
+        const rangersList = rangersResponse.results || rangersResponse || [];
+        
+        console.log(`API returned: ${animalsList.length} potential animals, ${rangersList.length} rangers`);
+        
+        const animalDevices = animalsList
+          .filter(animal => animal.status === 'active')
+          .map((animal) => ({
+            id: `animal-${animal.id}`,
+            name: animal.name || `${animal.species} #${animal.collar_id?.slice(0, 8) || animal.id}`,
+            deviceId: animal.collar_id || `COL-${animal.id}`,
+            status: 'Active',
+            battery: animal.collar_battery || 85,
+            signalStrength: animal.signal_strength || 80,
+            lastPing: animal.last_seen ? new Date(animal.last_seen).getTime() : Date.now(),
+            location: animal.last_lat && animal.last_lon ? 
+              `${animal.last_lat.toFixed(4)}°, ${animal.last_lon.toFixed(4)}°` : 
+              animal.last_known_location || 'No GPS Data',
+            type: 'GPS Collar',
+            category: 'animal',
+            species: animal.species || 'Unknown'
+          }));
+
+        const rangerDevices = rangersList.map((ranger) => ({
+          id: `ranger-${ranger.id}`,
+          name: ranger.name || ranger.user_name || `Ranger #${ranger.id}`,
+          deviceId: ranger.badge_number || `BADGE-${ranger.id}`,
+          status: ranger.current_status === 'on_duty' ? 'Active' : 'Offline',
+          battery: 100,
+          signalStrength: ranger.current_status === 'on_duty' ? 95 : 0,
+          lastPing: ranger.last_active ? new Date(ranger.last_active).getTime() : Date.now(),
+          location: ranger.last_lat && ranger.last_lon ? 
+            `${ranger.last_lat.toFixed(4)}°, ${ranger.last_lon.toFixed(4)}°` : 
+            'No GPS Data',
+          type: 'Ranger Device',
+          category: 'ranger',
+          team: ranger.team_name || 'Unassigned'
+        }));
+        
+        const allDevices = [...animalDevices, ...rangerDevices];
+        setDevices(allDevices);
+        
+        console.log(`Displaying ${animalDevices.length} active animals + ${rangerDevices.length} rangers (${rangerDevices.filter(r => r.status === 'Active').length} on duty)`);
+      } catch (err) {
+        console.error('Error fetching tracking data:', err);
+        setDevices([]);
       }
-    ];
+    };
 
-    setDevices(mockDevices);
-
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      setDevices(prevDevices => 
-        prevDevices.map(device => {
-          const batteryDelta = Math.random() * 2 - 1;
-          const signalDelta = Math.random() * 10 - 5;
-          
-          return {
-            ...device,
-            battery: Math.max(0, Math.min(100, device.battery + batteryDelta)),
-            signalStrength: Math.max(0, Math.min(100, device.signalStrength + signalDelta)),
-            lastPing: Math.random() > 0.7 ? Date.now() : device.lastPing
-          };
-        })
-      );
-    }, 5000);
-
+    fetchTrackingData();
+    
+    const interval = setInterval(fetchTrackingData, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -174,14 +100,12 @@ const LiveTracking = () => {
     return `${hours}h ago`;
   };
 
-  // Calculate stats
   const totalDevices = devices.length;
   const activeDevices = devices.filter(d => d.status === 'Active').length;
   const lowBatteryDevices = devices.filter(d => d.battery < 30).length;
   const weakSignalDevices = devices.filter(d => d.signalStrength < 50).length;
   const offlineDevices = devices.filter(d => d.status === 'Offline').length;
 
-  // Filter devices
   const filteredDevices = devices.filter(device => {
     const matchesSearch = device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          device.deviceId.toLowerCase().includes(searchQuery.toLowerCase());
@@ -227,9 +151,7 @@ const LiveTracking = () => {
     <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", background: COLORS.creamBg, minHeight: '100vh' }}>
       <Sidebar onLogout={handleLogout} />
       
-      {/* Main Content */}
       <div style={{ marginLeft: '260px', minHeight: '100vh' }}>
-        {/* Page Header */}
         <section style={{ background: COLORS.forestGreen, padding: '28px 40px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'white', marginBottom: '6px', letterSpacing: '-0.6px' }}>
@@ -240,12 +162,10 @@ const LiveTracking = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            {/* Live indicator */}
             <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '8px 16px', borderRadius: '6px', color: 'white', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS.success, animation: 'pulse 2s ease-in-out infinite' }}></div>
               Live
             </div>
-            {/* Filters button */}
             <button style={{ 
               background: 'transparent', 
               border: '2px solid rgba(255, 255, 255, 0.3)', 
@@ -266,7 +186,6 @@ const LiveTracking = () => {
               <Filter className="w-4 h-4" />
               Filters
             </button>
-            {/* Add Device button */}
             <button style={{ 
               background: COLORS.burntOrange, 
               border: `2px solid ${COLORS.burntOrange}`, 
@@ -290,10 +209,8 @@ const LiveTracking = () => {
           </div>
         </section>
 
-        {/* Status Overview Bar */}
         <section style={{ background: COLORS.secondaryBg, padding: '20px 40px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
           <div style={{ display: 'flex', gap: '2px', background: COLORS.borderLight, borderRadius: '8px', overflow: 'hidden', height: '70px' }}>
-            {/* Total */}
             <div 
               style={{ 
                 flex: 1, 
@@ -316,7 +233,6 @@ const LiveTracking = () => {
               </div>
             </div>
 
-            {/* Active */}
             <div 
               style={{ 
                 flex: 1, 
@@ -339,7 +255,6 @@ const LiveTracking = () => {
               </div>
             </div>
 
-            {/* Battery Low */}
             <div 
               style={{ 
                 flex: 1, 
@@ -362,7 +277,6 @@ const LiveTracking = () => {
               </div>
             </div>
 
-            {/* Signal Weak */}
             <div 
               style={{ 
                 flex: 1, 
@@ -385,7 +299,6 @@ const LiveTracking = () => {
               </div>
             </div>
 
-            {/* Offline */}
             <div 
               style={{ 
                 flex: 1, 
@@ -410,14 +323,10 @@ const LiveTracking = () => {
           </div>
         </section>
 
-        {/* Devices Section */}
         <section style={{ padding: '32px 40px' }}>
-          {/* Section Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: COLORS.textPrimary }}>Devices</h2>
-            {/* Search and Filters Row */}
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, maxWidth: '600px', marginLeft: 'auto' }}>
-              {/* Search Box */}
               <div style={{ flex: 1, maxWidth: '400px', position: 'relative' }}>
                 <Search className="w-4 h-4" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: COLORS.textSecondary }} />
                 <input
@@ -440,7 +349,6 @@ const LiveTracking = () => {
                   onBlur={(e) => { e.currentTarget.style.borderColor = COLORS.borderLight; }}
                 />
               </div>
-              {/* Filter Tabs */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {['all', 'animals', 'rangers', 'active', 'low-battery', 'weak-signal', 'offline'].map((filter) => {
                   const isActive = activeFilter === filter;
@@ -488,7 +396,6 @@ const LiveTracking = () => {
             </div>
           </div>
 
-          {/* Device Cards Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
             {filteredDevices.map((device) => {
               const statusColor = getStatusColor(device.status);
@@ -520,7 +427,6 @@ const LiveTracking = () => {
                   }}
                   onClick={() => setSelectedDevice(device)}
                 >
-                  {/* Top Accent Bar */}
                   <div style={{
                     position: 'absolute',
                     top: 0,
@@ -531,11 +437,8 @@ const LiveTracking = () => {
                     background: accentColor
                   }}></div>
 
-                  {/* Card Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                    {/* Device Info */}
                     <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                      {/* Icon */}
                       <div style={{
                         width: '44px',
                         height: '44px',
@@ -550,7 +453,6 @@ const LiveTracking = () => {
                       }}>
                         <Wifi className="w-6 h-6" style={{ color: COLORS.textPrimary }} />
                       </div>
-                      {/* Name and ID */}
                       <div>
                         <div style={{ fontSize: '15px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '2px' }}>
                           {device.name}
@@ -561,7 +463,6 @@ const LiveTracking = () => {
                         </div>
                       </div>
                     </div>
-                    {/* Status Badge */}
                     <span style={{
                       padding: '5px 12px',
                       borderRadius: '4px',
@@ -576,7 +477,6 @@ const LiveTracking = () => {
                     </span>
                   </div>
 
-                  {/* Card Metrics */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                     <div>
                       <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 500, marginBottom: '4px' }}>
@@ -596,7 +496,6 @@ const LiveTracking = () => {
                     </div>
                   </div>
 
-                  {/* Battery Section */}
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                       <div style={{ fontSize: '11px', color: '#6B5E4F', fontWeight: 500 }}>
@@ -622,7 +521,6 @@ const LiveTracking = () => {
                     </div>
                   </div>
 
-                  {/* Card Footer */}
                   <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                     <button
                       onClick={(e) => {
@@ -677,7 +575,6 @@ const LiveTracking = () => {
         </section>
       </div>
 
-      {/* Add pulse animation CSS */}
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
