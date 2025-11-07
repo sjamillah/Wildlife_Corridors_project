@@ -12,13 +12,7 @@ from .serializers import SyncLogSerializer, SyncQueueSerializer, OfflineDataUplo
 
 logger = logging.getLogger(__name__)
 
-
 class SyncLogViewSet(viewsets.ModelViewSet):
-    """
-    Synchronization Logs
-    
-    View and manage offline data synchronization logs.
-    """
     queryset = SyncLog.objects.all()
     serializer_class = SyncLogSerializer
     
@@ -53,7 +47,6 @@ class SyncLogViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'])
     def recent(self, request):
-        """Get recent sync logs for the user"""
         recent_logs = self.queryset.filter(
             user=request.user
         ).order_by('-started_at')[:10]
@@ -68,7 +61,6 @@ class SyncLogViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """Get sync statistics for the user"""
         user_logs = self.queryset.filter(user=request.user)
         
         total_syncs = user_logs.count()
@@ -92,13 +84,7 @@ class SyncLogViewSet(viewsets.ModelViewSet):
             'sync_efficiency': (synced_items / total_items * 100) if total_items > 0 else 0,
         })
 
-
 class SyncQueueViewSet(viewsets.ModelViewSet):
-    """
-    Sync Queue
-    
-    Manage pending offline data uploads and sync queue.
-    """
     queryset = SyncQueue.objects.all()
     serializer_class = SyncQueueSerializer
     
@@ -133,7 +119,6 @@ class SyncQueueViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'])
     def pending(self, request):
-        """Get pending sync items for the user"""
         pending_items = self.queryset.filter(
             user=request.user,
             status='pending'
@@ -149,7 +134,6 @@ class SyncQueueViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'])
     def failed(self, request):
-        """Get failed sync items for the user"""
         failed_items = self.queryset.filter(
             user=request.user,
             status='failed'
@@ -165,7 +149,6 @@ class SyncQueueViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['post'])
     def retry_failed(self, request):
-        """Retry all failed sync items"""
         failed_items = self.queryset.filter(
             user=request.user,
             status='failed'
@@ -191,7 +174,6 @@ class SyncQueueViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=['post'])
     def retry_item(self, request, pk=None):
-        """Retry a specific sync item"""
         item = self.get_object()
         
         if item.status != 'failed':
@@ -207,7 +189,6 @@ class SyncQueueViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(item)
         return Response(serializer.data)
-
 
 @swagger_auto_schema(
     method='post',
@@ -245,12 +226,6 @@ class SyncQueueViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_offline_data(request):
-    """
-    Upload Offline Data
-    
-    Bulk upload data collected offline by mobile rangers.
-    Handles animals, tracking points, and observations with conflict resolution.
-    """
     from apps.animals.models import Animal
     from apps.tracking.models import Tracking, Observation
     from apps.animals.serializers import AnimalSerializer
@@ -263,7 +238,6 @@ def upload_offline_data(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Start sync session
     sync_log = SyncLog.objects.create(
         device_id=device_id,
         user=request.user,
@@ -288,7 +262,6 @@ def upload_offline_data(request):
     failed_items = 0
     
     try:
-        # Process animals
         animals_data = request.data.get('animals', [])
         total_items += len(animals_data)
         
@@ -296,7 +269,6 @@ def upload_offline_data(request):
             local_id = animal_data.get('id') or animal_data.get('local_id')
             
             try:
-                # Check if already synced
                 existing = SyncQueue.objects.filter(
                     local_id=local_id,
                     data_type='animal',
@@ -308,12 +280,10 @@ def upload_offline_data(request):
                     conflict_items += 1
                     continue
                 
-                # Create or update animal
                 serializer = AnimalSerializer(data=animal_data, context={'request': request})
                 if serializer.is_valid():
                     animal = serializer.save()
                     
-                    # Log to queue
                     SyncQueue.objects.create(
                         device_id=device_id,
                         user=request.user,
@@ -346,7 +316,6 @@ def upload_offline_data(request):
                 })
                 failed_items += 1
         
-        # Process tracking points
         tracking_data = request.data.get('tracking', [])
         total_items += len(tracking_data)
         
@@ -354,7 +323,6 @@ def upload_offline_data(request):
             local_id = track_data.get('id') or track_data.get('local_id')
             
             try:
-                # Check for duplicates by timestamp and location
                 animal_id = track_data.get('animal') or track_data.get('animal_id')
                 timestamp = track_data.get('timestamp')
                 lat = track_data.get('lat')
@@ -373,12 +341,10 @@ def upload_offline_data(request):
                         conflict_items += 1
                         continue
                 
-                # Create tracking point
                 serializer = TrackingSerializer(data=track_data, context={'request': request})
                 if serializer.is_valid():
                     tracking = serializer.save()
                     
-                    # Log to queue
                     SyncQueue.objects.create(
                         device_id=device_id,
                         user=request.user,
@@ -411,7 +377,6 @@ def upload_offline_data(request):
                 })
                 failed_items += 1
         
-        # Process observations
         observations_data = request.data.get('observations', [])
         total_items += len(observations_data)
         
@@ -423,7 +388,6 @@ def upload_offline_data(request):
                 if serializer.is_valid():
                     observation = serializer.save()
                     
-                    # Log to queue
                     SyncQueue.objects.create(
                         device_id=device_id,
                         user=request.user,
@@ -456,7 +420,6 @@ def upload_offline_data(request):
                 })
                 failed_items += 1
         
-        # Update sync log
         sync_log.total_items = total_items
         sync_log.synced_items = synced_items
         sync_log.conflict_items = conflict_items
@@ -479,7 +442,6 @@ def upload_offline_data(request):
     except Exception as e:
         logger.error(f"Sync session error: {e}", exc_info=True)
         
-        # Update sync log with error
         sync_log.failed_items = total_items
         sync_log.completed_at = timezone.now()
         sync_log.save()

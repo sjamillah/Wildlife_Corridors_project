@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Max
 from django.core.cache import cache
+from django.utils import timezone
+from datetime import timedelta
 from shapely.geometry import Point, LineString
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -13,17 +15,15 @@ from .models import Animal
 from .serializers import AnimalSerializer, AnimalListSerializer, LiveStatusSerializer
 from apps.tracking.models import Tracking
 from apps.corridors.models import Corridor
+from apps.core.models import ConflictZone
+from apps.core.spatial_utils import check_corridor_containment, calculate_conflict_risk
+from apps.core.alerts import check_and_create_alerts
+from apps.tracking.hmm_loader import get_hmm_predictor
 from .movement_predictor import get_predictor
 
 logger = logging.getLogger(__name__)
 
-
 class AnimalViewSet(viewsets.ModelViewSet):
-    """
-    Animal Management
-    
-    CRUD operations for wildlife animals including GPS-collared tracking subjects.
-    """
     queryset = Animal.objects.all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['species', 'status', 'health_status', 'gender']
@@ -70,28 +70,16 @@ class AnimalViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'], url_path='live_status', url_name='live_status')
     def live_status(self, request):
-        """
-        Get live status for all animals with current/predicted positions and corridor checks.
-        
-        Returns JSON array with:
-        - animal_id, species
-        - current_lat, current_lon (latest GPS)
-        - predicted_lat, predicted_lon (ML prediction)
-        - in_corridor (boolean for current position)
-        - predicted_in_corridor (boolean for predicted position)
-        - speed_kmh, last_seen timestamp
-        """
-        # Check cache first (5 second cache for real-time updates)
-        cache_key = 'animals_live_status'
+        cache_key = 'animals_live_status_v2'
         cached_result = cache.get(cache_key)
         if cached_result:
             return Response(cached_result)
         
         try:
-            # Get all active animals
-            animals = Animal.objects.filter(status='active').select_related()
+            animals = Animal.objects.filter(status='active').only(
+                'id', 'name', 'species', 'status', 'health_status', 'gender'
+            )
             
-            # Get latest tracking data for each animal
             latest_tracking = Tracking.objects.filter(
                 animal__in=animals
             ).values('animal_id').annotate(
@@ -103,7 +91,9 @@ class AnimalViewSet(viewsets.ModelViewSet):
                 for item in latest_tracking
             }
             
-            # Get tracking data with latest timestamps
+            from django.conf import settings
+            bounds = settings.GEOGRAPHIC_BOUNDS
+            
             tracking_records = {}
             for animal_id, latest_ts in latest_tracking_dict.items():
                 try:
@@ -111,23 +101,47 @@ class AnimalViewSet(viewsets.ModelViewSet):
                         animal_id=animal_id,
                         timestamp=latest_ts
                     ).order_by('-timestamp').first()
+                    
                     if tracking:
-                        tracking_records[animal_id] = tracking
+                        if (bounds['lat_min'] <= tracking.lat <= bounds['lat_max'] and
+                            bounds['lon_min'] <= tracking.lon <= bounds['lon_max']):
+                            tracking_records[animal_id] = tracking
+                        else:
+                            logger.debug(f"Skipping {animal_id} - outside research area (lat: {tracking.lat}, lon: {tracking.lon})")
                 except Exception as e:
                     logger.error(f"Error fetching tracking for animal {animal_id}: {e}")
             
-            # Get corridors by species
-            corridors_by_species = {}
-            for corridor in Corridor.objects.filter(status='active'):
-                species = corridor.species.lower()
-                if species not in corridors_by_species:
-                    corridors_by_species[species] = []
-                corridors_by_species[species].append(corridor)
+            corridors_cache_key = 'active_corridors_by_species'
+            corridors_by_species = cache.get(corridors_cache_key)
             
-            # Initialize predictor
-            predictor = get_predictor()
+            if not corridors_by_species:
+                corridors_by_species = {}
+                for corridor in Corridor.objects.filter(status='active'):
+                    species = corridor.species.lower()
+                    if species not in corridors_by_species:
+                        corridors_by_species[species] = []
+                    corridors_by_species[species].append(corridor)
+                cache.set(corridors_cache_key, corridors_by_species, 3600)
             
-            # Build response data
+            conflict_zones_cache_key = 'active_conflict_zones'
+            conflict_zones = cache.get(conflict_zones_cache_key)
+            
+            if conflict_zones is None:
+                conflict_zones = list(ConflictZone.objects.filter(is_active=True))
+                cache.set(conflict_zones_cache_key, conflict_zones, 3600)
+            
+            try:
+                predictor = get_predictor()
+            except Exception as pred_err:
+                logger.warning(f"Movement predictor initialization failed, predictions will be disabled: {pred_err}")
+                predictor = None
+            
+            try:
+                hmm_predictor = get_hmm_predictor()
+            except Exception as hmm_err:
+                logger.warning(f"HMM predictor initialization failed: {hmm_err}")
+                hmm_predictor = None
+            
             results = []
             
             for animal in animals:
@@ -135,19 +149,18 @@ class AnimalViewSet(viewsets.ModelViewSet):
                 species = animal.species
                 species_lower = species.lower()
                 
-                # Get latest tracking data
                 tracking = tracking_records.get(animal.id)
                 
                 if not tracking:
-                    # No tracking data available
+                    logger.debug(f"Skipping {animal.name} - no tracking data")
                     continue
                 
                 current_lat = tracking.lat
                 current_lon = tracking.lon
-                speed_kmh = tracking.speed_kmh
+                speed_kmh = tracking.speed_kmh or 0
+                directional_angle = tracking.directional_angle
                 last_seen = tracking.timestamp
                 
-                # Get previous tracking point for better prediction
                 prev_tracking = Tracking.objects.filter(
                     animal_id=animal.id,
                     timestamp__lt=tracking.timestamp
@@ -155,108 +168,169 @@ class AnimalViewSet(viewsets.ModelViewSet):
                 
                 prev_lat = prev_tracking.lat if prev_tracking else None
                 prev_lon = prev_tracking.lon if prev_tracking else None
+                prev_speed = prev_tracking.speed_kmh if prev_tracking else None
+                prev_angle = prev_tracking.directional_angle if prev_tracking else None
                 
-                # Get historical data for LSTM prediction
+                behavior_state = tracking.activity_type
+                if not behavior_state and hmm_predictor:
+                    try:
+                        behavior_state = hmm_predictor.predict_behavior(
+                            speed_kmh=speed_kmh,
+                            directional_angle=directional_angle,
+                            prev_speed=prev_speed,
+                            prev_angle=prev_angle,
+                            species=species
+                        )
+                        logger.debug(f"{animal.name} behavior: {behavior_state} (HMM)")
+                    except Exception as hmm_err:
+                        logger.warning(f"HMM prediction failed for {animal.name}: {hmm_err}")
+                        behavior_state = self._infer_activity(speed_kmh)
+                
+                if not behavior_state:
+                    behavior_state = self._infer_activity(speed_kmh)
+                
                 historical_data = None
                 try:
-                    historical_tracking = Tracking.objects.filter(
-                        animal_id=animal.id,
-                        timestamp__lte=tracking.timestamp
-                    ).order_by('-timestamp')[:20].values('lat', 'lon', 'speed_kmh', 'heading', 'timestamp')
-                    
-                    if historical_tracking.exists():
-                        import pandas as pd
-                        historical_data = pd.DataFrame(list(historical_tracking))
+                    if predictor:
+                        historical_tracking = Tracking.objects.filter(
+                            animal_id=animal.id,
+                            timestamp__lte=tracking.timestamp
+                        ).order_by('-timestamp')[:20].values('lat', 'lon', 'speed_kmh', 'directional_angle', 'timestamp')
+                        
+                        if historical_tracking:
+                            import pandas as pd
+                            historical_data = pd.DataFrame(list(historical_tracking))
                 except Exception as e:
                     logger.warning(f"Error fetching historical data for {animal_id}: {e}")
                 
-                # Predict next position
-                # Try LSTM first, fallback to BBMM
-                try:
-                    predicted_lat, predicted_lon = predictor.predict_with_lstm(
-                        current_lat, current_lon, historical_data, species_lower
-                    )
-                except Exception as e:
-                    logger.warning(f"LSTM prediction failed for {animal_id}, using BBMM: {e}")
+                if predictor:
                     try:
-                        predicted_lat, predicted_lon = predictor.predict_with_bbmm(
-                            current_lat, current_lon, prev_lat, prev_lon, species_lower
+                        predicted_lat, predicted_lon = predictor.predict_with_lstm(
+                            current_lat, current_lon, historical_data, species_lower
                         )
-                    except Exception as e2:
-                        logger.error(f"BBMM prediction failed for {animal_id}: {e2}")
-                        # Fallback to current position
-                        predicted_lat, predicted_lon = current_lat, current_lon
+                    except Exception as e:
+                        logger.warning(f"LSTM prediction failed for {animal_id}, using BBMM: {e}")
+                        try:
+                            predicted_lat, predicted_lon = predictor.predict_with_bbmm(
+                                current_lat, current_lon, prev_lat, prev_lon, species_lower
+                            )
+                        except Exception as e2:
+                            logger.warning(f"BBMM prediction failed for {animal_id}: {e2}")
+                            predicted_lat, predicted_lon = current_lat, current_lon
+                else:
+                    predicted_lat, predicted_lon = current_lat, current_lon
                 
-                # Check corridor geometry
-                current_point = Point(current_lon, current_lat)
-                predicted_point = Point(predicted_lon, predicted_lat)
-                
-                in_corridor = False
-                predicted_in_corridor = False
-                
-                # Check against corridors for this species
                 species_corridors = corridors_by_species.get(species_lower, [])
                 
-                for corridor in species_corridors:
-                    # Get corridor geometry from path or start/end points
-                    corridor_geom = None
-                    
-                    try:
-                        if corridor.path:
-                            # Path is a JSON array of coordinates
-                            path_coords = corridor.path
-                            if isinstance(path_coords, list) and len(path_coords) > 0:
-                                # Create LineString or Polygon from path
-                                if isinstance(path_coords[0], (list, tuple)) and len(path_coords[0]) >= 2:
-                                    # Convert to (lon, lat) tuples
-                                    coords = [(p[1], p[0]) if len(p) >= 2 else (0, 0) for p in path_coords]
-                                    corridor_geom = LineString(coords).buffer(0.01)  # Buffer for area check
-                        elif corridor.start_point and corridor.end_point:
-                            # Create a simple corridor from start to end
-                            start = corridor.start_point
-                            end = corridor.end_point
-                            if isinstance(start, dict):
-                                start_coord = (start.get('lon', 0), start.get('lat', 0))
-                            else:
-                                start_coord = (start[1] if len(start) >= 2 else 0, start[0] if len(start) >= 1 else 0)
-                            
-                            if isinstance(end, dict):
-                                end_coord = (end.get('lon', 0), end.get('lat', 0))
-                            else:
-                                end_coord = (end[1] if len(end) >= 2 else 0, end[0] if len(end) >= 1 else 0)
-                            
-                            corridor_geom = LineString([start_coord, end_coord]).buffer(0.01)
-                        
-                        if corridor_geom:
-                            in_corridor = corridor_geom.contains(current_point) or corridor_geom.buffer(0.001).contains(current_point)
-                            predicted_in_corridor = corridor_geom.contains(predicted_point) or corridor_geom.buffer(0.001).contains(predicted_point)
-                            
-                            # If either position is in corridor, mark it
-                            if in_corridor or predicted_in_corridor:
-                                break
-                                
-                    except Exception as e:
-                        logger.warning(f"Error checking corridor geometry for {animal_id}: {e}")
-                        continue
+                corridor_name = None
+                in_corridor = False
+                distance_from_corridor = None
                 
-                # Build result
+                for corridor in species_corridors:
+                    is_inside, c_name, distance = check_corridor_containment(
+                        current_lat, current_lon, corridor
+                    )
+                    if is_inside:
+                        in_corridor = True
+                        corridor_name = c_name
+                        distance_from_corridor = distance
+                        break
+                
+                predicted_corridor_name = None
+                predicted_in_corridor = False
+                
+                for corridor in species_corridors:
+                    is_inside, c_name, _ = check_corridor_containment(
+                        predicted_lat, predicted_lon, corridor
+                    )
+                    if is_inside:
+                        predicted_in_corridor = True
+                        predicted_corridor_name = c_name
+                        break
+                
+                conflict_info = calculate_conflict_risk(
+                    current_lat, current_lon, 
+                    conflict_zones, 
+                    species_corridors
+                )
+                
+                predicted_conflict_info = calculate_conflict_risk(
+                    predicted_lat, predicted_lon,
+                    conflict_zones,
+                    species_corridors
+                )
+                
+                created_alerts = []
+                try:
+                    created_alerts = check_and_create_alerts(
+                        animal=animal,
+                        current_position={'lat': current_lat, 'lon': current_lon},
+                        tracking_data=tracking,
+                        conflict_info=conflict_info,
+                        corridor_status={'inside_corridor': in_corridor, 'corridor_name': corridor_name}
+                    )
+                except Exception as alert_err:
+                    logger.error(f"Error creating alerts for {animal.name}: {alert_err}")
+                
                 result = {
                     'animal_id': animal.id,
+                    'name': animal.name,
                     'species': species,
-                    'current_lat': current_lat,
-                    'current_lon': current_lon,
-                    'predicted_lat': predicted_lat,
-                    'predicted_lon': predicted_lon,
-                    'in_corridor': in_corridor,
-                    'predicted_in_corridor': predicted_in_corridor,
-                    'speed_kmh': speed_kmh,
-                    'last_seen': last_seen,
+                    'collar_id': tracking.collar_id,
+                    'current_position': {
+                        'lat': current_lat,
+                        'lon': current_lon,
+                        'altitude': tracking.altitude,
+                        'timestamp': last_seen,
+                    },
+                    'predicted_position': {
+                        'lat': predicted_lat,
+                        'lon': predicted_lon,
+                        'prediction_time': last_seen,
+                    },
+                    'movement': {
+                        'speed_kmh': speed_kmh,
+                        'directional_angle': directional_angle,
+                        'activity_type': behavior_state,
+                        'behavior_state': behavior_state,
+                        'behavior_source': 'hmm' if (hmm_predictor and hmm_predictor.models_loaded) else 'rule_based',
+                        'battery_level': tracking.battery_level,
+                        'signal_strength': tracking.signal_strength,
+                    },
+                    'corridor_status': {
+                        'inside_corridor': in_corridor,
+                        'corridor_name': corridor_name,
+                        'predicted_in_corridor': predicted_in_corridor,
+                        'predicted_corridor_name': predicted_corridor_name,
+                    },
+                    'conflict_risk': {
+                        'current': {
+                            'risk_level': conflict_info['risk_level'],
+                            'reason': conflict_info['reason'],
+                            'distance_to_conflict_km': conflict_info['distance_to_conflict'],
+                            'conflict_zone': conflict_info['conflict_zone'],
+                        },
+                        'predicted': {
+                            'risk_level': predicted_conflict_info['risk_level'],
+                            'reason': predicted_conflict_info['reason'],
+                        }
+                    },
+                    'alerts': {
+                        'active_count': len(created_alerts),
+                        'has_critical': any(a.severity == 'critical' for a in created_alerts),
+                        'latest_alert': created_alerts[0].title if created_alerts else None,
+                    },
+                    'last_update': last_seen,
                 }
                 
                 results.append(result)
             
-            # Cache result for 5 seconds
-            cache.set(cache_key, results, 5)
+            logger.info(f"live_status returning {len(results)} animals with tracking data")
+            if results:
+                first_animal = results[0]
+                logger.info(f"Sample animal data - ID: {first_animal.get('animal_id')}, Lat: {first_animal.get('current_position', {}).get('lat')}, Lon: {first_animal.get('current_position', {}).get('lon')}")
+            
+            cache.set(cache_key, results, 60)
             
             return Response(results, status=status.HTTP_200_OK)
             
@@ -264,6 +338,143 @@ class AnimalViewSet(viewsets.ModelViewSet):
             logger.error(f"Error in live_status endpoint: {e}", exc_info=True)
             return Response(
                 {'error': 'Failed to fetch live status', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def _infer_activity(self, speed_kmh):
+        if speed_kmh < 0.5:
+            return 'resting'
+        elif speed_kmh < 2.0:
+            return 'feeding'
+        else:
+            return 'moving'
+    
+    @action(detail=True, methods=['get'])
+    def movement_trail(self, request, pk=None):
+        try:
+            animal = self.get_object()
+            points_limit = min(int(request.query_params.get('points', 50)), 500)
+            days = request.query_params.get('days')
+            hours = request.query_params.get('hours')
+            get_all = request.query_params.get('all', 'false').lower() == 'true'
+            
+            from django.conf import settings
+            bounds = settings.GEOGRAPHIC_BOUNDS
+            
+            query = Tracking.objects.filter(
+                animal=animal,
+                lat__gte=bounds['lat_min'],
+                lat__lte=bounds['lat_max'],
+                lon__gte=bounds['lon_min'],
+                lon__lte=bounds['lon_max']
+            )
+            
+            if not get_all:
+                if hours:
+                    cutoff_time = timezone.now() - timedelta(hours=int(hours))
+                    query = query.filter(timestamp__gte=cutoff_time)
+                elif days:
+                    cutoff_time = timezone.now() - timedelta(days=int(days))
+                    query = query.filter(timestamp__gte=cutoff_time)
+            
+            tracking_points = query.order_by('-timestamp')[:points_limit]
+            tracking_points = list(reversed(tracking_points))
+            
+            trail = []
+            time_gaps = []
+            
+            for i, point in enumerate(tracking_points):
+                activity = point.activity_type or self._infer_activity(point.speed_kmh or 0)
+                
+                time_gap_seconds = 0
+                if i > 0:
+                    time_gap_seconds = (point.timestamp - tracking_points[i-1].timestamp).total_seconds()
+                
+                is_large_gap = time_gap_seconds > (6 * 3600)
+                if is_large_gap and i > 0:
+                    time_gaps.append({
+                        'index': i,
+                        'gap_hours': round(time_gap_seconds / 3600, 1),
+                        'reason': 'collar_sleep_mode' if time_gap_seconds < (24 * 3600) else 'collar_offline'
+                    })
+                
+                trail.append({
+                    'lat': point.lat,
+                    'lon': point.lon,
+                    'timestamp': point.timestamp.isoformat(),
+                    'activity_type': activity,
+                    'speed_kmh': point.speed_kmh or 0,
+                    'directional_angle': point.directional_angle,
+                    'time_since_last': {
+                        'seconds': int(time_gap_seconds),
+                        'minutes': round(time_gap_seconds / 60, 1),
+                        'hours': round(time_gap_seconds / 3600, 2),
+                        'is_large_gap': is_large_gap
+                    }
+                })
+            
+            segments = []
+            current_segment = None
+            
+            for i, point in enumerate(trail):
+                is_large_gap = point['time_since_last']['is_large_gap']
+                
+                if (current_segment is None or 
+                    current_segment['activity_type'] != point['activity_type'] or 
+                    is_large_gap):
+                    if current_segment:
+                        segments.append(current_segment)
+                    current_segment = {
+                        'activity_type': point['activity_type'],
+                        'points': [point],
+                        'start_time': point['timestamp'],
+                        'point_count': 1,
+                        'total_duration_hours': 0
+                    }
+                else:
+                    current_segment['points'].append(point)
+                    current_segment['point_count'] += 1
+                    current_segment['total_duration_hours'] += point['time_since_last']['hours']
+            
+            if current_segment:
+                segments.append(current_segment)
+            
+            total_time_span = 0
+            if len(trail) > 1:
+                first_time = timezone.datetime.fromisoformat(trail[0]['timestamp'])
+                last_time = timezone.datetime.fromisoformat(trail[-1]['timestamp'])
+                total_time_span = (last_time - first_time).total_seconds()
+            
+            return Response({
+                'animal_id': str(animal.id),
+                'animal_name': animal.name,
+                'species': animal.species,
+                'total_points': len(trail),
+                'time_range': {
+                    'start': trail[0]['timestamp'] if trail else None,
+                    'end': trail[-1]['timestamp'] if trail else None,
+                    'total_span_hours': round(total_time_span / 3600, 1) if total_time_span else 0,
+                    'total_span_days': round(total_time_span / (3600 * 24), 1) if total_time_span else 0
+                },
+                'trail': trail,
+                'segments': segments,
+                'time_gaps': time_gaps,
+                'tracking_quality': {
+                    'average_interval_hours': round((total_time_span / len(trail)) / 3600, 2) if len(trail) > 1 else 0,
+                    'large_gaps': len(time_gaps),
+                    'continuous_segments': len(segments)
+                },
+                'activity_summary': {
+                    'resting': sum(1 for p in trail if p['activity_type'] == 'resting'),
+                    'feeding': sum(1 for p in trail if p['activity_type'] == 'feeding'),
+                    'moving': sum(1 for p in trail if p['activity_type'] == 'moving')
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Error fetching movement trail for animal {pk}: {e}", exc_info=True)
+            return Response(
+                {'error': 'Failed to fetch movement trail', 'detail': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

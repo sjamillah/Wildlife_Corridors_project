@@ -1,9 +1,10 @@
 from rest_framework import serializers
 from .models import Animal
 
-
 class AnimalSerializer(serializers.ModelSerializer):
-    """Animal serializer"""
+    age = serializers.IntegerField(required=False, allow_null=True)
+    weight = serializers.FloatField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
     
     class Meta:
         model = Animal
@@ -14,17 +15,12 @@ class AnimalSerializer(serializers.ModelSerializer):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
 
-
 class AnimalListSerializer(serializers.ModelSerializer):
-    """Minimal animal serializer for list views"""
-    
     class Meta:
         model = Animal
         fields = ('id', 'name', 'species', 'collar_id', 'status', 'health_status', 'created_at')
 
-
 class LiveStatusSerializer(serializers.Serializer):
-    """Serializer for live animal status response"""
     animal_id = serializers.UUIDField()
     species = serializers.CharField()
     current_lat = serializers.FloatField()

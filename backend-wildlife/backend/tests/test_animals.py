@@ -1,6 +1,3 @@
-"""
-Animals API Tests
-"""
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -9,13 +6,9 @@ from apps.animals.models import Animal
 
 pytestmark = [pytest.mark.django_db, pytest.mark.animals]
 
-
 @pytest.mark.api
 class TestAnimalAPI:
-    """Test Animal CRUD operations"""
-    
     def test_list_animals(self, authenticated_client):
-        """Test listing animals"""
         # Create test animals
         AnimalFactory.create(name='Elephant 1', species='Elephant')
         AnimalFactory.create(name='Lion 1', species='Lion')
@@ -28,7 +21,6 @@ class TestAnimalAPI:
         assert len(results) >= 2
     
     def test_create_animal(self, authenticated_client, ranger_user):
-        """Test creating a new animal"""
         url = reverse('animal-list')
         data = {
             'name': 'New Elephant',
@@ -47,7 +39,6 @@ class TestAnimalAPI:
         assert Animal.objects.filter(collar_id='COL123').exists()
     
     def test_retrieve_animal(self, authenticated_client, sample_animal):
-        """Test retrieving a specific animal"""
         url = reverse('animal-detail', kwargs={'pk': sample_animal.id})
         response = authenticated_client.get(url)
         
@@ -56,7 +47,6 @@ class TestAnimalAPI:
         assert response.data['species'] == sample_animal.species
     
     def test_update_animal(self, authenticated_client, sample_animal):
-        """Test updating an animal"""
         url = reverse('animal-detail', kwargs={'pk': sample_animal.id})
         data = {
             'name': sample_animal.name,
@@ -75,7 +65,6 @@ class TestAnimalAPI:
         assert sample_animal.health_status == 'sick'
     
     def test_delete_animal(self, authenticated_client, sample_animal):
-        """Test deleting an animal"""
         url = reverse('animal-detail', kwargs={'pk': sample_animal.id})
         response = authenticated_client.delete(url)
         
@@ -83,7 +72,6 @@ class TestAnimalAPI:
         assert not Animal.objects.filter(id=sample_animal.id).exists()
     
     def test_filter_by_species(self, authenticated_client):
-        """Test filtering animals by species"""
         AnimalFactory.create(species='Elephant')
         AnimalFactory.create(species='Elephant')
         AnimalFactory.create(species='Lion')
@@ -96,7 +84,6 @@ class TestAnimalAPI:
         assert all(animal['species'] == 'Elephant' for animal in results)
     
     def test_filter_by_status(self, authenticated_client):
-        """Test filtering animals by status"""
         AnimalFactory.create(status='active')
         AnimalFactory.create(status='inactive')
         
@@ -107,13 +94,9 @@ class TestAnimalAPI:
         results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
         assert all(animal['status'] == 'active' for animal in results)
 
-
 @pytest.mark.api
 class TestLiveStatusEndpoint:
-    """Test live status endpoint"""
-    
     def test_live_status_endpoint(self, authenticated_client, sample_animal, sample_tracking):
-        """Test getting live status for animals"""
         url = '/api/animals/live_status/'
         response = authenticated_client.get(url)
         
@@ -121,7 +104,6 @@ class TestLiveStatusEndpoint:
         assert isinstance(response.data, list)
     
     def test_live_status_with_predictions(self, authenticated_client, sample_animal):
-        """Test live status includes predictions"""
         # Create tracking data
         TrackingFactory.create_batch(animal=sample_animal, count=5)
         
@@ -132,10 +114,9 @@ class TestLiveStatusEndpoint:
         
         if len(response.data) > 0:
             animal_data = response.data[0]
-            assert 'current_lat' in animal_data or 'animal_id' in animal_data
+            assert 'current_position' in animal_data or 'animal_id' in animal_data
     
     def test_live_status_corridor_check(self, authenticated_client, sample_animal, sample_corridor):
-        """Test live status checks corridor status"""
         # Create tracking near corridor
         TrackingFactory.create(
             animal=sample_animal,
@@ -148,13 +129,9 @@ class TestLiveStatusEndpoint:
         
         assert response.status_code == status.HTTP_200_OK
 
-
 @pytest.mark.unit
 class TestAnimalModel:
-    """Test Animal model"""
-    
     def test_create_animal_model(self, ranger_user):
-        """Test creating an animal"""
         animal = Animal.objects.create(
             name='Test Lion',
             species='Lion',
@@ -172,7 +149,6 @@ class TestAnimalModel:
         assert str(animal) == 'Test Lion (Lion)'
     
     def test_animal_unique_collar_id(self, ranger_user):
-        """Test collar_id uniqueness"""
         Animal.objects.create(
             name='Animal 1',
             species='Elephant',
@@ -196,7 +172,6 @@ class TestAnimalModel:
             )
     
     def test_animal_status_choices(self, ranger_user):
-        """Test valid status choices"""
         valid_statuses = ['active', 'inactive', 'deceased', 'missing']
         
         for status_choice in valid_statuses:
@@ -204,20 +179,15 @@ class TestAnimalModel:
             assert animal.status == status_choice
     
     def test_animal_health_status_choices(self, ranger_user):
-        """Test valid health status choices"""
         valid_health = ['healthy', 'sick', 'injured', 'unknown']
         
         for health in valid_health:
             animal = AnimalFactory.create(health_status=health)
             assert animal.health_status == health
 
-
 @pytest.mark.api
 class TestAnimalSearch:
-    """Test animal search functionality"""
-    
     def test_search_by_name(self, authenticated_client):
-        """Test searching animals by name"""
         AnimalFactory.create(name='Jumbo the Elephant')
         AnimalFactory.create(name='Simba the Lion')
         
@@ -229,7 +199,6 @@ class TestAnimalSearch:
         assert any('Jumbo' in animal['name'] for animal in results)
     
     def test_search_by_collar_id(self, authenticated_client):
-        """Test searching animals by collar ID"""
         animal = AnimalFactory.create(collar_id='SEARCH123')
         
         url = reverse('animal-list') + '?search=SEARCH123'
@@ -239,20 +208,15 @@ class TestAnimalSearch:
         results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
         assert any(animal['collar_id'] == 'SEARCH123' for animal in results)
 
-
 @pytest.mark.api
 class TestAnimalPermissions:
-    """Test animal endpoint permissions"""
-    
     def test_unauthenticated_access_denied(self, api_client):
-        """Test unauthenticated users cannot access animals"""
         url = reverse('animal-list')
         response = api_client.get(url)
         
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
     
     def test_viewer_can_read(self, api_client, viewer_user):
-        """Test viewer role can read animals"""
         api_client.force_authenticate(user=viewer_user)
         
         url = reverse('animal-list')
@@ -261,7 +225,6 @@ class TestAnimalPermissions:
         assert response.status_code == status.HTTP_200_OK
     
     def test_admin_full_access(self, admin_client):
-        """Test admin has full access"""
         url = reverse('animal-list')
         data = {
             'name': 'Admin Created Animal',

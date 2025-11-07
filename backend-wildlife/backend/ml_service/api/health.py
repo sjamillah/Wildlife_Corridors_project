@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from ..config.rl_config import cfg
+from config.rl_config import cfg
 
 
 router = APIRouter(prefix="/health", tags=["health"])

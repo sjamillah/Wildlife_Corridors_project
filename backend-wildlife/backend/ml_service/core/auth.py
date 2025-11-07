@@ -2,7 +2,7 @@
 Authentication for ML Service
 """
 from fastapi import Header, HTTPException
-from ..config.settings import get_settings
+from config.settings import get_settings
 
 
 async def verify_api_key(x_api_key: str = Header(None)):

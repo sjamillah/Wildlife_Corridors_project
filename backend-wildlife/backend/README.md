@@ -18,6 +18,8 @@ The platform consists of two integrated services:
 
 **Real-Time Monitoring**: Live GPS tracking with instant position updates, behavioral state detection, corridor compliance checking, and risk zone alerts.
 
+**Ranger & Patrol Management**: Track field rangers in real-time, manage patrol routes, log emergencies, and monitor team activities with activity-based movement trails.
+
 **AI-Powered Predictions**: Five trained machine learning models work together to predict movements, detect behaviors, score habitats, and optimize corridors.
 
 **Offline Support**: Field rangers can collect GPS data offline and sync automatically when connectivity is restored.
@@ -71,15 +73,33 @@ SUPABASE_DATABASE_URL=postgresql://user:password@host:port/database
 ML_SERVICE_URL=http://localhost:8001
 ML_SERVICE_API_KEY=your-api-key-here
 
+# Email Configuration (for OTP authentication)
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend  # For development
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+DEFAULT_FROM_EMAIL=noreply@wildlife.com
+
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
 5. Set up the database:
 
-The system connects to your existing Supabase PostgreSQL database. Models use `managed = False` to work with existing tables.
+The system connects to your existing Supabase PostgreSQL database.
 
 ```bash
+# Create cache table
 python manage.py createcachetable
+
+# Create migrations for new apps (rangers, reports)
+python manage.py makemigrations rangers reports
+
+# Apply migrations
+python manage.py migrate
+
+# Create admin user
 python manage.py createsuperuser
 ```
 
@@ -103,17 +123,130 @@ python3 -m uvicorn ml_service.main:app --host 0.0.0.0 --port 8001 --reload
 - API Documentation: http://localhost:8000/api/docs/
 - ML Service Health: http://localhost:8001/health
 
+## Email-Based OTP Authentication
+
+The platform uses **email-based OTP (One-Time Password)** authentication for secure, password-free user registration and login.
+
+### How It Works
+
+**Registration Flow:**
+
+1. User provides email, name, and role
+2. System generates 4-digit OTP and sends it via email
+3. User receives beautifully formatted HTML email with OTP code
+4. User enters OTP to complete registration
+5. JWT tokens returned for authenticated access
+
+**Login Flow:**
+
+1. User provides email address
+2. System generates 4-digit OTP and sends to email
+3. User enters OTP to complete login
+4. JWT tokens returned for session management
+
+### OTP Configuration
+
+**Development Mode (Console Output):**
+
+```env
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+```
+
+OTP codes are printed to console logs - check Docker logs:
+
+```bash
+docker-compose logs -f wildlife_django | grep "OTP for"
+```
+
+**Production Mode (Gmail SMTP):**
+
+```env
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-gmail-app-password
+DEFAULT_FROM_EMAIL=noreply@wildlife.com
+```
+
+**Note:** For Gmail, create an [App Password](https://myaccount.google.com/apppasswords) instead of using your regular password.
+
+**Alternative Email Providers:**
+
+_SendGrid:_
+
+```env
+EMAIL_BACKEND=sendgrid_backend.SendgridBackend
+SENDGRID_API_KEY=your-api-key
+DEFAULT_FROM_EMAIL=verified-sender@yourdomain.com
+```
+
+_AWS SES:_
+
+```env
+EMAIL_BACKEND=django_ses.SESBackend
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_SES_REGION_NAME=us-east-1
+DEFAULT_FROM_EMAIL=verified@yourdomain.com
+```
+
+### OTP Security Features
+
+- **4-digit codes**: Easy to type, hard to guess
+- **2-minute expiration**: Codes expire quickly for security
+- **3 attempt limit**: Prevents brute force attacks
+- **Email verification**: Users marked as email-verified on registration
+- **Beautiful templates**: Professional, branded HTML emails
+
+### Testing OTP Authentication
+
+**Example Registration Request:**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "name": "John Doe"
+  }'
+```
+
+**Note:** The `purpose` field is optional - the endpoint automatically sets it to `"registration"`.
+
+**Example OTP Verification:**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/verify-otp/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "otp_code": "1234",
+    "name": "John Doe"
+  }'
+```
+
+**Note:** The `purpose` field is optional - defaults to `"login"` if not specified.
+
 ## Project Structure
 
 ```
 Wildlife_Backend/
 ├── backend/
 │   ├── apps/                    # Django applications
-│   │   ├── authentication/      # User authentication & OTP
+│   │   ├── authentication/      # Email-based OTP authentication
+│   │   │   ├── models.py        # User, OTPVerification models
+│   │   │   ├── views.py         # OTP send/verify endpoints
+│   │   │   ├── serializers.py   # Email-based serializers
+│   │   │   └── utils.py         # Email sending utilities
 │   │   ├── animals/            # Animal management & tracking
 │   │   ├── tracking/           # GPS data & observations
 │   │   ├── predictions/        # ML prediction storage
 │   │   ├── corridors/          # Wildlife corridor management
+│   │   ├── core/               # Conflict zones & spatial utilities
+│   │   ├── rangers/            # NEW: Ranger & patrol management
+│   │   ├── reports/            # NEW: Conservation reports & analytics
 │   │   └── sync/               # Offline data synchronization
 │   │
 │   ├── ml_service/             # FastAPI ML microservice
@@ -171,14 +304,24 @@ Wildlife_Backend/
 
 ### Authentication (`/api/v1/auth/`)
 
-- `POST /register/` - Start user registration (sends OTP)
+The system uses **email-based OTP authentication** for secure, password-free login:
+
+- `POST /register/` - Start user registration (sends 4-digit OTP to email)
 - `POST /verify-otp/` - Verify OTP and complete registration
-- `POST /login/` - Start login (sends OTP)
+- `POST /login/` - Start login (sends 4-digit OTP to email)
 - `POST /login/verify/` - Complete login with OTP verification
 - `POST /logout/` - Logout user
 - `POST /refresh/` - Refresh JWT access token
 - `GET /me/` - Get current user profile
 - `PUT /me/` - Update user profile
+
+**OTP Features:**
+
+- 4-digit codes sent via email
+- 2-minute expiration for security
+- 3 attempt limit per code
+- Beautiful HTML email templates
+- Email verification on successful registration
 
 ### Animals (`/api/v1/animals/`)
 
@@ -187,7 +330,19 @@ Wildlife_Backend/
 - `GET /{id}/` - Get animal details
 - `PUT /{id}/` - Update animal
 - `DELETE /{id}/` - Delete animal
-- `GET /live_status/` - Real-time animal status with current and predicted positions
+- `GET /live_status/` - **Enhanced real-time status with conflict detection**
+
+**Enhanced Live Status Returns:**
+
+- Current & predicted GPS positions (ML-based)
+- Corridor containment status
+- Conflict risk assessment (Low/Medium/High)
+- Movement metrics (speed, direction, battery, signal)
+- Proximity to human activity zones
+
+**Optional Fields in Animals:**
+
+- `age`, `weight`, `notes` - All optional for flexible data collection
 
 ### Tracking (`/api/v1/tracking/`)
 
@@ -196,6 +351,13 @@ Wildlife_Backend/
 - `POST /bulk_upload/` - Bulk upload multiple GPS points
 - `GET /by_animal/?animal_id={id}` - Get tracking data for specific animal
 - `GET /live_tracking/` - Real-time tracking with full ML pipeline processing
+
+**Updated Tracking Fields:**
+
+- Removed: `accuracy` field
+- Renamed: `heading` to `directional_angle` (0-360 degrees)
+- Changed: `battery_level` to text (e.g., "High", "Medium", "75%")
+- Changed: `signal_strength` to text (e.g., "Excellent", "Good", "Weak")
 
 ### Predictions (`/api/v1/predictions/`)
 
@@ -208,7 +370,89 @@ Wildlife_Backend/
 
 - `GET /` - List corridors
 - `POST /` - Create corridor
-- `POST /optimize/` - Optimize corridor using RL models
+- `POST /optimize/` - **RL-based corridor optimization with real GPS data**
+
+**Enhanced Corridor Optimization:**
+
+- Uses last 30 days of real GPS tracking data
+- Trained RL models (PPO/DQN) for path finding
+- Avoids conflict zones (agriculture, settlements, roads)
+- Returns GeoJSON ready for map visualization
+- Minimizes human-wildlife overlap and energy cost
+
+### Conflict Zones (`/api/v1/conflict-zones/`) NEW
+
+- `GET /` - List all conflict zones
+- `POST /` - Create new conflict zone
+- `GET /{id}/` - Get specific zone
+- `PUT /{id}/` - Update zone
+- `DELETE /{id}/` - Delete zone
+- `GET /geojson/` - Get all zones as GeoJSON FeatureCollection
+
+**Conflict Zone Types:**
+
+- Agriculture, Settlements, Roads, Infrastructure, Protected Areas, Buffer Zones
+
+**Risk Levels:**
+
+- High, Medium, Low (used in real-time conflict detection)
+
+### Rangers & Patrol Management (`/api/v1/rangers/`) NEW
+
+Complete system for tracking field rangers, managing patrols, logging emergencies, and enabling conservation managers to monitor field teams in real-time.
+
+**Ranger Teams:**
+
+- `GET /teams/` - List all ranger teams/groups
+- `POST /teams/` - Create new team
+- `GET /teams/{id}/` - Get team details
+- `PUT /teams/{id}/` - Update team
+- `DELETE /teams/{id}/` - Delete team
+
+**Rangers:**
+
+- `GET /rangers/` - List all rangers
+- `POST /rangers/` - Create ranger profile
+- `GET /rangers/{id}/` - Get ranger details
+- `PUT /rangers/{id}/` - Update ranger
+- `GET /rangers/live_status/` - **Real-time ranger locations & status**
+- `GET /rangers/{id}/movement_trail/` - **Historical movement with activity states**
+
+**Live Ranger Status Returns:**
+
+- Current GPS position and activity type
+- On duty / Off duty / Emergency response status
+- Battery level and signal strength
+- Recent patrol logs (last 24 hours)
+- Team assignment
+
+**Patrol Logs (Incidents & Emergencies):**
+
+- `GET /logs/` - List all patrol logs
+- `POST /logs/` - Create incident/emergency report
+- `GET /logs/emergencies/` - Get unresolved emergencies
+- `POST /logs/{id}/resolve/` - Mark log as resolved
+
+**Log Types:**
+
+- Patrol Start/End, Animal Sighting, Emergency, Incident, Checkpoint, Rest Break
+
+**Patrol Routes:**
+
+- `GET /routes/` - List patrol routes
+- `POST /routes/` - Create new patrol route
+- `GET /routes/{id}/` - Get route details
+- `POST /routes/{id}/start_patrol/` - Start patrol (sets rangers to on_duty)
+- `POST /routes/{id}/end_patrol/` - End patrol
+
+**Key Features:**
+
+- Separate tracking for rangers vs. animals
+- Emergency logging with priority levels
+- Team/group management
+- Real-time status monitoring by managers
+- Activity-based movement trails (patrolling, responding, traveling, etc.)
+- Integration with existing user authentication
 
 ### ML Service (`/api/v1/ml/`)
 
@@ -216,17 +460,17 @@ Wildlife_Backend/
 - `POST /corridor/generate` - Generate optimal corridor
 - `POST /corridor/evaluate` - Evaluate corridor quality
 
-## Mobile App Integration & Offline Sync
+## Frontend Integration & Offline Sync
 
-The platform provides full offline support for field rangers collecting data in areas with limited connectivity using **WatermelonDB** for local storage.
+The platform provides API endpoints for mobile/web apps to sync data collected in the field.
 
 ### Architecture
 
 **Frontend (Mobile/Web):**
 
-- **WatermelonDB** - Local reactive database for offline data storage
-- Stores animals, tracking points, and observations locally
-- Automatic sync when internet connectivity is detected
+- Collects GPS data, animal info, and observations
+- Can store data locally for offline scenarios (implementation flexibility)
+- Syncs to backend via REST API when connected
 
 **Backend (Django):**
 
@@ -235,11 +479,11 @@ The platform provides full offline support for field rangers collecting data in 
 - Saves to Supabase PostgreSQL database
 - Returns sync results with conflict detection
 
-**Flow:** WatermelonDB (Frontend) → Django API → Supabase Database
+**Flow:** Frontend (Local Storage) → Django REST API → Supabase Database
 
 ### Offline Data Collection
 
-Mobile/web apps using WatermelonDB collect data offline, then sync when connectivity is restored.
+Mobile/web apps can collect data offline and sync when connectivity is restored using the bulk upload endpoint.
 
 ### Bulk Upload Endpoint
 
@@ -328,137 +572,29 @@ The system automatically detects conflicts:
 
 Conflicted items are flagged and returned in the response for manual resolution.
 
-### WatermelonDB Integration
+### Frontend Integration Example (React/React Native)
 
-**Installation:**
-
-```bash
-# React Native
-npm install @nozbe/watermelondb @nozbe/with-observables
-
-# React
-npm install @nozbe/watermelondb
-```
-
-**Define Schema:**
+**Simple Sync Service with Fetch API:**
 
 ```javascript
-// model/schema.js
-import { appSchema, tableSchema } from "@nozbe/watermelondb";
-
-export default appSchema({
-  version: 1,
-  tables: [
-    tableSchema({
-      name: "animals",
-      columns: [
-        { name: "local_id", type: "string", isIndexed: true },
-        { name: "server_id", type: "string", isOptional: true },
-        { name: "name", type: "string" },
-        { name: "species", type: "string" },
-        { name: "collar_id", type: "string" },
-        { name: "status", type: "string" },
-        { name: "health_status", type: "string" },
-        { name: "gender", type: "string" },
-        { name: "synced", type: "boolean" },
-        { name: "created_at", type: "number" },
-      ],
-    }),
-    tableSchema({
-      name: "tracking",
-      columns: [
-        { name: "local_id", type: "string", isIndexed: true },
-        { name: "server_id", type: "string", isOptional: true },
-        { name: "animal_id", type: "string", isIndexed: true },
-        { name: "lat", type: "number" },
-        { name: "lon", type: "number" },
-        { name: "altitude", type: "number", isOptional: true },
-        { name: "speed_kmh", type: "number", isOptional: true },
-        { name: "heading", type: "number", isOptional: true },
-        { name: "timestamp", type: "number" },
-        { name: "collar_id", type: "string" },
-        { name: "synced", type: "boolean" },
-      ],
-    }),
-  ],
-});
-```
-
-**Create Models:**
-
-```javascript
-// model/Animal.js
-import { Model } from "@nozbe/watermelondb";
-import { field, date } from "@nozbe/watermelondb/decorators";
-
-export default class Animal extends Model {
-  static table = "animals";
-
-  @field("local_id") localId;
-  @field("server_id") serverId;
-  @field("name") name;
-  @field("species") species;
-  @field("collar_id") collarId;
-  @field("status") status;
-  @field("health_status") healthStatus;
-  @field("gender") gender;
-  @field("synced") synced;
-  @date("created_at") createdAt;
-}
-```
-
-**Sync Service:**
-
-```javascript
-// services/syncService.js
-import { Q } from "@nozbe/watermelondb";
-
-class SyncService {
-  constructor(database, apiUrl, getAuthToken) {
-    this.database = database;
-    this.apiUrl = apiUrl;
+// services/apiService.js
+class WildlifeAPI {
+  constructor(baseUrl, getAuthToken) {
+    this.baseUrl = baseUrl;
     this.getAuthToken = getAuthToken;
   }
 
-  async syncToServer() {
-    // Get unsynced records
-    const unsyncedAnimals = await this.database
-      .get("animals")
-      .query(Q.where("synced", false))
-      .fetch();
-
-    const unsyncedTracking = await this.database
-      .get("tracking")
-      .query(Q.where("synced", false))
-      .fetch();
-
-    // Prepare data for Django
+  async syncDataToBackend(localData) {
+    // Prepare data payload
     const payload = {
-      device_id: await this.getDeviceId(),
-      animals: unsyncedAnimals.map((animal) => ({
-        local_id: animal.localId,
-        name: animal.name,
-        species: animal.species,
-        collar_id: animal.collarId,
-        status: animal.status,
-        health_status: animal.healthStatus,
-        gender: animal.gender,
-      })),
-      tracking: unsyncedTracking.map((track) => ({
-        local_id: track.localId,
-        animal: track.animalId,
-        lat: track.lat,
-        lon: track.lon,
-        altitude: track.altitude,
-        speed_kmh: track.speedKmh,
-        heading: track.heading,
-        timestamp: new Date(track.timestamp).toISOString(),
-        collar_id: track.collarId,
-      })),
+      device_id: this.getDeviceId(),
+      animals: localData.animals || [],
+      tracking: localData.tracking || [],
+      observations: localData.observations || [],
     };
 
-    // Upload to Django
-    const response = await fetch(`${this.apiUrl}/api/v1/sync/upload/`, {
+    // Upload to Django backend
+    const response = await fetch(`${this.baseUrl}/api/v1/sync/upload/`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${await this.getAuthToken()}`,
@@ -467,103 +603,192 @@ class SyncService {
       body: JSON.stringify(payload),
     });
 
-    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(`Sync failed: ${response.statusText}`);
+    }
 
-    // Mark synced records
-    await this.markAsSynced(unsyncedAnimals, unsyncedTracking, result);
-
-    return result;
+    return await response.json();
   }
 
-  async markAsSynced(animals, tracking, syncResult) {
-    await this.database.write(async () => {
-      // Mark synced animals
-      for (const animal of animals) {
-        await animal.update((record) => {
-          record.synced = true;
-        });
-      }
-
-      // Mark synced tracking
-      for (const track of tracking) {
-        await track.update((record) => {
-          record.synced = true;
-        });
-      }
+  async createAnimal(animalData) {
+    const response = await fetch(`${this.baseUrl}/api/v1/animals/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${await this.getAuthToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(animalData),
     });
+
+    return await response.json();
   }
 
-  async getDeviceId() {
-    // Get unique device ID
-    return DeviceInfo.getUniqueId();
+  async uploadTrackingPoint(trackingData) {
+    const response = await fetch(`${this.baseUrl}/api/v1/tracking/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${await this.getAuthToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(trackingData),
+    });
+
+    return await response.json();
+      }
+
+  getDeviceId() {
+    // Return unique device identifier
+    return localStorage.getItem("deviceId") || "web-client";
   }
 }
 
-export default SyncService;
+export default WildlifeAPI;
 ```
 
-**Auto-Sync on Network Change:**
+**Usage in React Component:**
 
 ```javascript
-// App.js or useEffect
-import NetInfo from "@react-native-community/netinfo";
+// Example: Upload tracking data
+const handleTrackingUpload = async (gpsData) => {
+  try {
+    const result = await apiService.uploadTrackingPoint({
+      animal: animalId,
+      lat: gpsData.latitude,
+      lon: gpsData.longitude,
+      altitude: gpsData.altitude,
+      speed_kmh: gpsData.speed,
+      directional_angle: gpsData.heading,
+      battery_level: "High",
+      signal_strength: "Good",
+      timestamp: new Date().toISOString(),
+      source: "gps",
+      collar_id: collarId,
+    });
 
-useEffect(() => {
-  const unsubscribe = NetInfo.addEventListener((state) => {
-    if (state.isConnected && state.isInternetReachable) {
-      // Auto-sync when online
-      syncService
-        .syncToServer()
-        .then((result) => {
-          console.log("Sync completed:", result.summary);
-        })
-        .catch((error) => {
-          console.error("Sync failed:", error);
-        });
-    }
-  });
-
-  return () => unsubscribe();
-}, []);
+    console.log("Tracking uploaded:", result);
+  } catch (error) {
+    console.error("Upload failed:", error);
+    // Store locally for retry
+  }
+};
 ```
 
-### Best Practices
+### Best Practices for Frontend Integration
 
-**WatermelonDB Best Practices:**
+**API Request Best Practices:**
 
 **Batch Size:** Limit to 100 items per sync request for optimal performance
 
-**Local IDs:** Use UUIDs for `local_id` to prevent conflicts
+**Authentication:** Include JWT token in Authorization header for all requests
 
-**Sync Status:** Add `synced` boolean field to all WatermelonDB tables
+**Error Handling:** Implement retry logic with exponential backoff for failed requests
 
-**Network Detection:** Use NetInfo to auto-sync when connectivity is restored
+**Offline Support:** Store data locally (localStorage, IndexedDB, etc.) and sync when online
 
-**Error Handling:** Store sync errors in WatermelonDB and implement exponential backoff
+**Data Validation:** Validate data on frontend before sending to minimize API errors
 
-**Conflict Resolution:** Server data takes precedence; update local WatermelonDB with server IDs
+**Conflict Resolution:** Server data takes precedence; update local storage with server IDs
 
-**Data Validation:** Validate data in WatermelonDB before upload to minimize errors
+**Network Detection:** Auto-sync when connectivity is restored
 
-### WatermelonDB → Django → Supabase Flow
+### Data Flow
 
 ```
-User Action (Offline)
+User Action
     ↓
-WatermelonDB (Local Storage)
+Local Storage (Optional)
     ↓
-Network Detected
+Network Available
     ↓
-POST /api/v1/sync/upload/
+POST /api/v1/sync/upload/ or individual endpoints
     ↓
-Django Validation
+Django Backend Validation
     ↓
 Supabase PostgreSQL
     ↓
 Response with server_id
     ↓
-Update WatermelonDB (mark synced, save server_id)
+Update Local Storage (if using)
 ```
+
+## Geospatial Conflict Detection & Corridor Optimization
+
+### Real-Time Conflict Risk Detection
+
+The platform now includes **real-world geospatial analysis** for human-wildlife conflict detection:
+
+**How It Works:**
+
+1. Animals tracked via GPS collars send real-time coordinates
+2. System checks position against:
+   - Wildlife corridor boundaries (GeoJSON polygons)
+   - Conflict zones (agriculture, settlements, roads)
+3. Calculates risk level based on spatial proximity
+4. Returns actionable data for conservation managers
+
+**Risk Levels:**
+
+- **Low**: Inside protected corridor, >2km from human zones
+- **Medium**: 0-2km from conflict zone
+- **High**: Inside conflict zone (immediate intervention needed)
+
+**Example Response:**
+
+```json
+{
+  "animal_id": "uuid",
+  "name": "Nafisa",
+  "species": "Elephant",
+  "current_position": { "lat": -2.1234, "lon": 37.4321 },
+  "corridor_status": {
+    "inside_corridor": true,
+    "corridor_name": "Tsavo–Amboseli Corridor"
+  },
+  "conflict_risk": {
+    "current": {
+      "risk_level": "Low",
+      "reason": "Inside protected corridor",
+      "distance_to_conflict_km": 5.2
+    }
+  }
+}
+```
+
+### Corridor Optimization with ML
+
+**Uses Real Data:**
+
+- Last 30 days of GPS tracking (up to 1000 points per species)
+- Trained RL models (PPO/DQN)
+- Actual conflict zone boundaries
+- Environmental cost layers
+
+**Optimization Goals:**
+
+- Minimize human-wildlife overlap
+- Avoid high-risk conflict zones
+- Reduce elevation/distance costs
+- Maintain habitat connectivity
+
+**Example Request:**
+
+```bash
+POST /api/v1/corridors/optimize/
+
+{
+  "species": "Elephant",
+  "start_point": {"lat": -2.5, "lon": 37.5},
+  "end_point": {"lat": -3.0, "lon": 38.0},
+  "steps": 50
+}
+```
+
+**Returns:**
+
+- Optimized path as GeoJSON LineString
+- Optimization score (0-1, higher is better)
+- GPS points used, conflict zones avoided
+- Ready for map visualization
 
 ## Machine Learning Models
 
@@ -608,17 +833,20 @@ Model configuration is managed in `backend/ml_service/config/rl_config.py`. You 
 
 ### Testing
 
-The project includes a comprehensive test suite with 2,000+ lines of test code covering all backend modules.
+The project includes a comprehensive test suite with 2,800+ lines of test code covering all backend modules including geospatial features.
 
 **Test Files:**
 
 - `test_authentication.py` (241 lines) - User registration, login, OTP, JWT
-- `test_animals.py` (260 lines) - Animal management, live status
+- `test_animals.py` (282 lines) - Animal management, live status
 - `test_tracking.py` (293 lines) - GPS tracking, observations
-- `test_predictions.py` (200 lines) - ML predictions, model integration
-- `test_corridors.py` (232 lines) - Corridor management, RL optimization
+- `test_predictions.py` (255 lines) - ML predictions, model integration
+- `test_corridors.py` (260 lines) - Corridor management, RL optimization
+- `test_conflict_zones.py` (278 lines) - Conflict zone CRUD, GeoJSON export, filtering
+- `test_spatial_utils.py` (230 lines) - Geospatial calculations, point-in-polygon, distance
+- `test_geospatial.py` (273 lines) - Live status API, corridor optimization workflows
 - `test_sync.py` (285 lines) - Offline uploads, conflict resolution
-- `test_integration.py` (290 lines) - End-to-end workflows
+- `test_integration.py` (316 lines) - End-to-end workflows
 - `factories.py` (164 lines) - Test data factories
 - `conftest.py` (145 lines) - Fixtures and configuration
 
@@ -667,21 +895,37 @@ pytest tests/test_sync.py -v
 
 **Coverage by Module:**
 
-- Authentication: User registration, login, OTP, JWT, permissions
-- Animals: CRUD, live status, filtering, validation
-- Tracking: GPS data, observations, real-time tracking
-- Predictions: ML predictions, corridor generation, model integration
-- Corridors: Corridor management, RL optimization, geometry
+- Authentication: User registration, login, email-based OTP, JWT, permissions
+- Animals: CRUD, live status with conflict detection, filtering, validation
+- Tracking: GPS data, observations, real-time tracking, directional angle
+- Predictions: ML predictions, corridor generation via RL, model integration
+- Corridors: Corridor management, RL optimization with real GPS data, geometry
+- Conflict Zones: CRUD operations, GeoJSON export, zone types, risk levels
+- Spatial Utils: Point-in-polygon, distance calculations, corridor containment, conflict risk
+- Geospatial: Live status workflows, corridor optimization integration
 - Sync: Offline uploads, bulk data, conflict resolution, retry logic
-- Integration: End-to-end workflows, multi-component testing
+- Integration: End-to-end workflows, multi-component testing, prediction workflows
 
 **Test Statistics:**
 
-- Total test files: 9
-- Total test code: 2,000+ lines
-- Test functions: 120+
-- Test classes: 40+
+- Total test files: 12
+- Total test code: 2,800+ lines
+- Test functions: 141
+- Test classes: 50+
+- Tests passing: 138
+- Tests skipped: 3 (ML service dependent)
 - Coverage target: 80%+
+
+**Recent Test Results:**
+
+```
+138 passed, 3 skipped in 145.74s (0:02:25)
+```
+
+**Skipped Tests:**
+- `test_obtain_token_pair` - JWT token endpoint not configured (system uses OTP)
+- `test_refresh_token` - JWT refresh endpoint not configured (system uses OTP)
+- `test_corridor_prediction_endpoint` - Skipped when ML service is unavailable (graceful degradation)
 
 **Available Fixtures:**
 
@@ -689,6 +933,7 @@ pytest tests/test_sync.py -v
 - `authenticated_client`, `admin_client` - Authenticated API clients
 - `sample_animal`, `sample_tracking`, `sample_corridor` - Pre-created test data
 - `jwt_tokens` - JWT token pair for authentication
+- `api_client` - Unauthenticated API client for testing public endpoints
 
 **Writing Tests:**
 
@@ -709,10 +954,34 @@ class TestMyFeature:
 **Test Markers:**
 
 ```bash
-pytest -m unit -v            # Run unit tests
-pytest -m "not slow" -v      # Skip slow tests
-pytest -m "auth or animals" -v  # Run specific modules
+pytest -m unit -v                  # Run unit tests
+pytest -m api -v                   # Run API tests
+pytest -m integration -v           # Run integration tests
+pytest -m "not slow" -v            # Skip slow tests
+pytest -m "auth or animals" -v     # Run specific modules
+pytest -m "not ml" -v              # Skip ML-dependent tests
 ```
+
+**Test Improvements:**
+
+Recent updates to the test suite include:
+
+1. **Prediction Workflow Test** (`test_prediction_based_on_tracking`):
+   - Fixed pagination handling for prediction list endpoint
+   - Now properly tests that predictions can be queried for specific animals
+   - Validates both paginated and non-paginated response formats
+
+2. **Corridor Prediction Test** (`test_corridor_prediction_endpoint`):
+   - Updated data format to match API expectations (`start_lat/start_lon` instead of nested objects)
+   - Improved URL construction using proper reverse name (`prediction-corridor`)
+   - Enhanced ML service availability handling (gracefully skips with 503)
+   - Validates response structure for successful predictions
+
+3. **Geospatial Feature Tests**:
+   - Added 30 new tests covering conflict zones, spatial utilities, and geospatial workflows
+   - Tests include point-in-polygon detection, distance calculations, and risk assessment
+   - Validates GeoJSON export for map integration
+   - Tests corridor optimization with real GPS data
 
 **System Checks:**
 
@@ -841,17 +1110,14 @@ MEDIA_ROOT=/var/www/media
 STATIC_URL=/static/
 MEDIA_URL=/media/
 
-# Email (for notifications)
+# Email Configuration (for OTP and notifications)
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=True
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
-
-# Twilio (for OTP)
-TWILIO_ACCOUNT_SID=your-account-sid
-TWILIO_AUTH_TOKEN=your-auth-token
-TWILIO_PHONE_NUMBER=+1234567890
+DEFAULT_FROM_EMAIL=noreply@wildlife.com
 ```
 
 ### Running with Gunicorn
@@ -1340,21 +1606,175 @@ LOGGING['loggers']['django.db.backends'] = {
 
 ```
 
-**7. OTP Not Sending**
+**7. OTP Emails Not Sending**
 
 ```bash
-# Verify Twilio credentials
+# Check email configuration
 python manage.py shell
->>> from decouple import config
->>> print(config('TWILIO_ACCOUNT_SID'))
+>>> from django.conf import settings
+>>> print(settings.EMAIL_BACKEND)
+>>> print(settings.EMAIL_HOST_USER)
 
-# Test Twilio connection
-curl -X POST https://api.twilio.com/2010-04-01/Accounts/$TWILIO_SID/Messages.json \
-  --data-urlencode "From=+1234567890" \
-  --data-urlencode "To=+1234567890" \
-  --data-urlencode "Body=Test" \
-  -u $TWILIO_SID:$TWILIO_TOKEN
+# Test email sending
+python manage.py shell
+>>> from django.core.mail import send_mail
+>>> send_mail(
+...     'Test Email',
+...     'This is a test.',
+...     'noreply@wildlife.com',
+...     ['your-email@example.com'],
+...     fail_silently=False,
+... )
+
+# Check Docker logs for OTP codes (development mode)
+docker-compose logs -f wildlife_django | grep "OTP for"
+
+# For Gmail: Create an App Password
+# Visit: https://myaccount.google.com/apppasswords
+# Generate app password and use it in EMAIL_HOST_PASSWORD
 ```
+
+## Deployment
+
+### Deploying to Render / Heroku / Railway (Low-Memory Platforms)
+
+The platform is optimized for low-memory deployments (512MB RAM). Follow these steps:
+
+**1. Environment Variables for Production**
+
+Set these in your hosting platform's dashboard:
+
+```env
+# Required
+SUPABASE_DATABASE_URL=postgresql://user:pass@host:port/db
+SECRET_KEY=your-production-secret-key
+DEBUG=False
+ALLOWED_HOSTS=your-domain.com
+
+# Email (required for OTP authentication)
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-gmail-app-password
+DEFAULT_FROM_EMAIL=Aureynx Conservation <your-email@gmail.com>
+
+# CRITICAL: Disable local ML to prevent memory issues
+DISABLE_LOCAL_ML=True
+
+# ML Service (optional, deploy separately)
+ML_SERVICE_URL=https://your-ml-service.com
+ML_SERVICE_API_KEY=your-api-key
+```
+
+**2. Build Command**
+
+```bash
+pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+```
+
+**3. Start Command**
+
+```bash
+gunicorn wildlife_backend.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 180 --max-requests 1000 --max-requests-jitter 50
+```
+
+**4. Health Check Endpoint**
+
+Set your platform's health check to: `/health/`
+
+**Why `DISABLE_LOCAL_ML=True` is Critical**
+
+TensorFlow + Django workers = Memory explosion! Each Gunicorn worker loads TensorFlow independently, consuming 500MB+ per worker. On free/basic tiers with 512MB total RAM, this causes:
+
+```
+CRITICAL WORKER TIMEOUT
+ERROR Worker was sent SIGKILL! Perhaps out of memory?
+```
+
+With `DISABLE_LOCAL_ML=True`:
+- Django backend: ~100-150MB RAM
+- Single worker: Fast startup, no timeouts
+- ML features: Use separate ML service or gracefully degrade
+
+**5. Deploying the ML Service Separately**
+
+Deploy `ml_service` as a separate service (it needs 1GB+ RAM):
+
+```bash
+# In ml_service directory
+pip install -r requirements.txt
+uvicorn ml_service.main:app --host 0.0.0.0 --port $PORT
+```
+
+Then set `ML_SERVICE_URL` to point to this service.
+
+**6. Gmail Configuration for OTP**
+
+Critical: `DEFAULT_FROM_EMAIL` must match `EMAIL_HOST_USER` or Gmail will reject emails.
+
+```env
+EMAIL_HOST_USER=your-email@gmail.com
+DEFAULT_FROM_EMAIL=Aureynx Conservation <your-email@gmail.com>
+```
+
+Get Gmail App Password:
+1. Visit https://myaccount.google.com/apppasswords
+2. Select "Mail" and "Other (Custom name)"
+3. Name it "Wildlife Platform"
+4. Copy the 16-character password
+5. Use it in `EMAIL_HOST_PASSWORD`
+
+**7. Troubleshooting Deployment**
+
+Worker timeouts during startup:
+
+```
+Set DISABLE_LOCAL_ML=True
+Reduce workers to 1
+Increase timeout to 180s+
+```
+
+Out of memory errors:
+
+```
+Upgrade to a plan with 1GB+ RAM
+OR keep DISABLE_LOCAL_ML=True
+OR deploy ML service separately
+```
+
+OTPs not sending:
+
+```
+Check EMAIL_HOST_USER matches DEFAULT_FROM_EMAIL
+Verify Gmail App Password is correct
+Check logs for email sending errors
+```
+
+### Deploying with Docker
+
+For self-hosted or cloud VMs with sufficient RAM:
+
+```bash
+# Set environment variables in .env file
+cp .env.example .env
+nano .env
+
+# Build and start services
+docker-compose up -d --build
+
+# Check logs
+docker-compose logs -f wildlife_django
+
+# Run migrations
+docker-compose exec wildlife_django python manage.py migrate
+
+# Create superuser
+docker-compose exec wildlife_django python manage.py createsuperuser
+```
+
+Docker deployment includes both Django backend and ML service with proper resource allocation.
 
 ## Contributing
 

@@ -1,10 +1,7 @@
 from rest_framework import serializers
 from .models import Tracking, Observation
 
-
 class TrackingSerializer(serializers.ModelSerializer):
-    """Tracking point serializer"""
-    
     class Meta:
         model = Tracking
         fields = '__all__'
@@ -14,9 +11,7 @@ class TrackingSerializer(serializers.ModelSerializer):
         validated_data['uploaded_by'] = self.context['request'].user
         return super().create(validated_data)
 
-
 class TrackingBulkSerializer(serializers.Serializer):
-    """Bulk tracking upload serializer"""
     tracking_points = TrackingSerializer(many=True)
     
     def create(self, validated_data):
@@ -30,10 +25,7 @@ class TrackingBulkSerializer(serializers.Serializer):
         
         return Tracking.objects.bulk_create(instances)
 
-
 class ObservationSerializer(serializers.ModelSerializer):
-    """Observation serializer"""
-    
     class Meta:
         model = Observation
         fields = '__all__'

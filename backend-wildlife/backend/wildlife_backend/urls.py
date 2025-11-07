@@ -11,6 +11,7 @@ from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from apps.animals.views import AnimalViewSet
+from apps.core.views import HealthCheckView
 
 
 @api_view(['GET'])
@@ -40,8 +41,12 @@ def api_root(request):
             '3_tracking': '/api/v1/tracking/',
             '4_predictions': '/api/v1/predictions/',
             '5_corridors': '/api/v1/corridors/',
-            '6_synchronization': '/api/v1/sync/',
+            '6_conflict_zones': '/api/v1/conflict-zones/',
+            '7_reports': '/api/v1/reports/',
+            '8_rangers': '/api/v1/rangers/',
+            '9_synchronization': '/api/v1/sync/',
             'live_status': '/api/animals/live_status/',
+            'ranger_live_status': '/api/v1/rangers/rangers/live_status/',
             'admin': '/admin/',
             'health': '/health/'
         },
@@ -50,6 +55,8 @@ def api_root(request):
             'Multi-species GPS tracking',
             'AI-powered movement predictions',
             'Wildlife corridor optimization',
+            'Real-time conflict risk detection',
+            'Geospatial analysis with real data',
             'Real-time behavioral analysis',
             'Offline data synchronization'
         ],
@@ -123,7 +130,7 @@ urlpatterns = [
     
     # Admin and health
     path('admin/', admin.site.urls),
-    path('health/', include('apps.core.urls')),
+    path('health/', HealthCheckView.as_view({'get': 'health'}), name='health'),
     
     # API Documentation
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
@@ -135,7 +142,10 @@ urlpatterns = [
     path('api/v1/tracking/', include('apps.tracking.urls')),             # 3. Tracking (includes live_tracking)
     path('api/v1/predictions/', include('apps.predictions.urls')),       # 4. Predictions
     path('api/v1/corridors/', include('apps.corridors.urls')),           # 5. Corridors
-    path('api/v1/sync/', include('apps.sync.urls')),                     # 6. Synchronization
+    path('api/v1/conflict-zones/', include('apps.core.urls')),           # 6. Conflict Zones
+    path('api/v1/sync/', include('apps.sync.urls')),                     # 7. Synchronization
+    path('api/v1/reports/', include('apps.reports.urls')),               # 8. Reports & Analytics
+    path('api/v1/rangers/', include('apps.rangers.urls')),               # 9. Ranger & Patrol Management
     
     # Special endpoints (direct access without v1)
     path('api/animals/live_status/', AnimalViewSet.as_view({'get': 'live_status'}), name='api-animals-live-status'),

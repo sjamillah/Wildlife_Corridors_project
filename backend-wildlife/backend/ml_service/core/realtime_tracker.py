@@ -200,11 +200,16 @@ class RealTimeTracker:
                     model_path = lstm_dir / "wildlife_lstm_improved_20251021_115339_model.h5"
             
             if model_path and (isinstance(model_path, str) or (isinstance(model_path, Path) and model_path.exists())):
-                if model_path.suffix == '.h5' and TENSORFLOW_AVAILABLE:
-                    model = keras_load(str(model_path))
-                else:
-                    with open(model_path, 'rb') as f:
-                        model = pickle.load(f)
+                try:
+                    if model_path.suffix == '.h5' and TENSORFLOW_AVAILABLE:
+                        model = keras_load(str(model_path))
+                    else:
+                        with open(model_path, 'rb') as f:
+                            model = pickle.load(f)
+                except (pickle.UnpicklingError, EOFError, KeyError) as e:
+                    logger.error(f"Error loading LSTM model file for {species}: {e}. File may be corrupted or in wrong format.")
+                    self.lstm_models[species] = None
+                    return
                 
                 scaler_x_path_cf = "ml-information/trained_models/lstm/wildlife_lstm_improved_20251021_115339_scaler_x.pkl"
                 scaler_y_path_cf = "ml-information/trained_models/lstm/wildlife_lstm_improved_20251021_115339_scaler_y.pkl"

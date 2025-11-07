@@ -1,15 +1,7 @@
-"""
-Prediction Serializers
-DRF serializers for prediction models and ML service requests
-"""
-
 from rest_framework import serializers
 from .models import Prediction
 
-
 class PredictionSerializer(serializers.ModelSerializer):
-    """Serializer for Prediction model"""
-    
     class Meta:
         model = Prediction
         fields = [
@@ -18,9 +10,7 @@ class PredictionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at']
 
-
 class MovementPredictionSerializer(serializers.Serializer):
-    """Serializer for movement prediction requests"""
     animal_id = serializers.IntegerField(required=True)
     species = serializers.ChoiceField(
         choices=['elephant', 'wildebeest'],
@@ -28,9 +18,7 @@ class MovementPredictionSerializer(serializers.Serializer):
     )
     prediction_days = serializers.IntegerField(default=7, min_value=1, max_value=30)
 
-
 class HabitatPredictionSerializer(serializers.Serializer):
-    """Serializer for habitat prediction requests"""
     lat = serializers.FloatField(required=True, min_value=-90, max_value=90)
     lon = serializers.FloatField(required=True, min_value=-180, max_value=180)
     species = serializers.ChoiceField(
@@ -39,9 +27,7 @@ class HabitatPredictionSerializer(serializers.Serializer):
     )
     radius_km = serializers.FloatField(default=10.0, min_value=0.1, max_value=100.0)
 
-
 class CorridorPredictionSerializer(serializers.Serializer):
-    """Serializer for corridor prediction requests"""
     species = serializers.ChoiceField(
         choices=['elephant', 'wildebeest'],
         required=True,
@@ -70,8 +56,6 @@ class CorridorPredictionSerializer(serializers.Serializer):
         default='ppo',
         help_text="RL algorithm (PPO or DQN)"
     )
-    
-    # Optional parameters
     time = serializers.FloatField(
         default=12.0,
         min_value=0,
@@ -113,9 +97,7 @@ class CorridorPredictionSerializer(serializers.Serializer):
         help_text="Initial corridor quality"
     )
 
-
 class CorridorPredictionResponseSerializer(serializers.Serializer):
-    """Serializer for corridor prediction responses"""
     status = serializers.CharField()
     predictions = serializers.ListField()
     summary = serializers.DictField()

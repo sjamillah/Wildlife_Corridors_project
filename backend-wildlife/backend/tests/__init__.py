@@ -1,4 +1,0 @@
-"""
-Wildlife Backend Test Suite
-"""
-

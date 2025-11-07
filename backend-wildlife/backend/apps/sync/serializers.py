@@ -1,10 +1,7 @@
 from rest_framework import serializers
 from .models import SyncLog, SyncQueue
 
-
 class SyncLogSerializer(serializers.ModelSerializer):
-    """Serializer for SyncLog model"""
-    
     class Meta:
         model = SyncLog
         fields = [
@@ -14,10 +11,7 @@ class SyncLogSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'user']
 
-
 class SyncQueueSerializer(serializers.ModelSerializer):
-    """Serializer for SyncQueue model"""
-    
     class Meta:
         model = SyncQueue
         fields = [
@@ -28,10 +22,7 @@ class SyncQueueSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'user', 'created_at', 'synced_at']
 
-
 class OfflineDataUploadSerializer(serializers.Serializer):
-    """Serializer for offline bulk data upload"""
-    
     device_id = serializers.CharField(max_length=255, required=True)
     animals = serializers.ListField(
         child=serializers.DictField(),

@@ -1,6 +1,3 @@
-"""
-Tracking app models - matches existing database schema
-"""
 from django.db import models
 from django.contrib.auth import get_user_model
 from apps.animals.models import Animal
@@ -8,10 +5,7 @@ import uuid
 
 User = get_user_model()
 
-
 class Tracking(models.Model):
-    """Tracking data model matching the existing database schema"""
-    
     SOURCE_CHOICES = [
         ('gps', 'GPS'),
         ('manual', 'Manual'),
@@ -32,11 +26,10 @@ class Tracking(models.Model):
     lat = models.FloatField()
     lon = models.FloatField()
     altitude = models.FloatField(null=True, blank=True)
-    accuracy = models.FloatField(null=True, blank=True)
     speed_kmh = models.FloatField(null=True, blank=True)
-    heading = models.FloatField(null=True, blank=True)
-    battery_level = models.FloatField(null=True, blank=True)
-    signal_strength = models.FloatField(null=True, blank=True)
+    directional_angle = models.FloatField(null=True, blank=True, help_text="Direction of movement in degrees (0-360)")
+    battery_level = models.CharField(max_length=50, null=True, blank=True, help_text="Battery level (e.g., 'High', 'Medium', 'Low', '75%')")
+    signal_strength = models.CharField(max_length=50, null=True, blank=True, help_text="Signal strength (e.g., 'Excellent', 'Good', 'Weak', '4 bars')")
     temperature = models.FloatField(null=True, blank=True)
     activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPE_CHOICES, null=True, blank=True)
     source = models.CharField(max_length=50, choices=SOURCE_CHOICES)
@@ -61,10 +54,7 @@ class Tracking(models.Model):
     def __str__(self):
         return f"{self.animal.name} - {self.timestamp}"
 
-
 class Observation(models.Model):
-    """Observation model matching the existing database schema"""
-    
     OBSERVATION_TYPES = [
         ('sighting', 'Sighting'),
         ('behavior', 'Behavior'),

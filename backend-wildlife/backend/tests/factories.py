@@ -1,6 +1,3 @@
-"""
-Test data factories for creating model instances
-"""
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
@@ -8,10 +5,7 @@ import uuid
 
 User = get_user_model()
 
-
 class UserFactory:
-    """Factory for creating test users"""
-    
     @staticmethod
     def create(email=None, password='testpass123', **kwargs):
         if email is None:
@@ -38,10 +32,7 @@ class UserFactory:
         kwargs['role'] = 'ranger'
         return UserFactory.create(**kwargs)
 
-
 class AnimalFactory:
-    """Factory for creating test animals"""
-    
     @staticmethod
     def create(created_by=None, **kwargs):
         from apps.animals.models import Animal
@@ -64,10 +55,7 @@ class AnimalFactory:
         
         return Animal.objects.create(**defaults)
 
-
 class TrackingFactory:
-    """Factory for creating test tracking data"""
-    
     @staticmethod
     def create(animal=None, **kwargs):
         from apps.tracking.models import Tracking
@@ -81,8 +69,9 @@ class TrackingFactory:
             'lon': 34.0 + (hash(str(uuid.uuid4())) % 100) / 1000,
             'altitude': 1500.0,
             'speed_kmh': 5.0,
-            'heading': 180.0,
-            'accuracy': 10.0,
+            'directional_angle': 180.0,
+            'battery_level': 'High',
+            'signal_strength': 'Good',
             'timestamp': timezone.now(),
             'source': 'gps',
             'collar_id': animal.collar_id,
@@ -94,7 +83,6 @@ class TrackingFactory:
     
     @staticmethod
     def create_batch(animal=None, count=10, **kwargs):
-        """Create multiple tracking points"""
         if animal is None:
             animal = AnimalFactory.create()
         
@@ -112,10 +100,7 @@ class TrackingFactory:
         
         return tracking_points
 
-
 class CorridorFactory:
-    """Factory for creating test corridors"""
-    
     @staticmethod
     def create(**kwargs):
         from apps.corridors.models import Corridor
@@ -137,10 +122,7 @@ class CorridorFactory:
         
         return Corridor.objects.create(**defaults)
 
-
 class PredictionFactory:
-    """Factory for creating test predictions"""
-    
     @staticmethod
     def create(animal=None, created_by=None, **kwargs):
         from apps.predictions.models import Prediction
@@ -157,7 +139,7 @@ class PredictionFactory:
             'input_data': {
                 'tracking_points': 100,
                 'time_range_hours': 168,
-                'features': {'speed': 5.0, 'heading': 180}
+                'features': {'speed': 5.0, 'directional_angle': 180}
             },
             'results': {
                 'predicted_lat': -2.1,

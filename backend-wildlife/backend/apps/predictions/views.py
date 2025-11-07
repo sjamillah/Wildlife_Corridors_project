@@ -1,14 +1,14 @@
-"""
-Prediction Views
-DRF views for prediction endpoints and ML service integration
-"""
-
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import api_view, permission_classes
 from asgiref.sync import async_to_sync
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+import os
+import sys
+from pathlib import Path
 import logging
 
 from .ml_client import get_ml_client
@@ -17,13 +17,7 @@ from .serializers import PredictionSerializer
 
 logger = logging.getLogger(__name__)
 
-
 class PredictionViewSet(viewsets.ModelViewSet):
-    """
-    ML Predictions
-    
-    Store and manage machine learning prediction results.
-    """
     queryset = Prediction.objects.all()
     serializer_class = PredictionSerializer
     permission_classes = [IsAuthenticated]
@@ -62,7 +56,6 @@ class PredictionViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['post'])
     def corridor(self, request):
-        """Run RL corridor prediction and save to predictions table."""
         data = request.data
         required = ['species', 'start_lat', 'start_lon']
         for k in required:
@@ -101,17 +94,142 @@ class PredictionViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'])
     def history(self, request):
-        """
-        Get prediction history for current user.
-        
-        GET /api/predictions/history/
-        """
         predictions = self.queryset.filter(created_by=request.user).order_by('-created_at')
         
-        # Optional filtering by type
         prediction_type = request.query_params.get('type', None)
         if prediction_type:
             predictions = predictions.filter(prediction_type=prediction_type)
         
         serializer = self.get_serializer(predictions, many=True)
         return Response(serializer.data)
+
+def get_xgboost_predictor():
+    try:
+        from apps.predictions.xgboost_loader import get_xgboost_predictor as get_predictor
+        return get_predictor()
+    except Exception as e:
+        logger.warning(f"XGBoost model not available: {e}")
+        return None
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary="Get XGBoost habitat environment",
+    operation_description="Get habitat suitability scores for a geographic area",
+    manual_parameters=[
+        openapi.Parameter('lat', openapi.IN_QUERY, description="Latitude", type=openapi.TYPE_NUMBER, required=True),
+        openapi.Parameter('lon', openapi.IN_QUERY, description="Longitude", type=openapi.TYPE_NUMBER, required=True),
+        openapi.Parameter('radius', openapi.IN_QUERY, description="Radius in meters", type=openapi.TYPE_INTEGER, default=50000),
+        openapi.Parameter('species', openapi.IN_QUERY, description="Species (elephant or wildebeest)", type=openapi.TYPE_STRING, default='elephant'),
+    ],
+    tags=['ML Predictions']
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def xgboost_environment(request):
+    try:
+        lat = float(request.query_params.get('lat', -2.0))
+        lon = float(request.query_params.get('lon', 35.5))
+        radius = int(request.query_params.get('radius', 50000))
+        species = request.query_params.get('species', 'elephant').lower()
+        
+        if os.getenv('DISABLE_LOCAL_ML', 'False').lower() == 'true':
+            return Response({
+                'available': False,
+                'message': 'XGBoost models disabled (DISABLE_LOCAL_ML=True)',
+                'habitat_score': 0.5,
+                'features': {}
+            })
+        
+        predictor = get_xgboost_predictor()
+        
+        if not predictor:
+            return Response({
+                'available': False,
+                'message': 'XGBoost model not loaded',
+                'habitat_score': 0.5,
+                'features': {}
+            })
+        
+        try:
+            habitat_data = predictor.get_environment_data(lat, lon, radius, species)
+            
+            habitat_data['available'] = True
+            habitat_data['model_info'] = {
+                'model_type': 'XGBoost',
+                'version': '1.0',
+                'species': species,
+                'model_loaded': predictor.models_loaded
+            }
+            
+            return Response(habitat_data)
+            
+        except Exception as e:
+            logger.error(f"Error calculating habitat score: {e}")
+            return Response({
+                'available': False,
+                'error': str(e),
+                'habitat_score': 0.5,
+                'features': {}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    except ValueError as e:
+        return Response(
+            {'error': f'Invalid parameters: {e}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        logger.error(f"Error in xgboost_environment: {e}", exc_info=True)
+        return Response(
+            {'error': 'Failed to get habitat environment', 'detail': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@swagger_auto_schema(
+    method='post',
+    operation_summary="Predict habitat suitability",
+    operation_description="Predict habitat suitability for specific coordinates",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'lat': openapi.Schema(type=openapi.TYPE_NUMBER, description='Latitude'),
+            'lon': openapi.Schema(type=openapi.TYPE_NUMBER, description='Longitude'),
+            'species': openapi.Schema(type=openapi.TYPE_STRING, description='Species'),
+        },
+        required=['lat', 'lon', 'species']
+    ),
+    tags=['ML Predictions']
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def predict_habitat(request):
+    try:
+        lat = float(request.data.get('lat'))
+        lon = float(request.data.get('lon'))
+        species = request.data.get('species', 'elephant').lower()
+        
+        predictor = get_xgboost_predictor()
+        
+        if not predictor:
+            return Response({
+                'error': 'XGBoost model not available',
+                'suitability': 'unknown'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
+        result = predictor.predict_habitat(lat, lon, species)
+        result['confidence'] = 0.85
+        result['features_used'] = ['ndvi', 'elevation', 'water_distance', 'land_cover', 'slope', 'lat', 'lon']
+        
+        return Response(result)
+        
+    except (ValueError, KeyError) as e:
+        return Response(
+            {'error': f'Invalid input: {e}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        logger.error(f"Error predicting habitat: {e}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+

@@ -1,16 +1,10 @@
-"""
-Animals app models - matches existing database schema
-"""
 from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
 
 User = get_user_model()
 
-
 class Animal(models.Model):
-    """Animal model matching the existing database schema"""
-    
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),

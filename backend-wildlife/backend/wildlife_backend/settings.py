@@ -5,10 +5,13 @@ Django settings for wildlife_backend project.
 import os
 from pathlib import Path
 import dj_database_url
-from decouple import config
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR.parent / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-this-in-production')
@@ -43,6 +46,8 @@ LOCAL_APPS = [
     'apps.predictions',
     'apps.corridors',
     'apps.sync',
+    'apps.reports',
+    'apps.rangers',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -50,6 +55,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -81,18 +87,20 @@ WSGI_APPLICATION = 'wildlife_backend.wsgi.application'
 # Database - Connect to Supabase PostgreSQL
 DATABASES = {
     'default': dj_database_url.parse(
-        config('SUPABASE_DATABASE_URL', default='sqlite:///db.sqlite3'),
-        conn_max_age=600,
+        os.getenv('SUPABASE_DATABASE_URL', 'sqlite:///db.sqlite3'),
+        conn_max_age=0,  # Don't persist connections (Supabase pooler compatibility)
         conn_health_checks=True,
     )
 }
 
-# Optimize for Supabase connection pooling
-DATABASES['default']['OPTIONS'] = {
-    'connect_timeout': 10,
-    'options': '-c statement_timeout=30000',  # 30 seconds
-}
-DATABASES['default']['CONN_MAX_AGE'] = 600  # Keep connections for 10 minutes
+# Optimize for Supabase connection pooling (only for PostgreSQL)
+if DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True  # Fix cursor issues with pooling
+    DATABASES['default']['CONN_MAX_AGE'] = 0  # Don't reuse connections (pgBouncer compatibility)
+    DATABASES['default']['OPTIONS'] = {
+        'connect_timeout': 10,
+        'options': '-c statement_timeout=30000',  # 30 seconds
+    }
 
 # Use SQLite for tests to avoid Supabase timeout issues
 import sys
@@ -132,6 +140,16 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+
+# WhiteNoise configuration for production
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Media files
 MEDIA_URL = '/media/'
@@ -266,6 +284,15 @@ SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')
 ML_SERVICE_URL = os.getenv('ML_SERVICE_URL', 'http://localhost:8001')
 ML_SERVICE_API_KEY = os.getenv('ML_SERVICE_API_KEY', None)
 
+# Geographic bounds for filtering tracking data
+# Kenya/Tanzania research area
+GEOGRAPHIC_BOUNDS = {
+    'lat_min': float(os.getenv('GEO_LAT_MIN', '-12.0')),   # Southern Tanzania
+    'lat_max': float(os.getenv('GEO_LAT_MAX', '5.0')),     # Northern Kenya
+    'lon_min': float(os.getenv('GEO_LON_MIN', '29.0')),    # Western Tanzania
+    'lon_max': float(os.getenv('GEO_LON_MAX', '42.0'))     # Eastern Kenya/Somalia border
+}
+
 # Optional: Supabase Client (for realtime features)
 SUPABASE_CLIENT_OPTIONS = {
     'url': SUPABASE_URL,
@@ -335,6 +362,18 @@ SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
+
+# Email Configuration
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend'  # For development - prints to console
+)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@wildlife.com')
 
 # Security settings
 SECURE_BROWSER_XSS_FILTER = True

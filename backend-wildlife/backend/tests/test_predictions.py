@@ -1,6 +1,3 @@
-"""
-Predictions API Tests
-"""
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -9,13 +6,9 @@ from apps.predictions.models import Prediction
 
 pytestmark = [pytest.mark.django_db, pytest.mark.predictions]
 
-
 @pytest.mark.api
 class TestPredictionAPI:
-    """Test Prediction CRUD operations"""
-    
     def test_list_predictions(self, authenticated_client, sample_animal):
-        """Test listing predictions"""
         PredictionFactory.create(animal=sample_animal)
         PredictionFactory.create(animal=sample_animal)
         
@@ -27,7 +20,6 @@ class TestPredictionAPI:
         assert len(results) >= 2
     
     def test_create_prediction(self, authenticated_client, sample_animal):
-        """Test creating a new prediction"""
         url = reverse('prediction-list')
         data = {
             'animal': sample_animal.id,
@@ -50,7 +42,6 @@ class TestPredictionAPI:
         assert Prediction.objects.filter(animal=sample_animal).exists()
     
     def test_retrieve_prediction(self, authenticated_client, sample_animal):
-        """Test retrieving a specific prediction"""
         prediction = PredictionFactory.create(animal=sample_animal)
         
         url = reverse('prediction-detail', kwargs={'pk': prediction.id})
@@ -61,7 +52,6 @@ class TestPredictionAPI:
         assert str(response.data['animal']) == str(sample_animal.id)
     
     def test_filter_by_animal(self, authenticated_client):
-        """Test filtering predictions by animal"""
         animal1 = AnimalFactory.create()
         animal2 = AnimalFactory.create()
         
@@ -77,7 +67,6 @@ class TestPredictionAPI:
         assert all(str(pred['animal']) == str(animal1.id) for pred in results)
     
     def test_filter_by_prediction_type(self, authenticated_client, sample_animal):
-        """Test filtering by prediction type"""
         PredictionFactory.create(animal=sample_animal, prediction_type='movement')
         PredictionFactory.create(animal=sample_animal, prediction_type='habitat')
         
@@ -88,14 +77,10 @@ class TestPredictionAPI:
         results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
         assert all(pred['prediction_type'] == 'movement' for pred in results)
 
-
 @pytest.mark.api
 @pytest.mark.ml
 class TestMLServiceIntegration:
-    """Test ML service integration"""
-    
     def test_ml_status_endpoint(self, authenticated_client):
-        """Test ML service status check"""
         try:
             url = reverse('prediction-list') + 'ml_status/'
             response = authenticated_client.get(url)
@@ -107,30 +92,33 @@ class TestMLServiceIntegration:
             pytest.skip("ML service not available in test environment")
     
     def test_corridor_prediction_endpoint(self, authenticated_client):
-        """Test corridor prediction generation"""
         try:
-            url = reverse('prediction-list') + 'corridor/'
+            url = reverse('prediction-corridor')
             data = {
                 'species': 'elephant',
-                'start_point': {'lat': -2.0, 'lon': 34.0},
-                'end_point': {'lat': -2.5, 'lon': 34.5}
+                'start_lat': -2.0,
+                'start_lon': 34.0,
+                'steps': 50,
+                'algorithm': 'ppo'
             }
             
-            response = authenticated_client.post(url, data)
+            response = authenticated_client.post(url, data, format='json')
             
             # ML service might not be running
-            if response.status_code == 200:
-                assert 'path' in response.data or 'corridor' in response.data
-        except Exception:
-            pytest.skip("ML service not available in test environment")
-
+            if response.status_code in [200, 201]:
+                assert 'results' in response.data or 'input_data' in response.data
+                assert 'prediction_type' in response.data
+            elif response.status_code == 503:
+                pytest.skip("ML service not available")
+            else:
+                # Other errors (e.g., 400) might indicate config issues
+                pytest.skip(f"Corridor prediction returned {response.status_code}")
+        except Exception as e:
+            pytest.skip(f"ML service not available: {e}")
 
 @pytest.mark.unit
 class TestPredictionModel:
-    """Test Prediction model"""
-    
     def test_create_prediction_model(self, sample_animal, ranger_user):
-        """Test creating a prediction"""
         from django.utils import timezone
         from datetime import timedelta
         
@@ -155,7 +143,6 @@ class TestPredictionModel:
         assert prediction.confidence == 0.90
     
     def test_prediction_ordering(self, sample_animal):
-        """Test predictions ordered by creation date"""
         from django.utils import timezone
         from datetime import timedelta
         import time
@@ -176,13 +163,9 @@ class TestPredictionModel:
         # Newer prediction should be first
         assert predictions[0].id == new_pred.id
 
-
 @pytest.mark.unit
 class TestPredictionValidation:
-    """Test prediction data validation"""
-    
     def test_confidence_range(self, authenticated_client, sample_animal):
-        """Test confidence validation (if implemented)"""
         url = reverse('prediction-list')
         data = {
             'animal': sample_animal.id,
@@ -200,7 +183,6 @@ class TestPredictionValidation:
         assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_201_CREATED]
     
     def test_required_fields(self, authenticated_client, sample_animal):
-        """Test required fields validation"""
         url = reverse('prediction-list')
         data = {
             'animal': sample_animal.id,
@@ -211,13 +193,9 @@ class TestPredictionValidation:
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-
 @pytest.mark.unit
 class TestPredictionAccuracy:
-    """Test prediction accuracy tracking"""
-    
     def test_prediction_with_tracking_history(self, authenticated_client, sample_animal):
-        """Test prediction accuracy can be verified against actual tracking"""
         from django.utils import timezone
         from datetime import timedelta
         

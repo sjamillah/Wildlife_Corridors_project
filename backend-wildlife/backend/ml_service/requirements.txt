@@ -10,7 +10,9 @@ pydantic-settings==2.1.0
 # ML & RL Libraries
 stable-baselines3[extra]==2.2.1
 gymnasium==0.29.1
-torch==2.1.1
+# Use CPU-only PyTorch (much smaller - 200MB vs 2GB)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.1+cpu
 numpy==1.24.3
 pandas==2.1.3
 

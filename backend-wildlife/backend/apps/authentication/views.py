@@ -18,13 +18,7 @@ from .utils import send_otp_email
 
 logger = logging.getLogger(__name__)
 
-
 class SendOTPView(APIView):
-    """
-    Send OTP
-    
-    Send one-time password for verification purposes.
-    """
     permission_classes = [permissions.AllowAny]
     
     @swagger_auto_schema(
@@ -39,12 +33,10 @@ class SendOTPView(APIView):
         serializer.is_valid(raise_exception=True)
         
         email = serializer.validated_data['email']
-        purpose = serializer.validated_data['purpose']
+        purpose = serializer.validated_data.get('purpose', 'login')  # Default to login if not specified
         
-        # Generate 4-digit OTP
         otp_code = str(random.randint(1000, 9999))
         
-        # Store OTP in database
         otp_verification = OTPVerification.objects.create(
             email=email,
             otp_code=otp_code,
@@ -52,14 +44,10 @@ class SendOTPView(APIView):
             expires_at=timezone.now() + timezone.timedelta(minutes=2)
         )
         
-        # Send OTP via email (non-blocking)
-        try:
-            from threading import Thread
-            email_thread = Thread(target=send_otp_email, args=(email, otp_code, purpose))
-            email_thread.daemon = True
-            email_thread.start()
-        except Exception as e:
-            logger.warning(f"Failed to start email thread: {str(e)}")
+        email_sent = send_otp_email(email, otp_code, purpose)
+        
+        if not email_sent:
+            logger.warning(f"Failed to send OTP email to {email}, but OTP was created")
         
         logger.info(f"OTP for {email} ({purpose}): {otp_code}")
         
@@ -69,13 +57,7 @@ class SendOTPView(APIView):
             'expires_in': 120  # 2 minutes
         })
 
-
 class VerifyOTPView(APIView):
-    """
-    Verify OTP
-    
-    Verify one-time password and complete authentication process.
-    """
     permission_classes = [permissions.AllowAny]
     
     @swagger_auto_schema(
@@ -91,7 +73,7 @@ class VerifyOTPView(APIView):
         
         email = serializer.validated_data['email']
         otp_code = serializer.validated_data['otp_code']
-        purpose = serializer.validated_data['purpose']
+        purpose = serializer.validated_data.get('purpose', 'login')  # Default to login if not specified
         
         try:
             otp_verification = OTPVerification.objects.get(
@@ -101,50 +83,42 @@ class VerifyOTPView(APIView):
                 is_verified=False
             )
             
-            # Check if OTP is expired
             if otp_verification.is_expired():
                 return Response(
                     {'error': 'OTP has expired. Please request a new code.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Check attempts
             if otp_verification.attempts >= 3:
                 return Response(
                     {'error': 'Too many failed attempts. Please request a new code.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Mark as verified
             otp_verification.is_verified = True
             otp_verification.verified_at = timezone.now()
             otp_verification.save()
             
-            # If this is for registration, create user
             if purpose == 'registration':
                 name = serializer.validated_data.get('name')
                 phone = serializer.validated_data.get('phone', '')
                 role = serializer.validated_data.get('role', 'viewer')
                 
                 if name:
-                    # Check if user already exists
                     if User.objects.filter(email=email).exists():
                         return Response(
                             {'error': 'User with this email already exists'},
                             status=status.HTTP_400_BAD_REQUEST
                         )
                     
-                    # Create user without password (passwordless authentication)
                     user = User.objects.create_user(
                         email=email,
-                        password=None,
                         name=name,
                         phone=phone,
                         role=role,
                         is_email_verified=True
                     )
                     
-                    # Generate tokens
                     refresh = RefreshToken.for_user(user)
                     
                     return Response({
@@ -162,7 +136,6 @@ class VerifyOTPView(APIView):
             })
             
         except OTPVerification.DoesNotExist:
-            # Increment attempts for existing OTP
             try:
                 otp_verification = OTPVerification.objects.get(
                     email=email,
@@ -179,13 +152,7 @@ class VerifyOTPView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-
 class RegisterView(generics.CreateAPIView):
-    """
-    User Registration
-    
-    Register new user account (Step 1: sends OTP for verification).
-    """
     permission_classes = [permissions.AllowAny]
     serializer_class = SendOTPSerializer
     swagger_tags = ['Authentication']
@@ -197,25 +164,20 @@ class RegisterView(generics.CreateAPIView):
     )
     
     def post(self, request):
-        # This endpoint now just initiates OTP verification
-        # The actual user creation happens in VerifyOTPView
         serializer = SendOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         email = serializer.validated_data['email']
         purpose = 'registration'
         
-        # Check if user already exists
         if User.objects.filter(email=email).exists():
             return Response(
                 {'error': 'User with this email already exists'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Generate 4-digit OTP
         otp_code = str(random.randint(1000, 9999))
         
-        # Store OTP in database
         otp_verification = OTPVerification.objects.create(
             email=email,
             otp_code=otp_code,
@@ -223,7 +185,6 @@ class RegisterView(generics.CreateAPIView):
             expires_at=timezone.now() + timezone.timedelta(minutes=2)
         )
         
-        # Send OTP via email
         email_sent = send_otp_email(email, otp_code, purpose)
         
         if not email_sent:
@@ -237,13 +198,7 @@ class RegisterView(generics.CreateAPIView):
             'expires_in': 120  # 2 minutes
         })
 
-
 class LoginView(APIView):
-    """
-    User Login
-    
-    Login user account (Step 1: sends OTP for verification).
-    """
     permission_classes = [permissions.AllowAny]
     
     @swagger_auto_schema(
@@ -260,7 +215,6 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Normalize email
         email = email.lower().strip()
         
         try:
@@ -271,10 +225,8 @@ class LoginView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Generate 4-digit OTP for login
             otp_code = str(random.randint(1000, 9999))
             
-            # Store OTP in database
             otp_verification = OTPVerification.objects.create(
                 user=user,
                 email=email,
@@ -283,14 +235,10 @@ class LoginView(APIView):
                 expires_at=timezone.now() + timezone.timedelta(minutes=2)
             )
             
-            # Send OTP via email (non-blocking)
-            try:
-                from threading import Thread
-                email_thread = Thread(target=send_otp_email, args=(email, otp_code, 'login'))
-                email_thread.daemon = True
-                email_thread.start()
-            except Exception as e:
-                logger.warning(f"Failed to start email thread: {str(e)}")
+            email_sent = send_otp_email(email, otp_code, 'login')
+            
+            if not email_sent:
+                logger.warning(f"Failed to send OTP email to {email}, but OTP was created")
             
             logger.info(f"Login OTP for {email}: {otp_code}")
             
@@ -306,13 +254,7 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-
 class LoginVerifyView(APIView):
-    """
-    Verify Login
-    
-    Complete login by verifying OTP code.
-    """
     permission_classes = [permissions.AllowAny]
     
     @swagger_auto_schema(
@@ -327,45 +269,40 @@ class LoginVerifyView(APIView):
         
         email = serializer.validated_data['email']
         otp_code = serializer.validated_data['otp_code']
+        purpose = serializer.validated_data.get('purpose', 'login')  # Default to login
         
         try:
             otp_verification = OTPVerification.objects.get(
                 email=email,
                 otp_code=otp_code,
-                purpose='login',
+                purpose=purpose,
                 is_verified=False
             )
             
-            # Check if OTP is expired
             if otp_verification.is_expired():
                 return Response(
                     {'error': 'OTP has expired. Please request a new code.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Check attempts
             if otp_verification.attempts >= 3:
                 return Response(
                     {'error': 'Too many failed attempts. Please request a new code.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Mark as verified
             otp_verification.is_verified = True
             otp_verification.verified_at = timezone.now()
             otp_verification.save()
             
             user = otp_verification.user
             
-            # Reset failed attempts
             user.failed_login_attempts = 0
             user.last_login_ip = request.META.get('REMOTE_ADDR')
             user.save()
             
-            # Generate tokens
             refresh = RefreshToken.for_user(user)
             
-            # Create session
             device_id = request.data.get('device_id', 'unknown')
             UserSession.objects.create(
                 user=user,
@@ -387,11 +324,10 @@ class LoginVerifyView(APIView):
             })
             
         except OTPVerification.DoesNotExist:
-            # Increment attempts for existing OTP
             try:
                 otp_verification = OTPVerification.objects.get(
                     email=email,
-                    purpose='login',
+                    purpose=purpose,
                     is_verified=False
                 )
                 otp_verification.attempts += 1
@@ -404,14 +340,7 @@ class LoginVerifyView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-
 class LogoutView(APIView):
-    """
-    User Logout
-    
-    Logout current user session.
-    """
-    
     @swagger_auto_schema(
         operation_summary="Logout user",
         operation_description="End current user session",
@@ -428,13 +357,7 @@ class LogoutView(APIView):
         
         return Response({'message': 'Logged out successfully'})
 
-
 class ProfileView(generics.RetrieveUpdateAPIView):
-    """
-    User Profile
-    
-    Get or update current user profile information.
-    """
     serializer_class = UserSerializer
     
     @swagger_auto_schema(tags=['Authentication'])
@@ -452,14 +375,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-
 class ChangePasswordView(APIView):
-    """
-    Change Password
-    
-    Update user password.
-    """
-    
     @swagger_auto_schema(
         operation_summary="Change password",
         operation_description="Update user password with current password verification",
@@ -483,9 +399,7 @@ class ChangePasswordView(APIView):
         
         return Response({'message': 'Password changed successfully'})
 
-
 class HealthCheckView(APIView):
-    """Authentication service health check"""
     permission_classes = [permissions.AllowAny]
     
     def get(self, request):

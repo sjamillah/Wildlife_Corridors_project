@@ -8,6 +8,5 @@ router.register(r'queue', SyncQueueViewSet, basename='sync-queue')
 
 urlpatterns = [
     path('', include(router.urls)),
-    # Offline data upload endpoint for mobile apps
     path('upload/', upload_offline_data, name='upload-offline-data'),
 ]

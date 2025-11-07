@@ -1,16 +1,10 @@
-"""
-Sync app models - matches existing database schema
-"""
 from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
 
 User = get_user_model()
 
-
 class SyncLog(models.Model):
-    """Sync log model matching the existing database schema"""
-    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_id = models.CharField(max_length=255)
     total_items = models.IntegerField()
@@ -30,10 +24,7 @@ class SyncLog(models.Model):
     def __str__(self):
         return f"Sync {self.device_id} - {self.started_at}"
 
-
 class SyncQueue(models.Model):
-    """Sync queue model matching the existing database schema"""
-    
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('syncing', 'Syncing'),

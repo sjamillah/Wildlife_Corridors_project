@@ -9,7 +9,7 @@ from typing import Optional
 
 import numpy as np
 
-from ..config.rl_config import cfg
+from config.rl_config import cfg
 
 
 def _load_metric_npz(npz_path: Path) -> Optional[float]:

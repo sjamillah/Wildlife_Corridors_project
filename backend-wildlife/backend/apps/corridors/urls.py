@@ -5,12 +5,10 @@ from rest_framework.routers import DefaultRouter
 
 from .views import CorridorViewSet
 
-
 router = DefaultRouter()
 router.register(r"", CorridorViewSet, basename="corridor")
 
 urlpatterns = [
     path("", include(router.urls)),
 ]
-
 

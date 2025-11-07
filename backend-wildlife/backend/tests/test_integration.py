@@ -1,6 +1,3 @@
-"""
-Integration Tests - Testing multiple components working together
-"""
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -10,14 +7,9 @@ from tests.factories import AnimalFactory, TrackingFactory, CorridorFactory, Use
 
 pytestmark = pytest.mark.django_db
 
-
 @pytest.mark.integration
 class TestEndToEndAnimalTracking:
-    """Test complete animal tracking workflow"""
-    
     def test_create_animal_and_track_movement(self, authenticated_client, ranger_user):
-        """Test creating an animal and tracking its movement"""
-        # Step 1: Create an animal
         url = reverse('animal-list')
         animal_data = {
             'name': 'Journey Elephant',
@@ -63,13 +55,9 @@ class TestEndToEndAnimalTracking:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) >= 3
 
-
 @pytest.mark.integration
 class TestCorridorAndAnimalInteraction:
-    """Test corridor and animal tracking integration"""
-    
     def test_animal_corridor_detection(self, authenticated_client, sample_animal, sample_corridor):
-        """Test detecting when animal enters corridor"""
         # Create tracking point inside corridor
         tracking_data = {
             'animal': sample_animal.id,
@@ -89,16 +77,11 @@ class TestCorridorAndAnimalInteraction:
         response = authenticated_client.get(live_status_url)
         
         if response.status_code == 200:
-            # Verify corridor detection logic
             assert isinstance(response.data, list)
-
 
 @pytest.mark.integration
 class TestMultiSpeciesTracking:
-    """Test tracking multiple species simultaneously"""
-    
     def test_track_multiple_species(self, authenticated_client):
-        """Test tracking different species"""
         # Create animals of different species
         elephant = AnimalFactory.create(species='Elephant', collar_id='ELE001')
         lion = AnimalFactory.create(species='Lion', collar_id='LION001')
@@ -120,7 +103,6 @@ class TestMultiSpeciesTracking:
         assert 'Zebra' in species_list
     
     def test_species_specific_corridors(self, authenticated_client):
-        """Test filtering corridors by species"""
         CorridorFactory.create(species='Elephant', name='Elephant Route')
         CorridorFactory.create(species='Lion', name='Lion Territory')
         
@@ -131,35 +113,24 @@ class TestMultiSpeciesTracking:
         results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
         assert all(c['species'] == 'Elephant' for c in results)
 
-
 @pytest.mark.integration
 @pytest.mark.ml
 class TestPredictionWorkflow:
-    """Test prediction generation workflow"""
-    
     def test_prediction_based_on_tracking(self, authenticated_client, sample_animal):
-        """Test generating predictions from tracking data"""
-        # Create historical tracking data
         TrackingFactory.create_batch(animal=sample_animal, count=10)
         
-        # Try to get predictions
-        try:
-            url = reverse('prediction-list') + f'?animal={sample_animal.id}'
-            response = authenticated_client.get(url)
-            
-            if response.status_code == 200:
-                # Predictions exist
-                assert isinstance(response.data, list)
-        except:
-            pytest.skip("Prediction endpoint not fully configured")
-
+        url = reverse('prediction-list') + f'?animal={sample_animal.id}'
+        response = authenticated_client.get(url)
+        
+        assert response.status_code == 200
+        # Handle paginated response
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        # Either there are predictions or there aren't (both are valid)
+        assert isinstance(results, list)
 
 @pytest.mark.integration
 class TestUserWorkflow:
-    """Test different user role workflows"""
-    
     def test_ranger_workflow(self, api_client):
-        """Test ranger can perform field operations"""
         # Create ranger user
         ranger = UserFactory.create_ranger()
         api_client.force_authenticate(user=ranger)
@@ -192,7 +163,6 @@ class TestUserWorkflow:
         assert response.status_code == status.HTTP_201_CREATED
     
     def test_viewer_limited_access(self, api_client):
-        """Test viewer has read-only access"""
         viewer = UserFactory.create(role='viewer')
         api_client.force_authenticate(user=viewer)
         
@@ -210,13 +180,9 @@ class TestUserWorkflow:
         response = api_client.post(url, data)
         # Could be 201 or 403 depending on permissions setup
 
-
 @pytest.mark.integration
 class TestDataConsistency:
-    """Test data consistency across operations"""
-    
     def test_delete_animal_cascades_tracking(self, authenticated_client, sample_animal):
-        """Test deleting animal removes tracking data"""
         # Add tracking
         TrackingFactory.create_batch(animal=sample_animal, count=3)
         
@@ -235,7 +201,6 @@ class TestDataConsistency:
         assert not Animal.objects.filter(id=animal_id).exists()
     
     def test_tracking_requires_valid_animal(self, authenticated_client):
-        """Test tracking requires existing animal"""
         import uuid
         
         url = reverse('tracking-list')
@@ -250,14 +215,10 @@ class TestDataConsistency:
         response = authenticated_client.post(url, data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-
 @pytest.mark.integration
 class TestAPIPerformance:
-    """Test API performance with larger datasets"""
-    
     @pytest.mark.slow
     def test_list_many_animals(self, authenticated_client):
-        """Test listing endpoint with many records"""
         # Create multiple animals
         for _ in range(50):
             AnimalFactory.create()
@@ -274,7 +235,6 @@ class TestAPIPerformance:
     
     @pytest.mark.slow
     def test_tracking_data_volume(self, authenticated_client, sample_animal):
-        """Test handling large volume of tracking data"""
         # Create many tracking points
         TrackingFactory.create_batch(animal=sample_animal, count=100)
         
@@ -285,13 +245,9 @@ class TestAPIPerformance:
         # Should have pagination or reasonable limit
         assert len(response.data) > 0
 
-
 @pytest.mark.api
 class TestHealthCheck:
-    """Test system health endpoints"""
-    
     def test_health_check_endpoint(self, api_client):
-        """Test health check returns OK"""
         url = '/health/'
         response = api_client.get(url)
         
@@ -301,7 +257,6 @@ class TestHealthCheck:
         assert 'database' in response.data
     
     def test_api_root_endpoint(self, authenticated_client):
-        """Test API root endpoint"""
         url = '/'
         response = authenticated_client.get(url)
         

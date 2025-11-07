@@ -1,12 +1,8 @@
-"""
-Management command to create a superuser with proper role
-"""
 import os
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
-
 
 class Command(BaseCommand):
     help = 'Create a superuser with admin role'
@@ -18,7 +14,6 @@ class Command(BaseCommand):
         parser.add_argument('--role', type=str, default='admin', help='User role')
 
     def handle(self, *args, **options):
-        # Get from arguments or environment variables
         email = options.get('email') or os.environ.get('DJANGO_SUPERUSER_EMAIL')
         name = options.get('name') or os.environ.get('DJANGO_SUPERUSER_NAME', 'Admin User')
         password = options.get('password') or os.environ.get('DJANGO_SUPERUSER_PASSWORD')

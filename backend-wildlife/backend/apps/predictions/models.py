@@ -1,6 +1,3 @@
-"""
-Prediction Models - matches existing database schema
-"""
 from django.db import models
 from django.contrib.auth import get_user_model
 from apps.animals.models import Animal
@@ -8,12 +5,7 @@ import uuid
 
 User = get_user_model()
 
-
 class Prediction(models.Model):
-    """
-    Model to store ML predictions (movement, habitat, corridor).
-    """
-    
     PREDICTION_TYPES = [
         ('movement', 'Movement Prediction'),
         ('habitat', 'Habitat Suitability'),
@@ -50,9 +42,7 @@ class Prediction(models.Model):
         return f"{self.get_prediction_type_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
     
     def save(self, *args, **kwargs):
-        """Override save to auto-calculate confidence score if not set"""
         if self.confidence is None and self.results:
-            # Extract confidence from results if available
             if 'summary' in self.results:
                 summary = self.results['summary']
                 if 'average_corridor_quality' in summary:

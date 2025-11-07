@@ -16,6 +16,10 @@ db.sqlite3
 # Environment
 .env
 
+# Data files (private research data)
+*.csv
+data/
+
 # IDE
 .vscode/
 .idea/

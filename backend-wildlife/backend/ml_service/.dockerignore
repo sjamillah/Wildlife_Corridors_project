@@ -1,16 +1,46 @@
-__pycache__
+# Python
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-venv/
-ENV/
-.env
-.env.local
-*.log
-logs/
-.pytest_cache/
-checkpoints/
-*.md
-__pycache__/
+*.egg-info/
+dist/
+build/
 
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Large data files (download from Cloudflare instead)
+data/rl/*.zip
+data/lstm/*.h5
+data/xgboost/*.pkl
+checkpoints/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md

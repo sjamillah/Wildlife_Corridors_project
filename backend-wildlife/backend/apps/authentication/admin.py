@@ -33,7 +33,8 @@ class UserSessionAdmin(admin.ModelAdmin):
 
 @admin.register(OTPVerification)
 class OTPVerificationAdmin(admin.ModelAdmin):
-    list_display = ['phone', 'purpose', 'is_verified', 'attempts', 'created_at']
+    list_display = ['email', 'purpose', 'is_verified', 'attempts', 'created_at', 'expires_at']
     list_filter = ['purpose', 'is_verified', 'created_at']
-    search_fields = ['phone']
+    search_fields = ['email', 'user__email']
     readonly_fields = ['created_at', 'verified_at']
+    ordering = ['-created_at']

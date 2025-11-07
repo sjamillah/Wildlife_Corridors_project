@@ -103,8 +103,9 @@ def sample_tracking(db, sample_animal):
         lon=34.5678,
         altitude=1500.0,
         speed_kmh=5.2,
-        heading=180.0,
-        accuracy=10.0,
+        directional_angle=180.0,
+        battery_level='High',
+        signal_strength='Good',
         timestamp=timezone.now(),
         source='gps',
         collar_id='COL001',
@@ -129,6 +130,24 @@ def sample_corridor(db):
             {'lat': -2.25, 'lon': 34.25},
             {'lat': -2.5, 'lon': 34.5}
         ]
+    )
+
+
+@pytest.fixture
+def test_user(ranger_user):
+    """Alias for ranger_user for test compatibility"""
+    return ranger_user
+
+
+@pytest.fixture
+def other_user(db):
+    """Create another user for permission tests"""
+    return User.objects.create_user(
+        email='other@test.com',
+        password='testpass123',
+        name='Other User',
+        role='ranger',
+        is_active=True
     )
 
 

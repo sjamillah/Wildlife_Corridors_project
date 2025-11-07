@@ -1,6 +1,3 @@
-"""
-Corridors API Tests
-"""
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -9,13 +6,9 @@ from apps.corridors.models import Corridor
 
 pytestmark = [pytest.mark.django_db, pytest.mark.corridors]
 
-
 @pytest.mark.api
 class TestCorridorAPI:
-    """Test Corridor CRUD operations"""
-    
     def test_list_corridors(self, authenticated_client):
-        """Test listing corridors"""
         CorridorFactory.create(species='Elephant')
         CorridorFactory.create(species='Wildebeest')
         
@@ -27,7 +20,6 @@ class TestCorridorAPI:
         assert len(results) >= 2
     
     def test_create_corridor(self, authenticated_client):
-        """Test creating a new corridor"""
         url = reverse('corridor-list')
         data = {
             'name': 'New Elephant Corridor',
@@ -49,7 +41,6 @@ class TestCorridorAPI:
         assert Corridor.objects.filter(name='New Elephant Corridor').exists()
     
     def test_retrieve_corridor(self, authenticated_client, sample_corridor):
-        """Test retrieving a specific corridor"""
         url = reverse('corridor-detail', kwargs={'pk': sample_corridor.id})
         response = authenticated_client.get(url)
         
@@ -57,7 +48,6 @@ class TestCorridorAPI:
         assert response.data['name'] == sample_corridor.name
     
     def test_update_corridor(self, authenticated_client, sample_corridor):
-        """Test updating a corridor"""
         url = reverse('corridor-detail', kwargs={'pk': sample_corridor.id})
         data = {
             'name': sample_corridor.name,
@@ -76,7 +66,6 @@ class TestCorridorAPI:
         assert sample_corridor.status == 'inactive'
     
     def test_delete_corridor(self, authenticated_client, sample_corridor):
-        """Test deleting a corridor"""
         url = reverse('corridor-detail', kwargs={'pk': sample_corridor.id})
         response = authenticated_client.delete(url)
         
@@ -84,7 +73,6 @@ class TestCorridorAPI:
         assert not Corridor.objects.filter(id=sample_corridor.id).exists()
     
     def test_filter_by_species(self, authenticated_client):
-        """Test filtering corridors by species"""
         CorridorFactory.create(species='Elephant')
         CorridorFactory.create(species='Elephant')
         CorridorFactory.create(species='Lion')
@@ -97,7 +85,6 @@ class TestCorridorAPI:
         assert all(corridor['species'] == 'Elephant' for corridor in results)
     
     def test_filter_by_status(self, authenticated_client):
-        """Test filtering corridors by status"""
         CorridorFactory.create(status='active')
         CorridorFactory.create(status='inactive')
         
@@ -108,14 +95,10 @@ class TestCorridorAPI:
         results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
         assert all(corridor['status'] == 'active' for corridor in results)
 
-
 @pytest.mark.api
 @pytest.mark.ml
 class TestCorridorOptimization:
-    """Test corridor optimization with RL"""
-    
     def test_optimize_corridor_endpoint(self, authenticated_client):
-        """Test corridor optimization endpoint"""
         url = reverse('corridor-list') + 'optimize/'
         data = {
             'species': 'elephant',
@@ -140,7 +123,6 @@ class TestCorridorOptimization:
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR]
     
     def test_optimization_with_invalid_species(self, authenticated_client):
-        """Test optimization with invalid species"""
         url = reverse('corridor-list') + 'optimize/'
         data = {
             'species': 'invalid_species',
@@ -156,13 +138,9 @@ class TestCorridorOptimization:
         # Should handle invalid species gracefully (400, 500, or 503 if ML service is unavailable)
         assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR, status.HTTP_503_SERVICE_UNAVAILABLE]
 
-
 @pytest.mark.unit
 class TestCorridorModel:
-    """Test Corridor model"""
-    
     def test_create_corridor_model(self):
-        """Test creating a corridor"""
         corridor = Corridor.objects.create(
             name='Test Corridor',
             description='Test corridor',
@@ -181,14 +159,12 @@ class TestCorridorModel:
         assert str(corridor) == 'Test Corridor (Elephant)'
     
     def test_corridor_path_structure(self, sample_corridor):
-        """Test corridor path is valid JSON"""
         assert isinstance(sample_corridor.path, list)
         assert len(sample_corridor.path) > 0
         assert 'lat' in sample_corridor.path[0]
         assert 'lon' in sample_corridor.path[0]
     
     def test_corridor_status_choices(self):
-        """Test valid status choices"""
         from tests.factories import CorridorFactory
         
         valid_statuses = ['active', 'inactive', 'planned', 'under_review']
@@ -197,13 +173,9 @@ class TestCorridorModel:
             corridor = CorridorFactory.create(status=status_choice)
             assert corridor.status == status_choice
 
-
 @pytest.mark.unit
 class TestCorridorGeometry:
-    """Test corridor geometry operations"""
-    
     def test_corridor_with_multiple_waypoints(self, authenticated_client):
-        """Test creating corridor with multiple waypoints"""
         url = reverse('corridor-list')
         data = {
             'name': 'Multi-Waypoint Corridor',
@@ -226,19 +198,14 @@ class TestCorridorGeometry:
         assert len(response.data['path']) == 4
     
     def test_corridor_length_calculation(self, sample_corridor):
-        """Test corridor has valid start and end points"""
         assert sample_corridor.start_point is not None
         assert sample_corridor.end_point is not None
         assert 'lat' in sample_corridor.start_point
         assert 'lon' in sample_corridor.start_point
 
-
 @pytest.mark.unit
 class TestCorridorUsage:
-    """Test corridor usage with animal tracking"""
-    
     def test_animal_in_corridor_detection(self, authenticated_client, sample_corridor, sample_animal):
-        """Test detecting when animal is in corridor"""
         # Create tracking point within corridor bounds
         tracking = TrackingFactory.create(
             animal=sample_animal,
@@ -251,8 +218,9 @@ class TestCorridorUsage:
         response = authenticated_client.get(url)
         
         assert response.status_code == status.HTTP_200_OK
+        assert isinstance(response.data, list)
         
-        # Should include corridor detection logic
         if len(response.data) > 0:
-            assert 'in_corridor' in response.data[0] or 'animal_id' in response.data[0]
+            animal_data = response.data[0]
+            assert 'corridor_status' in animal_data or 'animal_id' in animal_data
 

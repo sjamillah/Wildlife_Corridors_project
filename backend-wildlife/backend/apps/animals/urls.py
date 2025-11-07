@@ -6,8 +6,6 @@ router = DefaultRouter()
 router.register(r'', AnimalViewSet, basename='animal')
 
 urlpatterns = [
-    path('', include(router.urls)),
-    # Note: live_status action is auto-registered by DRF router
-    # Available at: /api/v1/animals/live_status/
+    path('', include(router.urls))
 ]
 

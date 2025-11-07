@@ -1,15 +1,9 @@
-"""
-User authentication models
-"""
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
 import uuid
 
-
 class UserManager(BaseUserManager):
-    """Custom user manager"""
-    
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError('Email is required')
@@ -26,10 +20,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('role', 'admin')
         return self.create_user(email, password, **extra_fields)
 
-
 class User(AbstractBaseUser, PermissionsMixin):
-    """Custom User model"""
-    
     ROLE_CHOICES = (
         ('admin', 'Administrator'),
         ('conservation_manager', 'Conservation Manager'),
@@ -59,7 +50,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     updated_at = models.DateTimeField(auto_now=True)
     version = models.IntegerField(default=1)
     
-    # Override Django's default groups and permissions with unique related names
     groups = models.ManyToManyField(
         'auth.Group',
         verbose_name='groups',
@@ -95,10 +85,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             return True
         return False
 
-
 class UserSession(models.Model):
-    """User session tracking"""
-    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
     device_id = models.CharField(max_length=255)
@@ -119,20 +106,17 @@ class UserSession(models.Model):
     def __str__(self):
         return f"{self.user.email} - {self.device_id}"
 
-
 class OTPVerification(models.Model):
-    """OTP verification"""
-    
     PURPOSE_CHOICES = (
         ('login', 'Login'),
         ('registration', 'Registration'),
         ('password_reset', 'Password Reset'),
-        ('phone_verification', 'Phone Verification'),
+        ('email_verification', 'Email Verification'),
     )
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    phone = models.CharField(max_length=20)
+    email = models.EmailField(max_length=255)
     otp_code = models.CharField(max_length=6)
     purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)
     is_verified = models.BooleanField(default=False)
@@ -147,7 +131,7 @@ class OTPVerification(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.phone} - {self.purpose}"
+        return f"{self.email} - {self.purpose}"
     
     def is_expired(self):
         return timezone.now() > self.expires_at

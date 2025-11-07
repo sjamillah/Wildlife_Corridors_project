@@ -10,9 +10,9 @@ from contextlib import asynccontextmanager
 import logging
 from datetime import datetime
 
-from .config.settings import get_settings
-from .api import corridor, health
-from .core.auth import verify_api_key
+from config.settings import get_settings
+from api import corridor, health
+from core.auth import verify_api_key
 
 import os
 from pathlib import Path

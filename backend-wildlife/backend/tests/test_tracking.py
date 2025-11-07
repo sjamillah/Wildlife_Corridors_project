@@ -1,6 +1,3 @@
-"""
-Tracking API Tests
-"""
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -11,13 +8,9 @@ from apps.tracking.models import Tracking
 
 pytestmark = [pytest.mark.django_db, pytest.mark.tracking]
 
-
 @pytest.mark.api
 class TestTrackingAPI:
-    """Test Tracking CRUD operations"""
-    
     def test_list_tracking_data(self, authenticated_client, sample_animal):
-        """Test listing tracking data"""
         TrackingFactory.create_batch(animal=sample_animal, count=5)
         
         url = reverse('tracking-list')
@@ -29,7 +22,6 @@ class TestTrackingAPI:
         assert len(results) >= 5
     
     def test_create_tracking_point(self, authenticated_client, sample_animal):
-        """Test creating a tracking point"""
         url = reverse('tracking-list')
         data = {
             'animal': sample_animal.id,
@@ -37,8 +29,9 @@ class TestTrackingAPI:
             'lon': 34.5,
             'altitude': 1600.0,
             'speed_kmh': 6.0,
-            'heading': 90.0,
-            'accuracy': 8.0,
+            'directional_angle': 90.0,
+            'battery_level': 'Medium',
+            'signal_strength': 'Excellent',
             'timestamp': timezone.now().isoformat(),
             'source': 'gps',
             'collar_id': sample_animal.collar_id
@@ -50,7 +43,6 @@ class TestTrackingAPI:
         assert Tracking.objects.filter(lat=-2.5, lon=34.5).exists()
     
     def test_retrieve_tracking_point(self, authenticated_client, sample_tracking):
-        """Test retrieving a specific tracking point"""
         url = reverse('tracking-detail', kwargs={'pk': sample_tracking.id})
         response = authenticated_client.get(url)
         
@@ -59,7 +51,6 @@ class TestTrackingAPI:
         assert response.data['lon'] == sample_tracking.lon
     
     def test_filter_by_animal(self, authenticated_client):
-        """Test filtering tracking data by animal"""
         animal1 = AnimalFactory.create()
         animal2 = AnimalFactory.create()
         
@@ -74,7 +65,6 @@ class TestTrackingAPI:
         assert all(str(track['animal']) == str(animal1.id) for track in results)
     
     def test_filter_by_source(self, authenticated_client, sample_animal):
-        """Test filtering tracking data by source"""
         TrackingFactory.create(animal=sample_animal, source='gps')
         TrackingFactory.create(animal=sample_animal, source='manual')
         
@@ -85,13 +75,9 @@ class TestTrackingAPI:
         results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
         assert all(track['source'] == 'gps' for track in results)
 
-
 @pytest.mark.api
 class TestLiveTrackingEndpoint:
-    """Test live tracking endpoint"""
-    
     def test_live_tracking_endpoint(self, authenticated_client, sample_animal):
-        """Test live tracking endpoint (with graceful ML fallback)"""
         # Create recent tracking data
         TrackingFactory.create_batch(animal=sample_animal, count=3)
         
@@ -105,7 +91,6 @@ class TestLiveTrackingEndpoint:
         assert 'season' in response.data
     
     def test_live_tracking_real_time_data(self, authenticated_client, sample_animal):
-        """Test live tracking returns recent data (with graceful ML fallback)"""
         # Create tracking from last hour
         recent_time = timezone.now() - timedelta(minutes=30)
         TrackingFactory.create(
@@ -123,21 +108,18 @@ class TestLiveTrackingEndpoint:
         # Should return species_data (even if ML tracker unavailable)
         assert 'species_data' in response.data
 
-
 @pytest.mark.unit
 class TestTrackingModel:
-    """Test Tracking model"""
-    
     def test_create_tracking_model(self, sample_animal):
-        """Test creating a tracking point"""
         tracking = Tracking.objects.create(
             animal=sample_animal,
             lat=-2.123,
             lon=34.567,
             altitude=1500.0,
             speed_kmh=5.0,
-            heading=180.0,
-            accuracy=10.0,
+            directional_angle=180.0,
+            battery_level='High',
+            signal_strength='Good',
             timestamp=timezone.now(),
             source='gps',
             collar_id=sample_animal.collar_id
@@ -148,7 +130,6 @@ class TestTrackingModel:
         assert tracking.animal == sample_animal
     
     def test_tracking_ordering(self, sample_animal):
-        """Test tracking is ordered by timestamp descending"""
         old_tracking = TrackingFactory.create(
             animal=sample_animal,
             timestamp=timezone.now() - timedelta(hours=2)
@@ -162,17 +143,12 @@ class TestTrackingModel:
         assert tracking_list[0].timestamp >= tracking_list[-1].timestamp
     
     def test_tracking_str_method(self, sample_tracking):
-        """Test tracking string representation"""
         str_repr = str(sample_tracking)
         assert sample_tracking.animal.name in str_repr or 'Tracking' in str_repr
 
-
 @pytest.mark.unit
 class TestTrackingValidation:
-    """Test tracking data validation"""
-    
     def test_latitude_range(self, authenticated_client, sample_animal):
-        """Test latitude must be in valid range"""
         url = reverse('tracking-list')
         data = {
             'animal': sample_animal.id,
@@ -188,7 +164,6 @@ class TestTrackingValidation:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
     
     def test_longitude_range(self, authenticated_client, sample_animal):
-        """Test longitude must be in valid range"""
         url = reverse('tracking-list')
         data = {
             'animal': sample_animal.id,
@@ -204,7 +179,6 @@ class TestTrackingValidation:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
     
     def test_required_fields(self, authenticated_client, sample_animal):
-        """Test required fields validation"""
         url = reverse('tracking-list')
         data = {
             'animal': sample_animal.id,
@@ -215,13 +189,9 @@ class TestTrackingValidation:
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-
 @pytest.mark.api
 class TestTrackingBatchOperations:
-    """Test batch tracking operations"""
-    
     def test_create_multiple_tracking_points(self, authenticated_client, sample_animal):
-        """Test creating multiple tracking points"""
         base_time = timezone.now() - timedelta(hours=5)
         
         for i in range(5):
@@ -245,7 +215,6 @@ class TestTrackingBatchOperations:
         assert count >= 5
     
     def test_query_tracking_by_time_range(self, authenticated_client, sample_animal):
-        """Test querying tracking data by time range"""
         # Create tracking at different times
         base_time = timezone.now() - timedelta(days=2)
         
@@ -269,13 +238,9 @@ class TestTrackingBatchOperations:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) >= 1
 
-
 @pytest.mark.api
 class TestObservationAPI:
-    """Test Observation API (if implemented)"""
-    
     def test_create_observation(self, authenticated_client, sample_animal):
-        """Test creating an observation"""
         url = reverse('observation-list')
         
         data = {
@@ -295,7 +260,6 @@ class TestObservationAPI:
         assert Observation.objects.filter(description='Elephant spotted near water hole').exists()
     
     def test_list_observations(self, authenticated_client, sample_animal, ranger_user):
-        """Test listing observations"""
         from apps.tracking.models import Observation
         
         # Create some observations

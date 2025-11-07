@@ -28,7 +28,7 @@ services:
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             gunicorn wildlife_backend.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+             gunicorn wildlife_backend.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 180 --graceful-timeout 30 --max-requests 1000 --max-requests-jitter 50"
     volumes:
       - ./backend:/app
       - static_volume:/app/staticfiles
@@ -38,15 +38,25 @@ services:
     environment:
       - DEBUG=${DEBUG:-True}
       - SECRET_KEY=${SECRET_KEY:-django-insecure-change-in-production}
+      - SUPABASE_DATABASE_URL=${SUPABASE_DATABASE_URL}
       - DB_NAME=wildlife_tracking
       - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD:-password}
       - DB_HOST=postgres
       - DB_PORT=5432
       - ML_SERVICE_URL=http://ml_service:8001
+      - DISABLE_LOCAL_ML=${DISABLE_LOCAL_ML:-False}
+      - CLOUDFLARE_BASE_URL=${CLOUDFLARE_BASE_URL}
       - AFRICASTALKING_USERNAME=${AFRICASTALKING_USERNAME}
       - AFRICASTALKING_API_KEY=${AFRICASTALKING_API_KEY}
       - ALLOWED_HOSTS=localhost,127.0.0.1,django
+      - EMAIL_BACKEND=${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS:-True}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-${EMAIL_HOST_USER}}
     depends_on:
       postgres:
         condition: service_healthy

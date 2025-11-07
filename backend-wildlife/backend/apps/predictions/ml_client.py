@@ -1,8 +1,3 @@
-"""
-ML Service Client
-HTTP client for communicating with FastAPI ML microservice
-"""
-
 import httpx
 import logging
 from typing import Dict, Optional, Any
@@ -10,24 +5,15 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-
 class MLServiceClient:
-    """
-    Client for interacting with the FastAPI ML microservice.
-    
-    Provides async methods to call ML prediction endpoints.
-    """
-    
     def __init__(self):
-        """Initialize ML service client"""
         self.base_url = settings.ML_SERVICE_URL
-        self.timeout = 60.0  # Longer timeout for ML predictions
+        self.timeout = 60.0
         self.api_key = getattr(settings, 'ML_SERVICE_API_KEY', None)
         
         logger.info(f"ML Service Client initialized: {self.base_url}")
     
     def _get_headers(self) -> Dict[str, str]:
-        """Get request headers with API key"""
         headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
@@ -44,17 +30,6 @@ class MLServiceClient:
         species: str,
         prediction_days: int = 7
     ) -> Dict[str, Any]:
-        """
-        Predict animal movement patterns.
-        
-        Args:
-            animal_id: ID of the animal
-            species: Species name
-            prediction_days: Number of days to predict
-            
-        Returns:
-            Prediction results from ML service
-        """
         try:
             url = f"{self.base_url}/api/v1/ml/movement/predict"
             
@@ -84,18 +59,6 @@ class MLServiceClient:
         species: str,
         radius_km: float = 10.0
     ) -> Dict[str, Any]:
-        """
-        Predict habitat suitability.
-        
-        Args:
-            lat: Latitude
-            lon: Longitude
-            species: Species name
-            radius_km: Search radius in kilometers
-            
-        Returns:
-            Habitat prediction results
-        """
         try:
             url = f"{self.base_url}/api/v1/ml/habitat/predict"
             
@@ -128,20 +91,6 @@ class MLServiceClient:
         algorithm: str = 'ppo',
         **kwargs
     ) -> Dict[str, Any]:
-        """
-        Predict optimal wildlife corridor using RL model.
-        
-        Args:
-            species: Species name (elephant or wildebeest)
-            start_lat: Starting latitude
-            start_lon: Starting longitude
-            steps: Number of prediction steps
-            algorithm: RL algorithm (ppo or dqn)
-            **kwargs: Additional optional parameters
-            
-        Returns:
-            Corridor prediction results with waypoints and metrics
-        """
         try:
             url = f"{self.base_url}/api/v1/ml/corridor/predict"
             
@@ -153,7 +102,6 @@ class MLServiceClient:
                 'algorithm': algorithm
             }
             
-            # Add optional parameters
             optional_params = [
                 'time', 'predicted_state', 'risk_score', 'temporal_score',
                 'connectivity_score', 'corridor_quality'
@@ -187,12 +135,6 @@ class MLServiceClient:
             raise
     
     async def get_model_status(self) -> Dict[str, Any]:
-        """
-        Get status of ML models.
-        
-        Returns:
-            Model status information
-        """
         try:
             url = f"{self.base_url}/api/v1/ml/corridor/models/status"
             
@@ -209,12 +151,6 @@ class MLServiceClient:
             raise Exception(f"ML service unavailable: {str(e)}")
     
     async def health_check(self) -> Dict[str, Any]:
-        """
-        Check health of ML service.
-        
-        Returns:
-            Health check results
-        """
         try:
             url = f"{self.base_url}/health"
             
@@ -230,13 +166,9 @@ class MLServiceClient:
                 'error': str(e)
             }
 
-
-# Singleton instance
 _ml_client = None
 
-
 def get_ml_client() -> MLServiceClient:
-    """Get or create ML service client instance"""
     global _ml_client
     if _ml_client is None:
         _ml_client = MLServiceClient()

@@ -1,6 +1,3 @@
-"""
-Authentication API Tests
-"""
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -11,20 +8,15 @@ User = get_user_model()
 
 pytestmark = [pytest.mark.django_db, pytest.mark.auth]
 
-
 @pytest.mark.api
 class TestUserRegistration:
-    """Test user registration endpoint"""
-    
     def test_register_user_success(self, api_client):
-        """Test successful user registration (OTP-based)"""
         url = reverse('register')
         data = {
-            'phone': '254712345678',  # Phone number without + sign (digits only)
-            'purpose': 'registration',  # Required field for OTP
             'email': 'newuser@test.com',
             'name': 'New User',
             'role': 'viewer'
+            # purpose is optional - automatically set to 'registration'
         }
         
         response = api_client.post(url, data)
@@ -33,18 +25,19 @@ class TestUserRegistration:
         if response.status_code == 404:
             pytest.skip("Registration endpoint not implemented")
         
-        # OTP-based registration returns 200 and sends OTP
+        # Email-based OTP registration returns 200 and sends OTP to email
         # User is not created until OTP is verified
         if response.status_code == status.HTTP_200_OK:
             assert 'message' in response.data
-            assert 'OTP' in response.data['message'] or 'otp' in str(response.data).lower()
+            assert 'email' in response.data['message'].lower() or 'otp' in str(response.data).lower()
+            assert 'otp_id' in response.data
+            assert response.data['expires_in'] == 120  # 2 minutes
         else:
             # If it's a traditional registration, check for 201
             assert response.status_code == status.HTTP_201_CREATED
             assert User.objects.filter(email='newuser@test.com').exists()
     
     def test_register_duplicate_email(self, api_client):
-        """Test registration with existing email"""
         UserFactory.create(email='existing@test.com')
         
         url = reverse('register')
@@ -62,7 +55,6 @@ class TestUserRegistration:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
     
     def test_register_invalid_email(self, api_client):
-        """Test registration with invalid email"""
         url = reverse('register')
         data = {
             'email': 'invalid-email',
@@ -77,13 +69,9 @@ class TestUserRegistration:
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-
 @pytest.mark.api
 class TestUserLogin:
-    """Test user login endpoint"""
-    
     def test_login_success(self, api_client, ranger_user):
-        """Test successful login (OTP-based)"""
         try:
             url = reverse('login')
         except:
@@ -107,7 +95,6 @@ class TestUserLogin:
             assert 'access' in response.data or 'token' in response.data
     
     def test_login_invalid_credentials(self, api_client, ranger_user):
-        """Test login with non-existent email"""
         try:
             url = reverse('login')
         except:
@@ -127,7 +114,6 @@ class TestUserLogin:
         assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND, status.HTTP_200_OK]
     
     def test_login_inactive_user(self, api_client):
-        """Test login with inactive user"""
         inactive_user = UserFactory.create(is_active=False)
         
         try:
@@ -147,13 +133,9 @@ class TestUserLogin:
         # Should return error for inactive user
         assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED]
 
-
 @pytest.mark.api
 class TestJWTAuthentication:
-    """Test JWT token authentication"""
-    
     def test_obtain_token_pair(self, api_client, ranger_user):
-        """Test obtaining JWT token pair"""
         url = '/api/v1/auth/token/'
         data = {
             'email': 'ranger@test.com',
@@ -170,7 +152,6 @@ class TestJWTAuthentication:
         assert 'refresh' in response.data
     
     def test_refresh_token(self, api_client, jwt_tokens):
-        """Test refreshing JWT token"""
         url = '/api/v1/auth/token/refresh/'
         data = {'refresh': jwt_tokens['refresh']}
         
@@ -183,7 +164,6 @@ class TestJWTAuthentication:
         assert 'access' in response.data
     
     def test_protected_endpoint_without_token(self, api_client):
-        """Test accessing protected endpoint without token"""
         url = '/api/v1/animals/'
         response = api_client.get(url)
         
@@ -191,20 +171,15 @@ class TestJWTAuthentication:
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
     
     def test_protected_endpoint_with_token(self, authenticated_client):
-        """Test accessing protected endpoint with valid token"""
         url = '/api/v1/animals/'
         response = authenticated_client.get(url)
         
         # Should succeed or return 200/404 (if no data)
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
 
-
 @pytest.mark.unit
 class TestUserModel:
-    """Test User model"""
-    
     def test_create_user(self):
-        """Test creating a regular user"""
         user = UserFactory.create(
             email='test@test.com',
             name='Test User',
@@ -218,7 +193,6 @@ class TestUserModel:
         assert user.is_staff is False
     
     def test_create_superuser(self):
-        """Test creating a superuser"""
         user = User.objects.create_superuser(
             email='admin@test.com',
             password='adminpass',
@@ -230,11 +204,9 @@ class TestUserModel:
         assert user.role == 'admin'
     
     def test_user_str_method(self, ranger_user):
-        """Test user string representation"""
         assert str(ranger_user) == ranger_user.email
     
     def test_account_locked_check(self):
-        """Test account locking mechanism"""
         from django.utils import timezone
         from datetime import timedelta
         
