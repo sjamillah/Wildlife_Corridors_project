@@ -2,8 +2,6 @@
 
 Real-time wildlife tracking and conservation management with AI-powered predictions.
 
----
-
 ## Table of Contents
 
 1. [Demo Video](#demo-video)
@@ -18,11 +16,9 @@ Real-time wildlife tracking and conservation management with AI-powered predicti
 10. [Troubleshooting](#troubleshooting)
 11. [License](#license)
 
----
-
 ## Demo Video
 
-**5-Minute Platform Demo**: [Insert Video Link Here]
+**5-Minute Platform Demo**: [Watch Demo](https://drive.google.com/drive/folders/1sJ2-oJu2TJANpAaK6Pmv6QDGS5vXEmZ5?usp=sharing)
 
 The demo showcases:
 - Live animal tracking with intelligent map visualization
@@ -32,19 +28,13 @@ The demo showcases:
 - Ranger patrol coordination interface
 - Data analytics and reporting features
 
----
-
 ## Deployed Application
 
-**Backend API**: https://wildlife-project-backend.onrender.com
+**Backend API**: [Backend](https://wildlife-project-backend.onrender.com)
 
-**API Documentation**: https://wildlife-project-backend.onrender.com/api/docs/
+**API Documentation**: [Swagger UI](https://wildlife-project-backend.onrender.com/api/docs)
 
-**Frontend**: Follow the installation steps below to run locally
-
-*Note: First API request may take 30-60 seconds as the free-tier server spins up*
-
----
+**Frontend**: [Aureynx Wildlife Platform](https://aureynx-wildlife-conservation-1.onrender.com)
 
 ## Overview
 
@@ -53,8 +43,6 @@ This platform helps track wildlife and predict corridor usage using machine lear
 The system runs on Django REST backend with React dashboard. Five ML models trained on 472,307 GPS records from Kenya-Tanzania corridors handle behavior classification, movement prediction, habitat analysis, and corridor planning. The platform passed 137 automated tests before going live.
 
 What makes this different: instead of just showing dots on a map, the system actually predicts what animals might do next and warns rangers before problems happen.
-
----
 
 ## Project Structure
 
@@ -101,8 +89,6 @@ Wildlife_Corridors_project/
         └── package.json       # Node dependencies
 ```
 
----
-
 ## Installation Guide
 
 ### Prerequisites
@@ -119,8 +105,6 @@ python --version  # Should show 3.9 or higher
 node --version    # Should show 16 or higher
 docker --version  # Should show Docker version
 ```
-
----
 
 ### Database Setup
 
@@ -146,8 +130,6 @@ docker ps
 Should see two containers: `postgres` and `redis`
 
 **Troubleshooting**: If port 5432 is already in use, stop any other PostgreSQL instances or modify `docker-compose.yml` to use different ports.
-
----
 
 ### Backend Setup
 
@@ -251,14 +233,9 @@ Create `.env` file in `frontend/web/` directory:
 ```
 REACT_APP_ENV=development
 REACT_APP_API_URL=http://localhost:8000
-REACT_APP_MAPBOX_TOKEN=your-mapbox-token-here
 ```
 
-To get Mapbox token:
-1. Go to https://www.mapbox.com/
-2. Sign up for free account
-3. Copy default public token from account dashboard
-4. Paste in `.env` file
+Note: The application uses Leaflet with OpenStreetMap tiles, which doesn't require an API token. Maps work out of the box.
 
 **Step 4: Start React development server**
 ```bash
@@ -270,7 +247,7 @@ Browser automatically opens to `http://localhost:3000/`
 **Verify frontend is working**:
 - Should see login screen
 - No console errors in browser DevTools (F12)
-- Map tiles load correctly (Mapbox is working)
+- Map tiles load correctly (powered by Leaflet + OpenStreetMap)
 
 ---
 
@@ -288,11 +265,9 @@ Both servers should now be running:
 5. Should see dashboard with sample animals on map
 
 **Common issues**:
-- If map doesn't load: Check Mapbox token in `.env`
+- If map doesn't load: Check browser console for errors, Leaflet loads OpenStreetMap automatically
 - If API calls fail: Ensure backend is running on port 8000
 - If OTP doesn't arrive: Check backend terminal for code (it prints there during development)
-
----
 
 ## Key Features
 
@@ -367,8 +342,6 @@ Dashboard includes:
 - Movement pattern visualizations
 
 Export data as CSV or GeoJSON for GIS analysis.
-
----
 
 ## Machine Learning Models
 
@@ -510,8 +483,6 @@ The models augment ranger capabilities rather than replacing human expertise. Co
 
 **Missing context**: Models use GPS patterns and basic environmental variables but miss weather conditions, predator presence, human activity patterns, social dynamics, and vegetation phenology. Animals may change behavior due to factors the models can't see.
 
----
-
 ## Testing Summary
 
 The backend went through comprehensive testing before deployment. Started with 106 failing tests due to database configuration issues, ended with 137 passing tests.
@@ -531,7 +502,7 @@ The backend went through comprehensive testing before deployment. Started with 1
 
 ### What Broke Initially
 
-![Initial Failures](./tests/initial_test_failures.png)
+![Initial Failures](https://drive.google.com/file/d/1Jllyze2mBb4uKvUCzVhJikSOFK_vGGJb/view?usp=sharing)
 
 All tests failed at first because Django couldn't create database tables. Root cause: models had `managed = False` (for external Supabase production database) combined with `--nomigrations` flag. Test environment ended up with no tables at all.
 
@@ -539,7 +510,7 @@ Fixed by configuring conditional SQLite for testing, setting `managed = True` in
 
 ### Major Issues Fixed
 
-![Debugging Process](./tests/debugging_process.png)
+![Debugging Process](https://drive.google.com/file/d/1wmojDIeTcv5hqIFN2eECFh1BCHu-Ydrt/view?usp=sharing)
 
 **Model misalignment**: Prediction model switched from separate fields to JSON fields for input/results. Test fixtures still used old schema. Fixed by updating all fixtures to current models.
 
@@ -697,19 +668,15 @@ Starting development server at http://127.0.0.1:8000/
 
 ### Map doesn't load
 
-**Problem**: White screen or missing map tiles
+**Problem**: Blank map or missing tiles
 
-**Check**: Mapbox token in `frontend/web/.env`
+**Check**: Browser console (F12) for JavaScript errors
 
-**Get token**:
-1. Sign up at https://www.mapbox.com
-2. Copy default public token
-3. Add to `.env`:
-```
-REACT_APP_MAPBOX_TOKEN=pk.eyJ1IjoieW91cnVzZXJuYW1lIiwiYSI6ImNrZX...
-```
-
-Restart frontend server after adding token.
+**Fix**: Leaflet automatically loads OpenStreetMap tiles without requiring API tokens. If map still doesn't load:
+1. Clear browser cache
+2. Check network connectivity
+3. Verify frontend is properly connected to backend
+4. Look for console errors related to Leaflet initialization
 
 ---
 
@@ -785,20 +752,8 @@ https://visualstudio.microsoft.com/visual-cpp-build-tools/
 xcode-select --install
 ```
 
----
-
 ## License
 
 MIT License
 
 Copyright (c) 2024 Aureynx Conservation Technology
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
----
-
-Built for wildlife conservation. Powered by machine learning. Tested for production.
