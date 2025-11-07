@@ -17,6 +17,7 @@ import { useAlerts } from '../../../contexts/AlertsContext';
 import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { observations, animals, rangers } from '../../services';
 
 export default function FieldDataScreen() {
   const { addAlert } = useAlerts();
@@ -168,7 +169,7 @@ export default function FieldDataScreen() {
     updateFormData('photos', newPhotos);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.type) {
       Alert.alert('Validation Error', 'Please select a type');
       return;
@@ -179,21 +180,90 @@ export default function FieldDataScreen() {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      Alert.alert('Success', `${currentConfig.title} report submitted successfully!`);
-      setFormData({ 
-        type: '', 
-        animalName: '',
-        severity: '', 
-        species: '', 
-        count: 1, 
-        notes: '',
-        location: null,
-        photos: []
+
+    try {
+      // Save to backend based on report type
+      if (currentReportType === 'wildlife') {
+        // Wildlife sighting/observation
+        const observationData = {
+          observation_type: 'sighting',
+          species: formData.type,
+          count: formData.count || 1,
+          notes: formData.notes || `${formData.type} sighting`,
+          latitude: formData.location?.coords?.latitude || null,
+          longitude: formData.location?.coords?.longitude || null,
+          observed_at: new Date().toISOString(),
+          // If you have current user data, add: observed_by: userId
+        };
+
+        await observations.create(observationData);
+        console.log('Wildlife observation saved to backend:', observationData);
+
+        // Also log to ranger logs for unified tracking
+        await rangers.logs.create({
+          log_type: 'animal_sighting',
+          priority: 'medium',
+          title: `${formData.type} sighting`,
+          description: formData.notes || `${formData.count} ${formData.type} observed`,
+          lat: formData.location?.coords?.latitude || 0,
+          lon: formData.location?.coords?.longitude || 0,
+        }).catch(err => console.log('Ranger log failed (non-critical):', err));
+
+      } else if (currentReportType === 'incident' || currentReportType === 'obstruction') {
+        // Incident/obstruction as observation
+        const observationData = {
+          observation_type: currentReportType,
+          notes: `${formData.type}: ${formData.notes || 'No additional notes'}`,
+          severity: formData.severity || null,
+          latitude: formData.location?.coords?.latitude || null,
+          longitude: formData.location?.coords?.longitude || null,
+          observed_at: new Date().toISOString(),
+        };
+
+        await observations.create(observationData);
+        console.log(`${currentConfig.title} report saved to backend:`, observationData);
+      }
+
+      // Also add to local alerts context
+      addAlert({
+        id: Date.now(),
+        type: currentReportType,
+        title: formData.type,
+        severity: formData.severity || 'medium',
+        location: formData.location 
+          ? `${formData.location.coords.latitude.toFixed(4)}, ${formData.location.coords.longitude.toFixed(4)}`
+          : 'Unknown',
+        timestamp: new Date().toISOString(),
+        notes: formData.notes,
       });
-      setShowOtherOptions(false);
-    }, 1500);
+
+      setIsSubmitting(false);
+      Alert.alert(
+        'Success', 
+        `${currentConfig.title} report submitted successfully and saved to backend!`,
+        [{ text: 'OK', onPress: () => {
+          setFormData({ 
+            type: '', 
+            animalName: '',
+            severity: '', 
+            species: '', 
+            count: 1, 
+            notes: '',
+            location: null,
+            photos: []
+          });
+          setShowOtherOptions(false);
+        }}]
+      );
+
+    } catch (error) {
+      setIsSubmitting(false);
+      console.error('Failed to submit report:', error);
+      Alert.alert(
+        'Error', 
+        `Failed to save report: ${error.message}. Please try again.`
+      );
+    }
   };
 
   const handleClose = () => {

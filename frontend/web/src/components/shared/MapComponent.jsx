@@ -270,7 +270,7 @@ const AnimatedMarker = ({ marker, icon, children }) => {
 
   const isMoving = marker.activityType === 'moving' && marker.speed > 2;
   const showMovement = marker.showAnimalMovement !== false;
-  
+
   return (
     <>
       {showMovement && isMoving && (
@@ -286,9 +286,9 @@ const AnimatedMarker = ({ marker, icon, children }) => {
           }}
         />
       )}
-      <Marker position={currentPosition} icon={icon}>
-        {children}
-      </Marker>
+    <Marker position={currentPosition} icon={icon}>
+      {children}
+    </Marker>
     </>
   );
 };
@@ -433,37 +433,37 @@ L.Icon.Default.mergeOptions({
 const createCustomIcon = (color, type) => {
   let iconContent;
   
-  switch (type) {
-    case 'elephant':
+    switch (type) {
+      case 'elephant':
       iconContent = ANIMAL_ICONS.ELEPHANT;
-      break;
-    case 'wildebeest':
+        break;
+      case 'wildebeest':
       iconContent = ANIMAL_ICONS.WILDEBEEST;
-      break;
-    case 'wildlife':
+        break;
+      case 'wildlife':
       iconContent = ANIMAL_ICONS.WILDLIFE;
-      break;
-    case 'alert':
-      iconContent = ReactDOMServer.renderToString(
-        React.createElement(AlertTriangle, {
-          size: 20,
-          color: 'white',
-          strokeWidth: 2.5
-        })
-      );
-      break;
-    case 'patrol':
-      iconContent = ReactDOMServer.renderToString(
-        React.createElement(Shield, {
-          size: 20,
-          color: 'white',
-          strokeWidth: 2.5
-        })
-      );
-      break;
-    default:
+        break;
+      case 'alert':
+        iconContent = ReactDOMServer.renderToString(
+          React.createElement(AlertTriangle, {
+            size: 20,
+            color: 'white',
+            strokeWidth: 2.5
+          })
+        );
+        break;
+      case 'patrol':
+        iconContent = ReactDOMServer.renderToString(
+          React.createElement(Shield, {
+            size: 20,
+            color: 'white',
+            strokeWidth: 2.5
+          })
+        );
+        break;
+      default:
       iconContent = ANIMAL_ICONS.DEFAULT;
-      break;
+        break;
   }
 
   const isEmoji = !iconContent.startsWith('<');

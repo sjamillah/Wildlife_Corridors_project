@@ -41,6 +41,7 @@ export default function RootNavigationLayout() {
             <Stack.Screen name="screens/auth/SignInScreen" options={{ headerShown: false }} />
             <Stack.Screen name="screens/auth/SignUpScreen" options={{ headerShown: false }} />
             <Stack.Screen name="screens/(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="screens/patrol/ReportEmergencyScreen" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />

@@ -2,8 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
+
+const TOKEN_KEY = 'authToken'; // Must match auth.js
 
 export default function AppEntryPoint() {
   const { theme } = useTheme();
@@ -11,18 +14,22 @@ export default function AppEntryPoint() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate app initialization
+    // Check authentication and navigate accordingly
     const initializeApp = async () => {
       try {
-        // Add any app initialization logic here
-        // Check for stored auth tokens, load settings, etc.
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate loading
+        // Check for stored auth token
+        const token = await AsyncStorage.getItem(TOKEN_KEY);
         
-        // Navigate to appropriate screen
-        router.replace('/screens/auth/SignInScreen');
+        if (token) {
+          // User is already logged in, go to tabs (DashboardScreen is the default)
+          router.replace('/screens/(tabs)/DashboardScreen');
+        } else {
+          // User not logged in, go to sign in
+          router.replace('/screens/auth/SignInScreen');
+        }
       } catch (error) {
         console.error('App initialization failed:', error);
-        // Handle initialization errors
+        // On error, go to sign in
         router.replace('/screens/auth/SignInScreen');
       } finally {
         setIsLoading(false);

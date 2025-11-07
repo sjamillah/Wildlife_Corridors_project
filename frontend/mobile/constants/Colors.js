@@ -9,9 +9,11 @@ export const BRAND_COLORS = {
   HIGHLIGHT: '#E8961C',      // Ochre
   TERRA_COTTA: '#C1440E',    // Terracotta
   TEXT: '#2C2416',           // Primary text
+  TEXT_PRIMARY: '#2C2416',   // Primary text (alias)
   TEXT_SECONDARY: '#6B5E4F', // Secondary text
   TEXT_TERTIARY: '#4A4235',  // Tertiary text
   BACKGROUND: '#F5F1E8',     // Cream background
+  CREAM_BG: '#F5F1E8',       // Cream background (alias)
   SURFACE: '#FFFFFF',        // White cards
   BORDER_LIGHT: '#E8E3D6',   // Light border
   BORDER_MEDIUM: '#D4CCBA',  // Medium border

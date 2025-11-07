@@ -69,20 +69,20 @@ const WildlifeTracking = () => {
   const [behaviorSummary, setBehaviorSummary] = useState(null);
   const [showAlertsPanel, setShowAlertsPanel] = useState(false);
   
-      const [layerToggles, setLayerToggles] = useState({
-        corridors: true,
+  const [layerToggles, setLayerToggles] = useState({
+    corridors: true,
         riskZones: true,
-        predictions: true,
+    predictions: true,
         rangerPatrols: true,
-        heatmap: false,
+    heatmap: false,
         movementPaths: true,
         animalMovement: true
-      });
+  });
   
 
-      useEffect(() => {
-        window.createTestAnimals = createTestAnimals;
-        window.deleteTestAnimals = deleteTestAnimals;
+  useEffect(() => {
+    window.createTestAnimals = createTestAnimals;
+    window.deleteTestAnimals = deleteTestAnimals;
         
         window.testMovement = () => {
           console.log('🧪 Testing animal movement...');
@@ -140,17 +140,17 @@ const WildlifeTracking = () => {
     setIsPlayingTrail(false);
   };
 
-      const fetchAnimals = useCallback(async () => {
-        try {
+  const fetchAnimals = useCallback(async () => {
+    try {
           console.log('🔄 Fetching animals from backend...');
-          console.log('API URL:', api.defaults.baseURL);
-          
-          const startTime = performance.now();
-          
-          const response = await api.get('/api/animals/live_status/', {
+      console.log('API URL:', api.defaults.baseURL);
+      
+      const startTime = performance.now();
+      
+      const response = await api.get('/api/animals/live_status/', {
             timeout: 150000
-          });
-          const liveStatusData = response.data;
+      });
+      const liveStatusData = response.data;
       
       const loadTime = ((performance.now() - startTime) / 1000).toFixed(2);
       console.log(`Live status loaded in ${loadTime}s:`, liveStatusData.length, 'animals');
@@ -477,8 +477,8 @@ const WildlifeTracking = () => {
   }, []);
 
   const fetchEnvironmentData = useCallback(async () => {
-    const centerLat = -2.0;
-    const centerLon = 35.5;
+      const centerLat = -2.0;
+      const centerLon = 35.5;
     const data = await safeMLCall(
       predictionsService.getXGBoostEnvironment,
       centerLat,
@@ -580,10 +580,10 @@ const WildlifeTracking = () => {
       }
     };
     
-        initializeData();
-        
+    initializeData();
+    
         const liveStatusInterval = setInterval(() => {
-          fetchAnimals().catch(() => {});
+      fetchAnimals().catch(() => {});
         }, 60000);
         
         const alertsInterval = setInterval(() => {
@@ -599,20 +599,20 @@ const WildlifeTracking = () => {
           fetchBehaviorSummary().catch(() => {});
         }, 120000);
         
-        const mlInterval = setInterval(() => {
+    const mlInterval = setInterval(() => {
           fetchEnvironmentData().catch(() => {});
           fetchCorridorOptimization().catch(() => {});
           fetchLiveTracking().catch(() => {});
-        }, 300000);
+    }, 300000);
     
-        return () => {
+    return () => {
           clearInterval(liveStatusInterval);
           clearInterval(alertsInterval);
           clearInterval(rangersInterval);
           clearInterval(behaviorInterval);
-          clearInterval(mlInterval);
+      clearInterval(mlInterval);
           clearTimeout(loadingTimeout);
-        };
+    };
   }, [fetchAnimals, fetchCorridors, fetchPredictions, fetchCorridorOptimization, fetchEnvironmentData, fetchLiveTracking, fetchPoachingZones, fetchRangers, fetchAlertStats, fetchBehaviorSummary, animals.length]);
 
   useEffect(() => {
@@ -1341,7 +1341,7 @@ const WildlifeTracking = () => {
                           width: '4px',
                           borderRadius: '8px 0 0 8px',
                           background: selectedAnimal?.id === animal.id ? COLORS.burntOrange : accentColor
-                          }}></div>
+                        }}></div>
 
                         {selectedAnimal?.id === animal.id && (
                           <div style={{
@@ -1494,14 +1494,14 @@ const WildlifeTracking = () => {
               <div style={{ fontSize: '11px', fontWeight: 700, color: COLORS.textSecondary, marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Map Layers
               </div>
-                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                     {[
-                       { id: 'corridors', label: 'Wildlife Corridors', color: '#2563eb', IconComponent: MapPin },
-                       { id: 'riskZones', label: 'Risk Zones', color: '#dc2626', IconComponent: AlertTriangle },
-                       { id: 'predictions', label: 'Predictions', color: '#7c3aed', IconComponent: TrendingUp },
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                {[
+                  { id: 'corridors', label: 'Wildlife Corridors', color: '#2563eb', IconComponent: MapPin },
+                  { id: 'riskZones', label: 'Risk Zones', color: '#dc2626', IconComponent: AlertTriangle },
+                  { id: 'predictions', label: 'Predictions', color: '#7c3aed', IconComponent: TrendingUp },
                        { id: 'rangerPatrols', label: 'Ranger Patrols', color: '#0891b2', IconComponent: Shield },
                        { id: 'animalMovement', label: 'Animal Movement', color: '#9333ea', IconComponent: Activity }
-                     ].map(layer => (
+                ].map(layer => (
                   <button
                     key={layer.id}
                     onClick={() => toggleLayer(layer.id)}

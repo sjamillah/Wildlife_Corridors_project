@@ -206,11 +206,11 @@ export default function DashboardScreen() {
           
           <TouchableOpacity 
             style={styles.emergencyBtn}
-            onPress={() => router.push('/screens/(tabs)/AlertsScreen')}
+            onPress={() => router.push('/screens/patrol/ReportEmergencyScreen')}
             activeOpacity={0.8}
           >
             <Icon name={WILDLIFE_ICONS.ALERT_OCTAGON} size={ICON_SIZES.md} color={BRAND_COLORS.SURFACE} />
-            <Text style={styles.emergencyBtnText}>Emergency Alert</Text>
+            <Text style={styles.emergencyBtnText}>Report Emergency</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

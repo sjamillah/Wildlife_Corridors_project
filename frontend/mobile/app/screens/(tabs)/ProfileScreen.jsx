@@ -1,26 +1,144 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   ScrollView, 
   TouchableOpacity, 
-  Switch 
+  Switch,
+  Alert,
+  ActivityIndicator 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
+import { rangers, auth as authService } from '../../services';
+import gpsTracking from '../../services/gpsTracking';
+
+const TOKEN_KEY = 'authToken'; // Must match auth.js
+const REFRESH_TOKEN_KEY = 'refreshToken'; // Must match auth.js
+const USER_PROFILE_KEY = 'userProfile'; // Must match auth.js
+const RANGER_PROFILE_KEY = '@wildlife_ranger_profile';
 
 const ProfileScreen = () => {
   const [notifications, setNotifications] = useState(true);
   const [locationSharing, setLocationSharing] = useState(true);
+  const [onDutyStatus, setOnDutyStatus] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   
-  const userInfo = {
-    name: 'John Ranger',
-    email: 'john.ranger@wildlifeprotection.org',
-    role: 'Senior Wildlife Ranger',
-    badge: 'WR-2024-001',
+  const [userInfo, setUserInfo] = useState({
+    name: 'Loading...',
+    email: '',
+    role: 'Ranger',
+    badge: '',
+  });
+
+  const [rangerProfile, setRangerProfile] = useState(null);
+
+  // Load user and ranger profile on mount
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      
+      // Get user profile from auth
+      const user = await authService.getProfile();
+      setUserInfo({
+        name: user.name || user.email,
+        email: user.email,
+        role: user.role || 'Ranger',
+        badge: '',
+      });
+
+      // Get ranger profile
+      const rangersData = await rangers.getAll({ user: user.id });
+      if (rangersData.results && rangersData.results.length > 0) {
+        const ranger = rangersData.results[0];
+        setRangerProfile(ranger);
+        setOnDutyStatus(ranger.current_status === 'on_duty');
+        setUserInfo(prev => ({
+          ...prev,
+          badge: ranger.badge_number,
+          role: ranger.team_name || 'Ranger',
+        }));
+        
+        // Cache ranger profile
+        await AsyncStorage.setItem(RANGER_PROFILE_KEY, JSON.stringify(ranger));
+      }
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+      // Load from cache if available
+      const cachedProfile = await AsyncStorage.getItem(RANGER_PROFILE_KEY);
+      if (cachedProfile) {
+        const ranger = JSON.parse(cachedProfile);
+        setRangerProfile(ranger);
+        setOnDutyStatus(ranger.current_status === 'on_duty');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle duty status
+  const toggleDutyStatus = async (newStatus) => {
+    if (!rangerProfile) {
+      Alert.alert('Error', 'Ranger profile not found');
+      return;
+    }
+
+    setUpdatingStatus(true);
+    try {
+      // Get current location
+      const currentLocation = await gpsTracking.getCurrentLocation().catch(() => ({
+        lat: 0,
+        lon: 0,
+      }));
+
+      // Update ranger status on backend
+      await rangers.patch(rangerProfile.id, {
+        current_status: newStatus ? 'on_duty' : 'off_duty',
+        last_active: new Date().toISOString(),
+      });
+      
+      setOnDutyStatus(newStatus);
+      
+      // Start/stop GPS tracking
+      if (newStatus) {
+        await gpsTracking.startTracking();
+        console.log('GPS tracking started');
+      } else {
+        await gpsTracking.stopTracking();
+        console.log('GPS tracking stopped');
+      }
+      
+      // Log status change with actual location
+      await rangers.logs.create({
+        log_type: newStatus ? 'patrol_start' : 'patrol_end',
+        priority: 'low',
+        title: newStatus ? 'Went on duty' : 'Went off duty',
+        description: `Ranger ${newStatus ? 'started' : 'ended'} duty`,
+        lat: currentLocation.lat,
+        lon: currentLocation.lon,
+      });
+
+      Alert.alert(
+        'Status Updated',
+        `You are now ${newStatus ? 'ON DUTY' : 'OFF DUTY'}${newStatus ? '\n\nGPS tracking activated - your location will be shared every 5 minutes' : ''}`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      Alert.alert('Error', 'Failed to update duty status: ' + error.message);
+      setOnDutyStatus(!newStatus); // Revert
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   const stats = [
@@ -36,6 +154,33 @@ const ProfileScreen = () => {
     { id: 'help', title: 'Help & Support', icon: 'help-circle' },
     { id: 'about', title: 'About', icon: 'information' },
   ];
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Sign Out', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('Starting logout...');
+              // Call auth service logout (clears storage and notifies backend)
+              await authService.logout();
+              console.log('Logout successful, navigating to SignIn...');
+              // Navigate to sign in screen with replace to clear navigation stack
+              router.replace('/screens/auth/SignInScreen');
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to sign out. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -57,6 +202,12 @@ const ProfileScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {loading && (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={BRAND_COLORS.PRIMARY} />
+          </View>
+        )}
+        
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
@@ -79,6 +230,33 @@ const ProfileScreen = () => {
               <Text style={styles.statLabel}>{stat.label}</Text>
             </View>
           ))}
+        </View>
+
+        {/* Duty Status Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Duty Status</Text>
+          
+          <View style={[styles.settingRow, styles.dutyStatusRow]}>
+            <View style={styles.dutyStatusInfo}>
+              <Text style={styles.dutyStatusLabel}>
+                {onDutyStatus ? 'ON DUTY' : 'OFF DUTY'}
+              </Text>
+              <Text style={styles.dutyStatusSubtext}>
+                {onDutyStatus ? 'Currently active in the field' : 'Not currently on patrol'}
+              </Text>
+            </View>
+            {updatingStatus ? (
+              <ActivityIndicator size="small" color={BRAND_COLORS.PRIMARY} />
+            ) : (
+              <Switch
+                value={onDutyStatus}
+                onValueChange={toggleDutyStatus}
+                trackColor={{ false: '#d1d5db', true: '#10b981' }}
+                thumbColor={onDutyStatus ? '#059669' : '#9ca3af'}
+                disabled={!rangerProfile}
+              />
+            )}
+          </View>
         </View>
 
         {/* Settings Section */}
@@ -121,7 +299,7 @@ const ProfileScreen = () => {
         {/* Sign Out Button */}
         <TouchableOpacity 
           style={styles.signOutButton}
-          onPress={() => router.push('/screens/auth/SignInScreen')}
+          onPress={handleLogout}
         >
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
@@ -273,6 +451,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: BRAND_COLORS.TEXT,
+  },
+  dutyStatusRow: {
+    backgroundColor: BRAND_COLORS.SURFACE,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#10b981',
+  },
+  dutyStatusInfo: {
+    flex: 1,
+  },
+  dutyStatusLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
+    marginBottom: 4,
+  },
+  dutyStatusSubtext: {
+    fontSize: 13,
+    color: BRAND_COLORS.TEXT_SECONDARY,
   },
   menuItem: {
     backgroundColor: BRAND_COLORS.SURFACE,

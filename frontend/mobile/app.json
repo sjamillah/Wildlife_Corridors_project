@@ -70,7 +70,9 @@
       "router": {},
       "eas": {
         "projectId": "d51b5b66-0676-476d-bb34-37e51bcf13d6"
-      }
+      },
+      "apiUrl": "https://wildlife-project-backend.onrender.com",
+      "environment": "production"
     },
     "owner": "jammy-b",
     "runtimeVersion": {
