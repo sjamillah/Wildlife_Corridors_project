@@ -75,9 +75,7 @@
       "environment": "production"
     },
     "owner": "jammy-b",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/d51b5b66-0676-476d-bb34-37e51bcf13d6"
     }

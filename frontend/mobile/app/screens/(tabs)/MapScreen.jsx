@@ -18,6 +18,7 @@ import SmartMap from '../../../components/maps/SmartMap';
 import { LogoHeader } from '../../../components/ui/LogoHeader';
 import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
 import { animals as animalsService, tracking, corridors as corridorsService, predictions } from '../../services';
+import { useWebSocket } from '../../hooks';
 
 const MapScreen = () => {
   const [selectedAnimal, setSelectedAnimal] = useState(null);
@@ -26,8 +27,32 @@ const MapScreen = () => {
   const [showAnimalPanel, setShowAnimalPanel] = useState(false);
   const [showMLPanel, setShowMLPanel] = useState(false);
   
+  // WebSocket integration for real-time updates
+  const { 
+    animals: wsAnimals, 
+    isConnected, 
+    connectionStatus,
+    alerts: wsAlerts,
+    lastUpdate,
+    animalPaths 
+  } = useWebSocket({
+    autoConnect: true,
+    onAlert: (alert) => {
+      // Show notification for alerts with icon and severity
+      const alertTitle = alert.icon + ' ' + (alert.severity === 'critical' || alert.severity === 'high' ? 'CRITICAL ALERT' : 'Wildlife Alert');
+      Alert.alert(
+        alertTitle,
+        `${alert.animalName || 'Unknown animal'}\n${alert.message || 'Alert received'}`,
+        [{ text: 'OK' }],
+        { cancelable: false }
+      );
+    },
+    onPositionUpdate: (data) => {
+      console.log('Position update received:', data.animals?.length || 0, 'animals');
+    }
+  });
+  
   // Data states
-  const [animals, setAnimals] = useState([]);
   const [corridors, setCorridors] = useState([]);
   const [animalPredictions, setAnimalPredictions] = useState({});
   const [riskZones, setRiskZones] = useState([]);
@@ -41,12 +66,71 @@ const MapScreen = () => {
   const [showCorridors, setShowCorridors] = useState(true);
   const [showMyLocation, setShowMyLocation] = useState(true);
 
-  // Fetch animals from backend
+  // Transform WebSocket animals to display format
+  const [animals, setAnimals] = useState([]);
+  
   useEffect(() => {
-    fetchAnimals();
-    const interval = setInterval(fetchAnimals, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
+    if (wsAnimals && wsAnimals.length > 0) {
+      const transformedAnimals = wsAnimals.map(animal => {
+        const activity = animal.movement?.activity_type || animal.behavior_state || 'Unknown';
+        const riskLevel = animal.risk_level || 'Low';
+        const speed = animal.movement?.speed_kmh || animal.speed || 0;
+        
+        // Determine marker color based on state
+        let markerColor = STATUS_COLORS.SUCCESS; // Default green
+        if (riskLevel === 'High' || riskLevel === 'critical' || riskLevel === 'high') {
+          markerColor = STATUS_COLORS.ERROR; // Red for danger
+        } else if (activity === 'resting' || activity === 'feeding' || speed < 1) {
+          markerColor = STATUS_COLORS.WARNING; // Yellow for resting
+        }
+        
+        // Get alert icon if animal has recent alerts
+        const recentAlert = wsAlerts.find(alert => 
+          alert.animalId === animal.id && 
+          (Date.now() - new Date(alert.timestamp).getTime()) < 300000 // Within last 5 minutes
+        );
+        
+        return {
+          id: animal.id || animal.collar_id,
+          species: animal.species,
+          name: animal.name,
+          status: animal.status === 'active' ? 'Active' : 'Inactive',
+          location: animal.current_position?.location_name || animal.last_known_location || 'Unknown',
+          coordinates: {
+            lat: animal.current_position?.lat || animal.last_lat || 0,
+            lng: animal.current_position?.lon || animal.last_lon || 0
+          },
+          battery: animal.collar_battery || 0,
+          lastSeen: animal.last_updated || animal.last_seen || 'Unknown',
+          risk: riskLevel,
+          icon: animal.species?.toLowerCase().includes('elephant') ? '🐘' : 
+                animal.species?.toLowerCase().includes('wildebeest') ? '🦬' : 
+                animal.species?.toLowerCase().includes('lion') ? '🦁' : '🦏',
+          speed: speed,
+          health: animal.health_status || 'Good',
+          behavior: activity,
+          markerColor: markerColor,
+          pathColor: animal.pathColor || markerColor,
+          alertIcon: recentAlert?.icon || null,
+          hasAlert: !!recentAlert,
+          alertSeverity: recentAlert?.severity || null,
+          // Add path data
+          path: animalPaths[animal.id] || [],
+        };
+      });
+      setAnimals(transformedAnimals);
+      setLoading(false);
+    }
+  }, [wsAnimals, wsAlerts, animalPaths]);
+
+  // Fallback: Fetch animals from REST API if WebSocket is not connected
+  useEffect(() => {
+    if (!isConnected) {
+      fetchAnimals();
+      const interval = setInterval(fetchAnimals, 30000); // Refresh every 30s
+      return () => clearInterval(interval);
+    }
+  }, [isConnected]);
 
   // Fetch corridors
   useEffect(() => {
@@ -224,7 +308,19 @@ const MapScreen = () => {
       
       {/* Header with Ranger Tools */}
       <View style={styles.header}>
-        <LogoHeader title="Field Map" />
+        <View style={styles.headerLeft}>
+          <LogoHeader title="Field Map" />
+          {/* WebSocket Connection Status */}
+          <View style={styles.connectionStatus}>
+            <View style={[
+              styles.connectionDot, 
+              { backgroundColor: isConnected ? STATUS_COLORS.SUCCESS : STATUS_COLORS.WARNING }
+            ]} />
+            <Text style={styles.connectionText}>
+              {isConnected ? 'Live' : 'Offline'}
+            </Text>
+          </View>
+        </View>
         <View style={styles.headerActions}>
           {/* SOS Button */}
           <TouchableOpacity 
@@ -329,10 +425,20 @@ const MapScreen = () => {
             return (
               <TouchableOpacity
                 key={animal.id}
-                style={styles.animalCard}
+                style={[
+                  styles.animalCard,
+                  animal.hasAlert && { borderLeftWidth: 4, borderLeftColor: animal.markerColor }
+                ]}
                 onPress={() => handleTrackAnimal(animal)}
               >
-                <Text style={styles.animalIcon}>{animal.icon}</Text>
+                <View style={styles.animalIconContainer}>
+                  <Text style={styles.animalIcon}>{animal.icon}</Text>
+                  {animal.hasAlert && animal.alertIcon && (
+                    <View style={[styles.alertBadge, { backgroundColor: animal.markerColor }]}>
+                      <Text style={styles.alertIcon}>{animal.alertIcon}</Text>
+                    </View>
+                  )}
+                </View>
                 <View style={styles.animalInfo}>
                   <View style={styles.animalHeader}>
                     <Text style={styles.animalName}>{animal.name}</Text>
@@ -340,11 +446,14 @@ const MapScreen = () => {
                       <Text style={[styles.riskText, { color: riskStyle.color }]}>{animal.risk}</Text>
                     </View>
                   </View>
-                  <Text style={styles.animalSpecies}>{animal.species}</Text>
+                  <Text style={styles.animalSpecies}>
+                    {animal.species} • {animal.behavior}
+                  </Text>
                   <View style={styles.animalMeta}>
+                    <View style={[styles.statusDot, { backgroundColor: animal.markerColor }]} />
                     <Text style={styles.metaText}>{animal.location}</Text>
                     <Text style={styles.metaDot}>•</Text>
-                    <Text style={styles.metaText}>{animal.lastSeen}</Text>
+                    <Text style={styles.metaText}>{animal.speed.toFixed(1)} km/h</Text>
                   </View>
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={BRAND_COLORS.TEXT_SECONDARY} />
@@ -529,6 +638,30 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: BRAND_COLORS.PRIMARY,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  connectionText: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 11,
+    fontWeight: '600',
+  },
   headerActions: {
     flexDirection: 'row',
     gap: 8,
@@ -673,9 +806,33 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
   },
+  animalIconContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
   animalIcon: {
     fontSize: 32,
-    marginRight: 12,
+  },
+  alertBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: BRAND_COLORS.SURFACE,
+  },
+  alertIcon: {
+    fontSize: 10,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
   },
   animalInfo: {
     flex: 1,

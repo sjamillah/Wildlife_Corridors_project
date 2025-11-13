@@ -2,4 +2,5 @@
 export { useAuth } from './useAuth';
 export { useAnimals, useLiveStatus } from './useAnimals';
 export { useSync } from './useSync';
+export { useWebSocket } from './useWebSocket';
 

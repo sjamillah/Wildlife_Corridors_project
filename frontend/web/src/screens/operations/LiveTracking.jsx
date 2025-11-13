@@ -1,12 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Plus, Wifi, Settings } from '@/components/shared/Icons';
-import Sidebar from '../../components/shared/Sidebar';
-import { COLORS, rgba } from '../../constants/Colors';
-import { rangers as rangersService, animals as animalsService } from '../../services';
+import Sidebar from '@/components/shared/Sidebar';
+import { COLORS, rgba } from '@/constants/Colors';
+import { rangers as rangersService, animals as animalsService } from '@/services';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 const LiveTracking = () => {
   const navigate = useNavigate();
+  
+  // WebSocket integration for real-time updates
+  const { 
+    animals: wsAnimals, 
+    isConnected,
+    alerts: wsAlerts
+  } = useWebSocket({
+    autoConnect: true,
+    onAlert: (alert) => {
+      console.log('Alert received:', alert);
+      // Show browser notification if supported
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(
+          alert.icon + ' ' + (alert.severity === 'critical' || alert.severity === 'high' ? 'CRITICAL ALERT' : 'Wildlife Alert'),
+          {
+            body: `${alert.animalName || 'Unknown animal'}\n${alert.message || 'Alert received'}`,
+            icon: '/favicon.webp'
+          }
+        );
+      }
+    },
+    onPositionUpdate: (data) => {
+      console.log('Position update received:', data.animals?.length || 0, 'animals');
+    }
+  });
   
   const [, setSelectedDevice] = useState(null);
   const [devices, setDevices] = useState([]);
@@ -19,44 +45,63 @@ const LiveTracking = () => {
     navigate('/auth');
   };
 
+  // Transform WebSocket animals and fetch rangers
   useEffect(() => {
-    const fetchTrackingData = async () => {
+    const fetchAndMergeData = async () => {
       try {
-        console.log('Fetching live devices (animals + rangers)...');
+        // Fetch rangers data
+        const rangersResponse = await rangersService.getAll().catch(err => {
+          console.log('Rangers fetch error:', err);
+          return { results: [] };
+        });
         
-        const [animalsResponse, rangersResponse] = await Promise.all([
-          animalsService.getAll({ status: 'active' }).catch(err => { 
-            console.log('Animals fetch error:', err);
-            return { results: [] };
-          }),
-          rangersService.getAll().catch(err => {
-            console.log('Rangers fetch error:', err);
-            return { results: [] };
-          })
-        ]);
-        
-        const animalsList = animalsResponse.results || animalsResponse || [];
         const rangersList = rangersResponse.results || rangersResponse || [];
         
-        console.log(`API returned: ${animalsList.length} potential animals, ${rangersList.length} rangers`);
-        
-        const animalDevices = animalsList
+        // Transform WebSocket animals to device format
+        const animalDevices = (wsAnimals || [])
           .filter(animal => animal.status === 'active')
-          .map((animal) => ({
-            id: `animal-${animal.id}`,
-            name: animal.name || `${animal.species} #${animal.collar_id?.slice(0, 8) || animal.id}`,
-            deviceId: animal.collar_id || `COL-${animal.id}`,
-            status: 'Active',
-            battery: animal.collar_battery || 85,
-            signalStrength: animal.signal_strength || 80,
-            lastPing: animal.last_seen ? new Date(animal.last_seen).getTime() : Date.now(),
-            location: animal.last_lat && animal.last_lon ? 
-              `${animal.last_lat.toFixed(4)}°, ${animal.last_lon.toFixed(4)}°` : 
-              animal.last_known_location || 'No GPS Data',
-            type: 'GPS Collar',
-            category: 'animal',
-            species: animal.species || 'Unknown'
-          }));
+          .map((animal) => {
+            const activity = animal.movement?.activity_type || animal.behavior_state || 'unknown';
+            const riskLevel = animal.risk_level || 'low';
+            const speed = animal.movement?.speed_kmh || animal.speed || 0;
+            
+            // Determine status color based on state
+            let deviceStatus = 'Active';
+            if (riskLevel === 'critical' || riskLevel === 'high') {
+              deviceStatus = 'Critical';
+            } else if (riskLevel === 'medium') {
+              deviceStatus = 'Warning';
+            }
+            
+            // Check for recent alerts
+            const recentAlert = wsAlerts.find(alert => 
+              alert.animalId === animal.id && 
+              (Date.now() - new Date(alert.timestamp).getTime()) < 300000 // Within last 5 minutes
+            );
+            
+            return {
+              id: `animal-${animal.id}`,
+              name: animal.name || `${animal.species} #${animal.collar_id?.slice(0, 8) || animal.id}`,
+              deviceId: animal.collar_id || `COL-${animal.id}`,
+              status: deviceStatus,
+              battery: animal.collar_battery || 85,
+              signalStrength: animal.signal_strength || 80,
+              lastPing: animal.last_updated ? new Date(animal.last_updated).getTime() : Date.now(),
+              location: animal.current_position?.lat && animal.current_position?.lon ? 
+                `${animal.current_position.lat.toFixed(4)}°, ${animal.current_position.lon.toFixed(4)}°` : 
+                animal.last_known_location || 'No GPS Data',
+              type: 'GPS Collar',
+              category: 'animal',
+              species: animal.species || 'Unknown',
+              activity: activity,
+              speed: speed,
+              riskLevel: riskLevel,
+              hasAlert: !!recentAlert,
+              alertIcon: recentAlert?.icon || null,
+              alertSeverity: recentAlert?.severity || null,
+              pathColor: animal.pathColor || COLORS.success,
+            };
+          });
 
         const rangerDevices = rangersList.map((ranger) => ({
           id: `ranger-${ranger.id}`,
@@ -77,18 +122,83 @@ const LiveTracking = () => {
         const allDevices = [...animalDevices, ...rangerDevices];
         setDevices(allDevices);
         
-        console.log(`Displaying ${animalDevices.length} active animals + ${rangerDevices.length} rangers (${rangerDevices.filter(r => r.status === 'Active').length} on duty)`);
+        console.log(`Displaying ${animalDevices.length} active animals (via WebSocket) + ${rangerDevices.length} rangers`);
       } catch (err) {
         console.error('Error fetching tracking data:', err);
-        setDevices([]);
       }
     };
 
-    fetchTrackingData();
-    
-    const interval = setInterval(fetchTrackingData, 15000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchAndMergeData();
+  }, [wsAnimals, wsAlerts]);
+
+  // Fallback: If WebSocket is not connected, fetch via REST API
+  useEffect(() => {
+    if (!isConnected) {
+      const fetchTrackingData = async () => {
+        try {
+          console.log('WebSocket disconnected. Fetching via REST API...');
+          
+          const [animalsResponse, rangersResponse] = await Promise.all([
+            animalsService.getAll({ status: 'active' }).catch(err => { 
+              console.log('Animals fetch error:', err);
+              return { results: [] };
+            }),
+            rangersService.getAll().catch(err => {
+              console.log('Rangers fetch error:', err);
+              return { results: [] };
+            })
+          ]);
+          
+          const animalsList = animalsResponse.results || animalsResponse || [];
+          const rangersList = rangersResponse.results || rangersResponse || [];
+          
+          const animalDevices = animalsList
+            .filter(animal => animal.status === 'active')
+            .map((animal) => ({
+              id: `animal-${animal.id}`,
+              name: animal.name || `${animal.species} #${animal.collar_id?.slice(0, 8) || animal.id}`,
+              deviceId: animal.collar_id || `COL-${animal.id}`,
+              status: 'Active',
+              battery: animal.collar_battery || 85,
+              signalStrength: animal.signal_strength || 80,
+              lastPing: animal.last_seen ? new Date(animal.last_seen).getTime() : Date.now(),
+              location: animal.last_lat && animal.last_lon ? 
+                `${animal.last_lat.toFixed(4)}°, ${animal.last_lon.toFixed(4)}°` : 
+                animal.last_known_location || 'No GPS Data',
+              type: 'GPS Collar',
+              category: 'animal',
+              species: animal.species || 'Unknown'
+            }));
+
+          const rangerDevices = rangersList.map((ranger) => ({
+            id: `ranger-${ranger.id}`,
+            name: ranger.name || ranger.user_name || `Ranger #${ranger.id}`,
+            deviceId: ranger.badge_number || `BADGE-${ranger.id}`,
+            status: ranger.current_status === 'on_duty' ? 'Active' : 'Offline',
+            battery: 100,
+            signalStrength: ranger.current_status === 'on_duty' ? 95 : 0,
+            lastPing: ranger.last_active ? new Date(ranger.last_active).getTime() : Date.now(),
+            location: ranger.last_lat && ranger.last_lon ? 
+              `${ranger.last_lat.toFixed(4)}°, ${ranger.last_lon.toFixed(4)}°` : 
+              'No GPS Data',
+            type: 'Ranger Device',
+            category: 'ranger',
+            team: ranger.team_name || 'Unassigned'
+          }));
+          
+          const allDevices = [...animalDevices, ...rangerDevices];
+          setDevices(allDevices);
+        } catch (err) {
+          console.error('Error fetching tracking data:', err);
+          setDevices([]);
+        }
+      };
+
+      fetchTrackingData();
+      const interval = setInterval(fetchTrackingData, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [isConnected]);
 
   const formatTimeSince = (timestamp) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -162,9 +272,16 @@ const LiveTracking = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* WebSocket Connection Status */}
             <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '8px 16px', borderRadius: '6px', color: 'white', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS.success, animation: 'pulse 2s ease-in-out infinite' }}></div>
-              Live
+              <div style={{ 
+                width: '8px', 
+                height: '8px', 
+                borderRadius: '50%', 
+                background: isConnected ? COLORS.success : COLORS.ochre, 
+                animation: isConnected ? 'pulse 2s ease-in-out infinite' : 'none' 
+              }}></div>
+              {isConnected ? 'Live (WebSocket)' : 'Offline (REST API)'}
             </div>
             <button style={{ 
               background: 'transparent', 
@@ -411,6 +528,7 @@ const LiveTracking = () => {
                   style={{
                     background: COLORS.whiteCard,
                     border: `1px solid ${COLORS.borderLight}`,
+                    borderLeft: device.hasAlert ? `4px solid ${accentColor}` : `1px solid ${COLORS.borderLight}`,
                     borderRadius: '10px',
                     padding: '20px',
                     position: 'relative',
@@ -453,12 +571,30 @@ const LiveTracking = () => {
                       }}>
                         <Wifi className="w-6 h-6" style={{ color: COLORS.textPrimary }} />
                       </div>
-                      <div>
-                        <div style={{ fontSize: '15px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '2px' }}>
-                          {device.name}
+                      <div style={{ position: 'relative' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '2px' }}>
+                            {device.name}
+                          </div>
+                          {device.hasAlert && device.alertIcon && (
+                            <span style={{
+                              fontSize: '14px',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: accentColor,
+                              color: 'white',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              {device.alertIcon}
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '12px', fontWeight: 500, color: COLORS.textSecondary }}>
                           {device.deviceId} {device.category === 'animal' && device.species && `• ${device.species}`}
+                          {device.category === 'animal' && device.activity && ` • ${device.activity}`}
+                          {device.category === 'animal' && device.speed > 0 && ` • ${device.speed.toFixed(1)} km/h`}
                           {device.category === 'ranger' && device.team && `• ${device.team}`}
                         </div>
                       </div>
