@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, MapPin, Clock, Route, CheckCircle, AlertTriangle, Search, Navigation, X, Play, Square, Plus, Trash2, Edit } from '@/components/shared/Icons';
+import { Users, MapPin, Clock, Route, CheckCircle, AlertTriangle, Search, Navigation, X, Play, Square, Plus, Trash2 } from '@/components/shared/Icons';
 import Sidebar from '../../components/shared/Sidebar';
 import MapComponent from '@/components/shared/MapComponent';
 import { COLORS } from '../../constants/Colors';
