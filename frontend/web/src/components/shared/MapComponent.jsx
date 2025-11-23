@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, Tooltip, Rectangle, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, Polygon, Tooltip, Rectangle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { COLORS } from '../../constants/Colors';
 import ReactDOMServer from 'react-dom/server';
-import { MapPin, Shield, AlertTriangle, ANIMAL_ICONS } from './Icons';
+import { MapPin, Shield, AlertTriangle, Battery, Signal, Activity, Clock, Users, AlertCircle, AlertOctagon, Siren, Flame, ANIMAL_ICONS } from './Icons';
 
 const MovementTrailLayer = ({ trail, isPlaying, onComplete }) => {
   const map = useMap();
@@ -179,29 +179,49 @@ const AnimatedMarker = ({ marker, icon, children }) => {
   const [currentPosition, setCurrentPosition] = useState(marker.position);
   const animationRef = useRef(null);
   const wobbleRef = useRef(null);
+  const lastPositionRef = useRef(marker.position);
 
   useEffect(() => {
-    const activityType = marker.activityType;
-    const speed = marker.speed || 0;
+    const activityType = marker.activityType || marker.movement?.activity_type || 'unknown';
+    const speed = marker.speed || marker.movement?.speed_kmh || 0;
     const predictedPosition = marker.predictedPosition;
     const showAnimalMovement = marker.showAnimalMovement !== false;
+    const isResting = marker.isResting || activityType === 'resting';
+    const shouldAnimate = marker.shouldAnimate || (activityType === 'moving' && speed > 2);
+    const shouldWobble = marker.shouldWobble || activityType === 'feeding';
 
     if (animationRef.current) clearInterval(animationRef.current);
     if (wobbleRef.current) clearInterval(wobbleRef.current);
+
+    // RESTING: No animation, only update if position changed significantly (>100m)
+    if (isResting) {
+      const distance = Math.sqrt(
+        Math.pow(marker.position[0] - lastPositionRef.current[0], 2) + 
+        Math.pow(marker.position[1] - lastPositionRef.current[1], 2)
+      ) * 111; // Convert to km
+      
+      if (distance > 0.1) { // >100m
+        // Position changed significantly - snap to new position (no animation)
+        setCurrentPosition(marker.position);
+        lastPositionRef.current = marker.position;
+        console.log(`⏸️ [RESTING] ${marker.title} - Position updated (no animation):`, marker.position);
+      }
+      // Otherwise, keep static position
+      return;
+    }
 
     const isDifferentPosition = predictedPosition && 
       (Math.abs(predictedPosition[0] - marker.position[0]) > 0.00001 || 
        Math.abs(predictedPosition[1] - marker.position[1]) > 0.00001);
 
-    console.log(`🔍 [MAP ANIMATION CHECK] ${marker.title}:`, {
-      activityType,
-      speed,
-      isDifferentPosition,
-      showAnimalMovement,
-      willTriggerAnimation: showAnimalMovement && activityType === 'moving' && speed > 2 && isDifferentPosition
-    });
-
-    if (showAnimalMovement && activityType === 'moving' && speed > 2 && isDifferentPosition) {
+    // MOVING: Smooth animation (if speed > 2 km/h and positions are different)
+    // Also check if marker explicitly says it should animate
+    const shouldActuallyAnimate = showAnimalMovement && 
+                                  (shouldAnimate || (activityType === 'moving' && speed > 2)) && 
+                                  isDifferentPosition &&
+                                  !isResting;
+    
+    if (shouldActuallyAnimate) {
       console.log(`🏃 [ANIMATION] ${marker.title} - MOVING animation started:`, {
         current: marker.position,
         predicted: predictedPosition,
@@ -212,7 +232,7 @@ const AnimatedMarker = ({ marker, icon, children }) => {
         ) * 111
       });
       const steps = 50;
-      const duration = 5000;
+      const duration = 3000; // 3 seconds (matches backend update interval)
       const interval = duration / steps;
       
       const startLat = marker.position[0];
@@ -225,6 +245,7 @@ const AnimatedMarker = ({ marker, icon, children }) => {
         step++;
         if (step >= steps) {
           setCurrentPosition(predictedPosition);
+          lastPositionRef.current = predictedPosition;
           clearInterval(animationRef.current);
           console.log(`✅ [ANIMATION] ${marker.title} - COMPLETED movement to [${predictedPosition[0].toFixed(4)}, ${predictedPosition[1].toFixed(4)}]`);
           return;
@@ -236,11 +257,12 @@ const AnimatedMarker = ({ marker, icon, children }) => {
         setCurrentPosition([newLat, newLon]);
       }, interval);
       
-    } else if (activityType === 'feeding' && speed > 0.5 && speed <= 2) {
+    } else if (shouldWobble && activityType === 'feeding') {
+      // FEEDING: Slight random movement (~50-100m radius)
       console.log(`🌿 [ANIMATION] ${marker.title} - FEEDING wobble started`);
       const baseLat = marker.position[0];
       const baseLon = marker.position[1];
-      const wobbleRadius = 0.0005;
+      const wobbleRadius = 0.0008; // ~50-100m radius
       
       wobbleRef.current = setInterval(() => {
         const angle = Math.random() * 2 * Math.PI;
@@ -248,25 +270,19 @@ const AnimatedMarker = ({ marker, icon, children }) => {
         const newLat = baseLat + distance * Math.cos(angle);
         const newLon = baseLon + distance * Math.sin(angle);
         setCurrentPosition([newLat, newLon]);
-      }, 2000);
+      }, 2000); // Update every 2 seconds for feeding
       
     } else {
-      if (speed > 2 && activityType === 'moving') {
-        console.log(`⚠️ [ANIMATION] ${marker.title} - NOT animating:`, {
-          current: marker.position,
-          predicted: predictedPosition,
-          isDifferent: isDifferentPosition,
-          reason: !isDifferentPosition ? 'Predicted position same as current' : 'Unknown'
-        });
-      }
+      // No animation - just update position (for low speed moving or unknown)
       setCurrentPosition(marker.position);
+      lastPositionRef.current = marker.position;
     }
 
     return () => {
       if (animationRef.current) clearInterval(animationRef.current);
       if (wobbleRef.current) clearInterval(wobbleRef.current);
     };
-  }, [marker.position, marker.predictedPosition, marker.activityType, marker.speed, marker.title, marker.showAnimalMovement]);
+  }, [marker.position, marker.predictedPosition, marker.activityType, marker.speed, marker.title, marker.showAnimalMovement, marker.isResting, marker.shouldAnimate, marker.shouldWobble, marker.movement?.activity_type, marker.movement?.speed_kmh]);
 
   const isMoving = marker.activityType === 'moving' && marker.speed > 2;
   const showMovement = marker.showAnimalMovement !== false;
@@ -286,7 +302,8 @@ const AnimatedMarker = ({ marker, icon, children }) => {
           }}
         />
       )}
-    <Marker position={currentPosition} icon={icon}>
+      
+    <Marker position={currentPosition} icon={icon} zIndexOffset={200}>
       {children}
     </Marker>
     </>
@@ -336,27 +353,49 @@ const isValidPath = (path) => {
          path.every(isValidCoordinate);
 };
 
-const PredictedPath = ({ path, confidence, model, color }) => {
+// Zoom-aware predicted path component
+const ZoomAwarePredictedPath = ({ path, confidence, model, color }) => {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+  
+  useEffect(() => {
+    const updateZoom = () => setZoom(map.getZoom());
+    map.on('zoomend', updateZoom);
+    return () => map.off('zoomend', updateZoom);
+  }, [map]);
+  
   if (!path || path.length < 2 || !isValidPath(path)) return null;
-  const opacity = Math.max(0.3, confidence || 0.5);
+  
+  // Enhanced visibility: higher opacity for movement paths
+  const opacity = Math.max(0.8, confidence || 0.8);
   const dashArray = model === 'BBMM' ? '10, 10' : '5, 15';
+  
+  // Enhanced visibility: thicker lines for movement paths
+  const backgroundWeight = zoom < 7 ? 14 : zoom < 9 ? 12 : 8;
+  const foregroundWeight = zoom < 7 ? 8 : zoom < 9 ? 7 : 5;
+  
+  // Arrow marker at the end for direction indication
+  const endPoint = path[path.length - 1];
+  const secondLastPoint = path[path.length - 2];
   
   return (
     <>
+      {/* Background shadow line */}
       <Polyline
         positions={path}
         pathOptions={{
           color: color,
-          weight: 6,
-          opacity: opacity * 0.3,
+          weight: backgroundWeight,
+          opacity: opacity * 0.4,
           dashArray: dashArray
         }}
       />
+      {/* Main foreground line */}
       <Polyline
         positions={path}
         pathOptions={{
           color: color,
-          weight: 3,
+          weight: foregroundWeight,
           opacity: opacity,
           dashArray: dashArray
         }}
@@ -370,38 +409,201 @@ const PredictedPath = ({ path, confidence, model, color }) => {
           </div>
         </Tooltip>
       </Polyline>
+      
+      {/* Direction indicator at end point (visible at low zoom) */}
+      {zoom < 9 && endPoint && secondLastPoint && (
+        <Marker
+          position={endPoint}
+          icon={L.divIcon({
+            html: `
+              <div style="
+                width: ${zoom < 7 ? 16 : 12}px;
+                height: ${zoom < 7 ? 16 : 12}px;
+                background: ${color};
+                border: 2px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+              "></div>
+            `,
+            className: 'prediction-end-marker',
+            iconSize: [zoom < 7 ? 16 : 12, zoom < 7 ? 16 : 12],
+            iconAnchor: [(zoom < 7 ? 16 : 12) / 2, (zoom < 7 ? 16 : 12) / 2]
+          })}
+        />
+      )}
     </>
   );
 };
 
-const RiskHeatmapPoint = ({ position, intensity, type }) => {
-  const color = type === 'poaching' ? COLORS.error : COLORS.warning;
-  const radius = 2000 + (intensity * 8000);
+const PredictedPath = ({ path, confidence, model, color }) => {
+  return (
+    <ZoomAwarePredictedPath
+      path={path}
+      confidence={confidence}
+      model={model}
+      color={color}
+    />
+  );
+};
+
+// Component to get current zoom level for dynamic sizing
+const ZoomAwareRiskHeatmapPoint = ({ position, intensity, type, suitability, status, message }) => {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+  
+  useEffect(() => {
+    const updateZoom = () => setZoom(map.getZoom());
+    map.on('zoomend', updateZoom);
+    return () => map.off('zoomend', updateZoom);
+  }, [map]);
+  
+  // Color based on type and suitability
+  let color = COLORS.warning;
+  let iconSymbol = '⚠';
+  let labelText = '';
+  
+  if (type === 'habitat') {
+    // Habitat suitability colors
+    if (suitability === 'high') {
+      color = COLORS.success; // Green for high suitability
+      iconSymbol = '✓';
+      labelText = 'HIGH';
+    } else if (suitability === 'medium') {
+      color = COLORS.ochre; // Yellow/Orange for medium
+      iconSymbol = '⚠';
+      labelText = 'MED';
+    } else if (suitability === 'low') {
+      color = COLORS.error; // Red for low
+      iconSymbol = '✗';
+      labelText = 'LOW';
+    } else {
+      color = '#6B7280'; // Gray for unknown/fallback
+      iconSymbol = '?';
+      labelText = 'UNK';
+    }
+  } else if (type === 'poaching') {
+    color = COLORS.error; // Red for poaching risk
+    iconSymbol = '⚠';
+    labelText = 'RISK';
+  }
+  
+  // Zoom-based sizing: larger at lower zoom levels for better visibility
+  const baseRadius = 2000 + (intensity * 8000);
+  const zoomMultiplier = zoom < 7 ? 1.5 : zoom < 9 ? 1.2 : 1.0; // Larger at low zoom
+  const radius = baseRadius * zoomMultiplier;
+  
+  const isFallback = status === 'fallback' || status === 'error';
+  
+  // Increased opacity for better visibility
+  const fillOpacity = Math.max(0.7, Math.min(0.95, 0.6 + (intensity * 0.35)));
+  const strokeOpacity = Math.max(0.9, Math.min(1.0, 0.8 + (intensity * 0.2)));
+  
+  // Thicker borders at lower zoom levels
+  const borderWeight = zoom < 7 ? 5 : zoom < 9 ? 4 : (isFallback ? 3 : 2);
+  
+  // Icon size based on zoom
+  const iconSize = zoom < 7 ? 32 : zoom < 9 ? 24 : 20;
   
   return (
-    <Circle
-      center={position}
-      radius={radius}
-      pathOptions={{
-        color: color,
-        fillColor: color,
-        fillOpacity: intensity * 0.4,
-        weight: 1,
-        opacity: intensity * 0.6
-      }}
-    >
-      <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent={false}>
-        <div style={{ fontSize: '11px', fontWeight: 600 }}>
-          <div style={{ textTransform: 'capitalize' }}>{type} Risk Zone</div>
-          <div style={{ fontSize: '10px', color: '#6B5E4F', marginTop: '2px' }}>
-            Intensity: {(intensity * 100).toFixed(0)}%
+    <>
+      <Circle
+        center={position}
+        radius={radius}
+        pathOptions={{
+          color: color,
+          fillColor: color,
+          fillOpacity: fillOpacity,
+          weight: borderWeight,
+          opacity: strokeOpacity,
+          dashArray: isFallback ? '8, 8' : undefined
+        }}
+      >
+        <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent={false}>
+          <div style={{ fontSize: '11px', fontWeight: 600 }}>
+            <div style={{ textTransform: 'capitalize' }}>
+              {type === 'habitat' ? 'Habitat Suitability' : `${type} Risk Zone`}
+            </div>
+            {type === 'habitat' && suitability && (
+              <div style={{ fontSize: '10px', color: color, marginTop: '2px', fontWeight: 700 }}>
+                Suitability: {suitability.toUpperCase()}
+              </div>
+            )}
+            <div style={{ fontSize: '10px', color: '#6B5E4F', marginTop: '2px' }}>
+              Score: {(intensity * 100).toFixed(0)}%
+            </div>
+            {isFallback && (
+              <div style={{ fontSize: '9px', color: '#DC2626', marginTop: '2px', fontStyle: 'italic' }}>
+                ⚠️ Fallback (ML unavailable)
+              </div>
+            )}
+            {!isFallback && (
+              <div style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '1px' }}>
+                XGBoost Model
+              </div>
+            )}
           </div>
-          <div style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '1px' }}>
-            XGBoost Model
+        </Tooltip>
+      </Circle>
+      
+      {/* Center icon marker for instant recognition - simplified, no permanent labels */}
+      <Marker
+        position={position}
+        icon={L.divIcon({
+          html: `
+            <div style="
+              width: ${iconSize}px;
+              height: ${iconSize}px;
+              background: ${color};
+              border: 4px solid white;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: ${iconSize * 0.7}px;
+              font-weight: 900;
+              color: white;
+              box-shadow: 0 3px 10px rgba(0,0,0,0.6);
+              text-shadow: 0 2px 3px rgba(0,0,0,0.4);
+            ">${iconSymbol}</div>
+          `,
+          className: 'risk-heatmap-icon',
+          iconSize: [iconSize, iconSize],
+          iconAnchor: [iconSize / 2, iconSize / 2]
+        })}
+      >
+        <Tooltip direction="top" offset={[0, -iconSize / 2 - 5]} opacity={1} permanent={false}>
+          <div style={{ 
+            fontSize: '12px', 
+            fontWeight: 700,
+            color: color,
+            textAlign: 'center',
+            padding: '4px 8px',
+            background: 'white',
+            borderRadius: '6px',
+            border: `2px solid ${color}`,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+          }}>
+            {type === 'habitat' ? `Habitat: ${labelText}` : `${labelText} Zone`}
+            <div style={{ fontSize: '10px', color: '#6B5E4F', marginTop: '2px', fontWeight: 500 }}>
+              Score: {(intensity * 100).toFixed(0)}%
+            </div>
           </div>
-        </div>
-      </Tooltip>
-    </Circle>
+        </Tooltip>
+      </Marker>
+    </>
+  );
+};
+
+const RiskHeatmapPoint = ({ position, intensity, type, suitability, status, message }) => {
+  return (
+    <ZoomAwareRiskHeatmapPoint
+      position={position}
+      intensity={intensity}
+      type={type}
+      suitability={suitability}
+      status={status}
+      message={message}
+    />
   );
 };
 
@@ -430,7 +632,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.webp',
 });
 
-const createCustomIcon = (color, type) => {
+const createCustomIcon = (color, type, alertType = null) => {
   let iconContent;
   
     switch (type) {
@@ -444,8 +646,55 @@ const createCustomIcon = (color, type) => {
       iconContent = ANIMAL_ICONS.WILDLIFE;
         break;
       case 'alert':
+        // Use different icons based on alert_type
+        const IconComponent = (() => {
+          if (!alertType) return AlertTriangle;
+          
+          const alertTypeLower = String(alertType).toLowerCase().replace(/-/g, '_').trim();
+          
+          // Exact matches first (most specific)
+          if (alertTypeLower === 'high_risk_zone' || alertTypeLower === 'risk_zone_entry' || alertTypeLower === 'high_risk_zone_entry') {
+            return AlertTriangle; // High Risk Zone Entry
+          } else if (alertTypeLower === 'poaching_risk' || alertTypeLower === 'poaching' || alertTypeLower === 'potential_poaching_activity') {
+            return Shield; // Poaching Risk
+          } else if (alertTypeLower === 'corridor_exit' || alertTypeLower === 'left_wildlife_corridor' || alertTypeLower === 'left_corridor') {
+            return MapPin; // Corridor Exit
+          } else if (alertTypeLower === 'rapid_movement' || alertTypeLower === 'unusual_movement' || alertTypeLower === 'rapid') {
+            return Activity; // Rapid Movement
+          } else if (alertTypeLower === 'low_battery' || alertTypeLower === 'battery') {
+            return Battery; // Low Battery
+          } else if (alertTypeLower === 'weak_signal' || alertTypeLower === 'signal' || alertTypeLower === 'weak_signal_strength') {
+            return Signal; // Weak Signal
+          } else if (alertTypeLower === 'stationary_too_long' || alertTypeLower === 'stationary') {
+            return Clock; // Stationary Too Long
+          } else if (alertTypeLower === 'unusual_behavior' || alertTypeLower === 'unusual_behavior_detected' || alertTypeLower === 'behavior') {
+            return Activity; // Unusual Behavior
+          }
+          
+          // Partial matches as fallback
+          if (alertTypeLower.includes('risk_zone') || alertTypeLower.includes('high_risk')) {
+            return AlertTriangle;
+          } else if (alertTypeLower.includes('poaching')) {
+            return Shield;
+          } else if (alertTypeLower.includes('corridor') || alertTypeLower.includes('exit')) {
+            return MapPin;
+          } else if (alertTypeLower.includes('movement') || alertTypeLower.includes('rapid')) {
+            return Activity;
+          } else if (alertTypeLower.includes('battery')) {
+            return Battery;
+          } else if (alertTypeLower.includes('signal') || alertTypeLower.includes('weak')) {
+            return Signal;
+          } else if (alertTypeLower.includes('stationary')) {
+            return Clock;
+          } else if (alertTypeLower.includes('behavior')) {
+            return Activity;
+          }
+          
+          return AlertTriangle; // Default
+        })();
+        
         iconContent = ReactDOMServer.renderToString(
-          React.createElement(AlertTriangle, {
+          React.createElement(IconComponent, {
             size: 20,
             color: 'white',
             strokeWidth: 2.5
@@ -453,8 +702,9 @@ const createCustomIcon = (color, type) => {
         );
         break;
       case 'patrol':
+      case 'ranger':
         iconContent = ReactDOMServer.renderToString(
-          React.createElement(Shield, {
+          React.createElement(Users, {
             size: 20,
             color: 'white',
             strokeWidth: 2.5
@@ -468,21 +718,28 @@ const createCustomIcon = (color, type) => {
 
   const isEmoji = !iconContent.startsWith('<');
   
+  // Enhanced visibility for alert markers
+  const isAlert = type === 'alert';
+  const borderWidth = isAlert ? '4px' : '3px';
+  const shadowIntensity = isAlert ? '0 4px 15px rgba(0,0,0,0.6)' : '0 3px 10px rgba(0,0,0,0.4)';
+  const markerSize = isAlert ? '45px' : '40px';
+  
   const iconHtml = `
     <div class="custom-wildlife-marker" style="
-      width: 40px; 
-      height: 40px; 
+      width: ${markerSize}; 
+      height: ${markerSize}; 
       background-color: ${color}; 
-      border: 3px solid white; 
+      border: ${borderWidth} solid white; 
       border-radius: 50%; 
       display: flex; 
       align-items: center; 
       justify-content: center;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+      box-shadow: ${shadowIntensity};
       position: relative;
       cursor: pointer;
       transition: transform 0.2s ease;
       ${isEmoji ? 'font-size: 22px;' : ''}
+      ${isAlert ? 'animation: pulse-alert 2s infinite;' : ''}
     ">
         ${iconContent}
       <div style="
@@ -498,14 +755,22 @@ const createCustomIcon = (color, type) => {
         filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
       "></div>
     </div>
+    ${isAlert ? `
+    <style>
+      @keyframes pulse-alert {
+        0%, 100% { transform: scale(1); box-shadow: ${shadowIntensity}; }
+        50% { transform: scale(1.1); box-shadow: 0 6px 20px rgba(220, 38, 38, 0.8); }
+      }
+    </style>
+    ` : ''}
   `;
   
   return L.divIcon({
     html: iconHtml,
     className: 'custom-marker-wrapper',
-    iconSize: [40, 50],
-    iconAnchor: [20, 40],
-    popupAnchor: [0, -40]
+    iconSize: isAlert ? [45, 55] : [40, 50],
+    iconAnchor: isAlert ? [22.5, 45] : [20, 40],
+    popupAnchor: [0, isAlert ? -45 : -40]
   });
 };
 
@@ -574,6 +839,8 @@ const MapComponent = ({
   showCorridors = false,
   showRiskZones = false,
   showPredictions = false,
+  showBehaviorStates = true, // Control behavior state glows
+  showEnvironment = false, // Control environment/risk heatmap
   showRangerPatrols = false,
   showAnimalMovement = true,
   season = null,
@@ -607,7 +874,128 @@ const MapComponent = ({
   const defaultMarkers = [];
 
   const rawMarkers = markers.length > 0 ? markers : defaultMarkers;
-  const displayMarkers = rawMarkers.filter(m => {
+  
+  // Separate alerts from animals and STRICTLY deduplicate by ID
+  const animalMarkers = rawMarkers.filter(m => m.type !== 'alert');
+  const allAlertMarkers = rawMarkers.filter(m => m.type === 'alert');
+  
+  // STRICT deduplication: Use alert ID, or create unique ID from position + timestamp
+  const alertMap = new Map();
+  const seenPositions = new Set();
+  
+  allAlertMarkers.forEach(alert => {
+    // Create unique ID: prefer alert.id, fallback to position + timestamp
+    let alertId = alert.id;
+    if (!alertId && alert.position && Array.isArray(alert.position) && alert.position.length === 2) {
+      const posKey = `${alert.position[0].toFixed(6)}-${alert.position[1].toFixed(6)}`;
+      const timestamp = alert.timestamp || alert.created_at || alert.detected_at || Date.now();
+      alertId = `${posKey}-${timestamp}`;
+    }
+    
+    // Only add if we haven't seen this exact alert before
+    if (alertId && !alertMap.has(alertId)) {
+      alertMap.set(alertId, { ...alert, _uniqueId: alertId });
+    } else if (!alertId) {
+      // Fallback: use position only if no ID available
+      const posKey = alert.position && Array.isArray(alert.position) && alert.position.length === 2
+        ? `${alert.position[0].toFixed(6)}-${alert.position[1].toFixed(6)}`
+        : `alert-${Math.random()}`;
+      if (!seenPositions.has(posKey)) {
+        seenPositions.add(posKey);
+        alertMap.set(posKey, { ...alert, _uniqueId: posKey });
+      }
+    }
+  });
+  
+  const alertMarkers = Array.from(alertMap.values());
+  
+  // Check which alerts are at the same position as animals (within 100m - more accurate)
+  const getAlertsForAnimal = (animalPos, alertPos) => {
+    if (!animalPos || !Array.isArray(animalPos) || animalPos.length !== 2) return false;
+    if (!alertPos || !Array.isArray(alertPos) || alertPos.length !== 2) return false;
+    
+    // Calculate distance in meters using Haversine formula approximation
+    const latDiff = alertPos[0] - animalPos[0];
+    const lonDiff = alertPos[1] - animalPos[1];
+    const distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff) * 111000; // Convert to meters
+    return distance < 100; // Within 100 meters
+  };
+  
+  // Helper function to calculate offset position for alerts around animals
+  const calculateAlertOffset = (centerPos, index, totalAlerts) => {
+    if (!centerPos || !Array.isArray(centerPos) || centerPos.length !== 2) {
+      return centerPos;
+    }
+    
+    // Small offset to avoid overlap (about 30-50 meters)
+    const baseOffset = 0.0005; // ~55 meters at equator
+    const radius = baseOffset * (1 + Math.floor(index / 4) * 0.3);
+    const angleStep = (2 * Math.PI) / Math.max(4, totalAlerts);
+    const angle = index * angleStep;
+    
+    return [
+      centerPos[0] + radius * Math.cos(angle),
+      centerPos[1] + radius * Math.sin(angle)
+    ];
+  };
+  
+  // Separate alerts into: attached to animals vs standalone (NO DUPLICATES)
+  const attachedAlertIds = new Set(); // Track which alert IDs are attached
+  const standaloneAlerts = [];
+  const offsetAlertMarkers = [];
+  
+  // Process alerts: attach to animals OR standalone (NEVER BOTH)
+  // Use consistent ID calculation throughout
+  alertMarkers.forEach(alert => {
+    if (!alert.position || !Array.isArray(alert.position) || alert.position.length !== 2) return;
+    
+    // Get consistent unique ID (use the one we set during deduplication)
+    const alertId = alert._uniqueId || alert.id || `${alert.position[0].toFixed(6)}-${alert.position[1].toFixed(6)}`;
+    
+    // Check if this alert is near any animal
+    let isNearAnimal = false;
+    let nearestAnimal = null;
+    let minDistance = Infinity;
+    
+    animalMarkers.forEach(animal => {
+      if (!animal.position || !Array.isArray(animal.position) || animal.position.length !== 2) return;
+      
+      if (getAlertsForAnimal(animal.position, alert.position)) {
+        const distance = Math.sqrt(
+          Math.pow(alert.position[0] - animal.position[0], 2) + 
+          Math.pow(alert.position[1] - animal.position[1], 2)
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestAnimal = animal;
+          isNearAnimal = true;
+        }
+      }
+    });
+    
+    // If near an animal, add as offset marker (ONLY ONCE)
+    if (isNearAnimal && nearestAnimal && !attachedAlertIds.has(alertId)) {
+      attachedAlertIds.add(alertId);
+      
+      // Count existing alerts for this animal
+      const existingAlerts = offsetAlertMarkers.filter(m => m.animalId === nearestAnimal.id);
+      const offsetPos = calculateAlertOffset(nearestAnimal.position, existingAlerts.length, existingAlerts.length + 1);
+      
+      offsetAlertMarkers.push({
+        ...alert,
+        _uniqueId: alertId,
+        position: offsetPos,
+        animalPosition: nearestAnimal.position,
+        animalId: nearestAnimal.id,
+        animalName: nearestAnimal.title || nearestAnimal.name
+      });
+    } else if (!isNearAnimal && !attachedAlertIds.has(alertId)) {
+      // Not near any animal, add as standalone (ONLY if not already attached)
+      standaloneAlerts.push({ ...alert, _uniqueId: alertId });
+    }
+  });
+  
+  const displayMarkers = animalMarkers.filter(m => {
     const type = (m.type || 'wildlife').toLowerCase();
     if (type.includes('elephant')) return visibleSpecies.elephant;
     if (type.includes('zebra')) return visibleSpecies.zebra;
@@ -620,18 +1008,9 @@ const MapComponent = ({
 
   const displayRoutes = patrolRoutes.length > 0 ? patrolRoutes : defaultPatrolRoutes;
 
-  console.log('[MAP] MapComponent rendering:', {
-    markers: displayMarkers.length,
-    showCorridors: showCorridors,
-    riskZones: riskZones?.length || 0,
-    predictedPaths: predictedPaths?.length || 0,
-    center: mapCenter,
-    zoom: mapZoom
-  });
-
   try {
-  return (
-    <div className={`map-container ${className}`}>
+    return (
+      <div className={`map-container ${className}`}>
 
       {/* Map Container */}
       <div style={{ 
@@ -707,28 +1086,47 @@ const MapComponent = ({
           <MapEventHandler onMapClick={onMapClick} showCoordinates={showCoordinates} />
 
           {/* Predicted Movement Paths - BBMM/LSTM Models */}
-          {showPredictions && predictedPaths && Array.isArray(predictedPaths) && predictedPaths.map((prediction, idx) => (
-            <PredictedPath
-              key={`prediction-${idx}`}
-              path={prediction.path}
-              confidence={prediction.confidence}
-              model={prediction.model}
-              color={COLORS.info}
-            />
-          ))}
+          {showPredictions && predictedPaths && Array.isArray(predictedPaths) && predictedPaths.length > 0 && (() => {
+            return predictedPaths.map((prediction, idx) => {
+              if (!prediction.path || prediction.path.length < 2) {
+                return null;
+              }
+              return (
+                <PredictedPath
+                  key={`prediction-${idx}`}
+                  path={prediction.path}
+                  confidence={prediction.confidence}
+                  model={prediction.model}
+                  color={COLORS.info}
+                />
+              );
+            }).filter(Boolean);
+          })()}
 
-          {/* Risk Heatmap - XGBoost Model */}
-          {riskHeatmap && Array.isArray(riskHeatmap) && riskHeatmap.length > 0 && riskHeatmap.filter(risk => risk.position && isValidCoordinate(risk.position)).map((risk, idx) => (
-            <RiskHeatmapPoint
-              key={`risk-${idx}`}
-              position={risk.position}
-              intensity={risk.intensity}
-              type={risk.type}
-            />
-          ))}
+          {/* Risk Heatmap - XGBoost Model (Environment) */}
+          {showEnvironment && riskHeatmap && Array.isArray(riskHeatmap) && riskHeatmap.length > 0 && (() => {
+            return riskHeatmap.filter(risk => {
+              const isValid = risk.position && isValidCoordinate(risk.position);
+              return isValid;
+            }).map((risk, idx) => (
+              <RiskHeatmapPoint
+                key={`risk-${idx}`}
+                position={risk.position}
+                intensity={risk.intensity}
+                type={risk.type}
+                suitability={risk.suitability}
+                status={risk.status}
+                message={risk.message}
+              />
+            ));
+          })()}
 
           {/* Behavioral State Glows - HMM Model */}
-          {behavioralStates && Object.keys(behavioralStates).length > 0 && displayMarkers.filter(marker => marker.position && isValidCoordinate(marker.position)).map((marker) => {
+          {showBehaviorStates && behavioralStates && Object.keys(behavioralStates).length > 0 && displayMarkers.filter(marker => {
+            const hasPosition = marker.position && isValidCoordinate(marker.position);
+            const hasBehaviorState = behavioralStates[marker.id];
+            return hasPosition && hasBehaviorState;
+          }).map((marker) => {
             const behaviorState = behavioralStates[marker.id];
             if (!behaviorState) return null;
             
@@ -809,7 +1207,7 @@ const MapComponent = ({
                 markerColor = '#D84315';
               }
             }
-
+            
             return (
               <AnimatedMarker
                 key={marker.id}
@@ -867,6 +1265,324 @@ const MapComponent = ({
             );
           })}
 
+          {/* Alert Markers with Offset Positions (attached to animals) - Icon-based, human-friendly */}
+          {offsetAlertMarkers.filter(alert => alert.position && isValidCoordinate(alert.position)).map((alert) => {
+            const severity = alert.severity || 'medium';
+            const alertType = alert.alert_type || alert.type || 'general';
+            
+            // Color based on severity
+            let alertColor = '#F59E0B'; // Orange for medium
+            if (severity === 'critical') {
+              alertColor = '#DC2626'; // Red for critical
+            } else if (severity === 'high') {
+              alertColor = '#EA580C'; // Orange-red for high
+            } else if (severity === 'low') {
+              alertColor = '#3B82F6'; // Blue for low
+            }
+            
+            // Choose icon based on alert type - more human and intuitive
+            let AlertIcon = AlertTriangle;
+            let iconSize = 18;
+            
+            if (alertType.includes('emergency') || alertType.includes('emergency_report')) {
+              AlertIcon = Siren;
+              iconSize = 20;
+            } else if (alertType.includes('conflict') || alertType.includes('danger_zone')) {
+              AlertIcon = Flame;
+              iconSize = 19;
+            } else if (alertType.includes('exit') || alertType.includes('corridor')) {
+              AlertIcon = MapPin;
+              iconSize = 18;
+            } else if (alertType.includes('health') || alertType.includes('injury')) {
+              AlertIcon = Activity;
+              iconSize = 18;
+            } else if (alertType.includes('poacher') || alertType.includes('security')) {
+              AlertIcon = Shield;
+              iconSize = 19;
+            } else if (alertType.includes('battery') || alertType.includes('signal')) {
+              AlertIcon = Battery;
+              iconSize = 17;
+            } else if (severity === 'critical') {
+              AlertIcon = AlertOctagon;
+              iconSize = 20;
+            } else if (severity === 'high') {
+              AlertIcon = AlertCircle;
+              iconSize = 19;
+            }
+            
+            // Create simple, clean alert marker - no flickering, minimal design
+            const alertIconHtml = `
+              <div style="display: flex; align-items: center; justify-content: center;">
+                <div style="
+                  width: 28px; 
+                  height: 28px; 
+                  background: ${alertColor}; 
+                  border: 2px solid white; 
+                  border-radius: 50%; 
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: center;
+                  box-shadow: 0 2px 6px ${alertColor}80;
+                  cursor: pointer;
+                ">
+                  ${ReactDOMServer.renderToString(
+                    React.createElement(AlertIcon, {
+                      size: iconSize,
+                      color: 'white',
+                      strokeWidth: 2,
+                      fill: 'none'
+                    })
+                  )}
+                </div>
+              </div>
+            `;
+            
+            const alertId = alert._uniqueId || alert.id || `${alert.position?.[0]?.toFixed(6)}-${alert.position?.[1]?.toFixed(6)}`;
+            return (
+              <Marker
+                key={`alert-offset-${alertId}`}
+                position={alert.position}
+                icon={L.divIcon({
+                  html: alertIconHtml,
+                  className: 'alert-marker-icon-only',
+                  iconSize: [28, 28],
+                  iconAnchor: [14, 14],
+                  popupAnchor: [0, -14]
+                })}
+                zIndexOffset={100}
+              >
+                <Popup maxWidth={300} maxHeight={400}>
+                  <div style={{ padding: '8px', fontFamily: 'system-ui, sans-serif' }}>
+                    <h3 style={{ 
+                      fontSize: '15px', 
+                      fontWeight: 600, 
+                      color: alertColor,
+                      margin: '0 0 12px 0',
+                      borderBottom: `2px solid ${alertColor}`,
+                      paddingBottom: '8px'
+                    }}>
+                      {alert.title || 'Alert'}
+                    </h3>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '90px 1fr', 
+                      gap: '8px',
+                      fontSize: '13px'
+                    }}>
+                      <strong>Severity:</strong>
+                      <span style={{ color: alertColor, fontWeight: 700, textTransform: 'uppercase' }}>
+                        {severity}
+                      </span>
+                      <strong>Type:</strong>
+                      <span style={{ fontSize: '12px', textTransform: 'capitalize', fontWeight: 600 }}>
+                        {alert.alert_type ? alert.alert_type.replace(/_/g, ' ') : 'Alert'}
+                      </span>
+                      {alert.animalName && (
+                        <>
+                          <strong>Animal:</strong>
+                          <span>{alert.animalName}</span>
+                        </>
+                      )}
+                      {alert.conflictZoneName && (
+                        <>
+                          <strong>Conflict Zone:</strong>
+                          <span style={{ fontWeight: 600, color: alertColor }}>{alert.conflictZoneName}</span>
+                        </>
+                      )}
+                      <strong>Location:</strong>
+                      <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>
+                        {alert.position[0].toFixed(4)}, {alert.position[1].toFixed(4)}
+                      </span>
+                      {alert.timestamp && (
+                        <>
+                          <strong>Time:</strong>
+                          <span style={{ fontSize: '11px', color: '#6B7280' }}>
+                            {new Date(alert.timestamp).toLocaleString()}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {(alert.description || alert.message) && (
+                      <div style={{ 
+                        marginTop: '12px', 
+                        padding: '10px',
+                        background: '#F9FAFB',
+                        borderRadius: '6px',
+                        fontSize: '12px', 
+                        color: '#374151',
+                        borderLeft: `3px solid ${alertColor}`
+                      }}>
+                        <strong style={{ display: 'block', marginBottom: '4px', color: alertColor }}>
+                          Description:
+                        </strong>
+                        {alert.description || alert.message}
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {/* Standalone Alert Markers (not attached to animals) - Icon-based, human-friendly */}
+          {standaloneAlerts.filter(alert => alert.position && isValidCoordinate(alert.position)).map((alert) => {
+            const severity = alert.severity || 'medium';
+            const alertType = alert.alert_type || alert.type || 'general';
+            
+            // Color based on severity
+            let alertColor = '#F59E0B'; // Orange for medium
+            if (severity === 'critical') {
+              alertColor = '#DC2626'; // Red for critical
+            } else if (severity === 'high') {
+              alertColor = '#EA580C'; // Orange-red for high
+            } else if (severity === 'low') {
+              alertColor = '#3B82F6'; // Blue for low
+            }
+            
+            // Choose icon based on alert type - more human and intuitive
+            let AlertIcon = AlertTriangle;
+            let iconSize = 20;
+            
+            if (alertType.includes('emergency') || alertType.includes('emergency_report')) {
+              AlertIcon = Siren;
+              iconSize = 22;
+            } else if (alertType.includes('conflict') || alertType.includes('danger_zone')) {
+              AlertIcon = Flame;
+              iconSize = 21;
+            } else if (alertType.includes('exit') || alertType.includes('corridor')) {
+              AlertIcon = MapPin;
+              iconSize = 20;
+            } else if (alertType.includes('health') || alertType.includes('injury')) {
+              AlertIcon = Activity;
+              iconSize = 20;
+            } else if (alertType.includes('poacher') || alertType.includes('security')) {
+              AlertIcon = Shield;
+              iconSize = 21;
+            } else if (alertType.includes('battery') || alertType.includes('signal')) {
+              AlertIcon = Battery;
+              iconSize = 19;
+            } else if (severity === 'critical') {
+              AlertIcon = AlertOctagon;
+              iconSize = 22;
+            } else if (severity === 'high') {
+              AlertIcon = AlertCircle;
+              iconSize = 21;
+            }
+            
+            // Create simple, clean alert marker - no flickering, minimal design
+            const alertIconHtml = `
+              <div style="display: flex; align-items: center; justify-content: center;">
+                <div style="
+                  width: 30px; 
+                  height: 30px; 
+                  background: ${alertColor}; 
+                  border: 2px solid white; 
+                  border-radius: 50%; 
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: center;
+                  box-shadow: 0 2px 6px ${alertColor}80;
+                  cursor: pointer;
+                ">
+                  ${ReactDOMServer.renderToString(
+                    React.createElement(AlertIcon, {
+                      size: iconSize,
+                      color: 'white',
+                      strokeWidth: 2,
+                      fill: 'none'
+                    })
+                  )}
+                </div>
+              </div>
+            `;
+            
+            const alertId = alert._uniqueId || alert.id || `${alert.position?.[0]?.toFixed(6)}-${alert.position?.[1]?.toFixed(6)}`;
+            return (
+              <Marker
+                key={`alert-standalone-${alertId}`}
+                position={alert.position}
+                icon={L.divIcon({
+                  html: alertIconHtml,
+                  className: 'alert-marker-icon-only',
+                  iconSize: [30, 30],
+                  iconAnchor: [15, 15],
+                  popupAnchor: [0, -15]
+                })}
+                zIndexOffset={100}
+              >
+                <Popup maxWidth={300} maxHeight={400}>
+                  <div style={{ padding: '8px', fontFamily: 'system-ui, sans-serif' }}>
+                    <h3 style={{ 
+                      fontSize: '15px', 
+                      fontWeight: 600, 
+                      color: alertColor,
+                      margin: '0 0 12px 0',
+                      borderBottom: `2px solid ${alertColor}`,
+                      paddingBottom: '8px'
+                    }}>
+                      {alert.title || 'Alert'}
+                    </h3>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '90px 1fr', 
+                      gap: '8px',
+                      fontSize: '13px'
+                    }}>
+                      <strong>Severity:</strong>
+                      <span style={{ color: alertColor, fontWeight: 700, textTransform: 'uppercase' }}>
+                        {severity}
+                      </span>
+                      <strong>Type:</strong>
+                      <span style={{ fontSize: '12px', textTransform: 'capitalize', fontWeight: 600 }}>
+                        {alert.alert_type ? alert.alert_type.replace(/_/g, ' ') : 'Alert'}
+                      </span>
+                      {alert.animalName && (
+                        <>
+                          <strong>Animal:</strong>
+                          <span>{alert.animalName}</span>
+                        </>
+                      )}
+                      {alert.conflictZoneName && (
+                        <>
+                          <strong>Conflict Zone:</strong>
+                          <span style={{ fontWeight: 600, color: alertColor }}>{alert.conflictZoneName}</span>
+                        </>
+                      )}
+                      <strong>Location:</strong>
+                      <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>
+                        {alert.position[0].toFixed(4)}, {alert.position[1].toFixed(4)}
+                      </span>
+                      {alert.timestamp && (
+                        <>
+                          <strong>Time:</strong>
+                          <span style={{ fontSize: '11px', color: '#6B7280' }}>
+                            {new Date(alert.timestamp).toLocaleString()}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {(alert.description || alert.message) && (
+                      <div style={{ 
+                        marginTop: '12px', 
+                        padding: '10px',
+                        background: '#F9FAFB',
+                        borderRadius: '6px',
+                        fontSize: '12px', 
+                        color: '#374151',
+                        borderLeft: `3px solid ${alertColor}`
+                      }}>
+                        <strong style={{ display: 'block', marginBottom: '4px', color: alertColor }}>
+                          Description:
+                        </strong>
+                        {alert.description || alert.message}
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
           {/* Geofence (Protected Area) */}
           {showGeofence && (
             <Circle
@@ -906,38 +1622,277 @@ const MapComponent = ({
             </React.Fragment>
           ))}
 
-          {/* Wildlife Corridors - Single Surrounding Boxes (Real East African Corridors) */}
-          {/* Only show when corridors toggle is enabled */}
-          {/* Dynamic Backend Corridors */}
+          {/* Wildlife Corridors - Layer 1: Corridor Boundaries (Polygons) */}
+          {/* Show as polygons with semi-transparent fill and dashed borders */}
           {showCorridors && corridors && Array.isArray(corridors) && corridors.map((corridor, idx) => {
+            // Try to get polygon coordinates from geometry or boundary
+            let polygonCoords = null;
+            
+            if (corridor.geometry && corridor.geometry.coordinates) {
+              // GeoJSON Polygon format: [[[lng, lat], [lng, lat], ...]]
+              const coords = corridor.geometry.coordinates;
+              if (Array.isArray(coords) && coords.length > 0) {
+                if (Array.isArray(coords[0]) && Array.isArray(coords[0][0])) {
+                  // Polygon: [[[lng, lat], ...]]
+                  polygonCoords = coords[0].map(coord => {
+                    // Swap if needed: GeoJSON is [lng, lat], Leaflet needs [lat, lng]
+                    if (Math.abs(coord[0]) <= 90 && Math.abs(coord[1]) > 90) {
+                      return [coord[0], coord[1]]; // Already [lat, lng]
+                    }
+                    return [coord[1], coord[0]]; // Swap [lng, lat] to [lat, lng]
+                  });
+                }
+              }
+            } else if (corridor.boundary && Array.isArray(corridor.boundary)) {
+              // Direct boundary array
+              polygonCoords = corridor.boundary.map(p => {
+                if (Array.isArray(p)) {
+                  return [p[0] || p.lat, p[1] || p.lon];
+                }
+                return [p.lat, p.lon];
+              });
+            } else if (corridor.path && corridor.path.length >= 3) {
+              // Create a buffer polygon around the path
+              const path = corridor.path.map(p => [p.lat || p[0], p.lon || p[1]]);
+              // Create a simple buffer by offsetting points perpendicular to the path
+              const bufferDistance = 0.01; // ~1.1km buffer
+              const bufferedCoords = [];
+              
+              // Add buffer to each segment
+              for (let i = 0; i < path.length; i++) {
+                const point = path[i];
+                const nextPoint = path[i + 1] || point;
+                const prevPoint = path[i - 1] || point;
+                
+                // Calculate perpendicular direction
+                const dx = nextPoint[1] - prevPoint[1];
+                const dy = nextPoint[0] - prevPoint[0];
+                const length = Math.sqrt(dx * dx + dy * dy);
+                
+                if (length > 0) {
+                  const perpX = -dy / length;
+                  const perpY = dx / length;
+                  bufferedCoords.push([
+                    point[0] + perpX * bufferDistance,
+                    point[1] + perpY * bufferDistance
+                  ]);
+                } else {
+                  bufferedCoords.push([point[0], point[1]]);
+                }
+              }
+              
+              // Add reverse side
+              for (let i = path.length - 1; i >= 0; i--) {
+                const point = path[i];
+                const nextPoint = path[i + 1] || point;
+                const prevPoint = path[i - 1] || point;
+                
+                const dx = nextPoint[1] - prevPoint[1];
+                const dy = nextPoint[0] - prevPoint[0];
+                const length = Math.sqrt(dx * dx + dy * dy);
+                
+                if (length > 0) {
+                  const perpX = dy / length;
+                  const perpY = -dx / length;
+                  bufferedCoords.push([
+                    point[0] + perpX * bufferDistance,
+                    point[1] + perpY * bufferDistance
+                  ]);
+                } else {
+                  bufferedCoords.push([point[0], point[1]]);
+                }
+              }
+              
+              // Close the polygon
+              if (bufferedCoords.length > 0) {
+                bufferedCoords.push(bufferedCoords[0]);
+              }
+              
+              polygonCoords = bufferedCoords;
+            }
+            
+            // Determine color based on species
+            const fillColor = corridor.species === 'elephant' ? '#3b82f6' : '#8b5cf6';
+            const borderColor = corridor.species === 'elephant' ? '#2563eb' : '#7c3aed';
+            
+            // Calculate center point for label
+            let centerPoint = null;
+            if (polygonCoords && polygonCoords.length >= 3) {
+              // Calculate centroid of polygon
+              let sumLat = 0, sumLon = 0;
+              polygonCoords.forEach(coord => {
+                sumLat += coord[0];
+                sumLon += coord[1];
+              });
+              centerPoint = [sumLat / polygonCoords.length, sumLon / polygonCoords.length];
+            } else if (corridor.path && corridor.path.length > 0) {
+              // Use midpoint of path
+              const midIdx = Math.floor(corridor.path.length / 2);
+              const midPoint = corridor.path[midIdx];
+              centerPoint = [midPoint.lat || midPoint[0], midPoint.lon || midPoint[1]];
+            } else if (corridor.start_point && corridor.end_point) {
+              // Use midpoint between start and end
+              const startLat = corridor.start_point.lat || corridor.start_point[0] || 0;
+              const startLon = corridor.start_point.lon || corridor.start_point[1] || 0;
+              const endLat = corridor.end_point.lat || corridor.end_point[0] || 0;
+              const endLon = corridor.end_point.lon || corridor.end_point[1] || 0;
+              centerPoint = [(startLat + endLat) / 2, (startLon + endLon) / 2];
+            }
+            
+            // Render as polygon if we have coordinates
+            if (polygonCoords && polygonCoords.length >= 3) {
+              return (
+                <React.Fragment key={`corridor-${corridor.id || idx}`}>
+                  <Polygon
+                    positions={polygonCoords}
+                    pathOptions={{
+                      color: borderColor,
+                      fillColor: fillColor,
+                      fillOpacity: 0.2, // 20% opacity as requested
+                      weight: 2,
+                      opacity: 0.7,
+                      dashArray: '10, 5' // Dashed border
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ padding: '10px', minWidth: '200px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', color: borderColor }}>
+                          {corridor.name}
+                        </div>
+                        <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                          Species: {corridor.species}
+                        </div>
+                        <div style={{ fontSize: '12px', color: COLORS.textSecondary }}>
+                          Score: {corridor.optimization_score?.toFixed(2) || 'N/A'}
+                        </div>
+                      </div>
+                    </Popup>
+                  </Polygon>
+                  {/* Corridor Name Label - Truncated */}
+                  {centerPoint && (() => {
+                    const maxLength = 20; // Max characters before truncation
+                    const corridorName = corridor.name || 'Corridor';
+                    const truncatedName = corridorName.length > maxLength 
+                      ? corridorName.substring(0, maxLength - 3) + '...' 
+                      : corridorName;
+                    
+                    // Calculate width based on text length (approx 7px per character)
+                    const textWidth = Math.min(corridorName.length * 7 + 16, maxLength * 7 + 16);
+                    
+                    return (
+                      <Marker
+                        position={centerPoint}
+                        icon={L.divIcon({
+                          html: `<div style="
+                            background: ${fillColor};
+                            color: white;
+                            padding: 6px 10px;
+                            border-radius: 6px;
+                            font-size: 11px;
+                            font-weight: 700;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            max-width: ${textWidth}px;
+                            border: 2px solid ${borderColor};
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                            text-align: center;
+                            cursor: pointer;
+                          " title="${corridorName}">${truncatedName}</div>`,
+                          className: 'corridor-label',
+                          iconSize: [textWidth, 30],
+                          iconAnchor: [textWidth / 2, 15]
+                        })}
+                        zIndexOffset={100}
+                      >
+                        <Tooltip permanent={false}>
+                          <div style={{ fontWeight: 700, fontSize: '12px' }}>{corridorName}</div>
+                        </Tooltip>
+                      </Marker>
+                    );
+                  })()}
+                </React.Fragment>
+              );
+            }
+            
+            // Fallback to polyline if no polygon data available
             const path = corridor.path?.map(p => [p.lat || p[0], p.lon || p[1]]) || [];
             if (path.length < 2) return null;
-
+            
+            // Calculate center for label if not already set
+            if (!centerPoint && path.length > 0) {
+              const midIdx = Math.floor(path.length / 2);
+              centerPoint = path[midIdx];
+            }
+            
             return (
-              <Polyline
-                key={`corridor-${corridor.id || idx}`}
-                positions={path}
-                pathOptions={{
-                  color: corridor.species === 'elephant' ? '#3b82f6' : '#8b5cf6',
-                  weight: 6,
-                  opacity: 0.7,
-                  dashArray: '10, 10'
-                }}
-              >
-                <Popup>
-                  <div style={{ padding: '10px', minWidth: '200px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', color: '#2563eb' }}>
-                      {corridor.name}
+              <React.Fragment key={`corridor-${corridor.id || idx}`}>
+                <Polyline
+                  positions={path}
+                  pathOptions={{
+                    color: borderColor,
+                    weight: 3,
+                    opacity: 0.6,
+                    dashArray: '10, 10'
+                  }}
+                >
+                  <Popup>
+                    <div style={{ padding: '10px', minWidth: '200px' }}>
+                      <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', color: borderColor }}>
+                        {corridor.name} (Path Only)
+                      </div>
+                      <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                        Species: {corridor.species}
+                      </div>
+                      <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontStyle: 'italic' }}>
+                        Note: Polygon boundary not available
+                      </div>
                     </div>
-                    <div style={{ fontSize: '12px', marginBottom: '4px' }}>
-                      Species: {corridor.species}
-                    </div>
-                    <div style={{ fontSize: '12px', color: COLORS.textSecondary }}>
-                      Score: {corridor.optimization_score?.toFixed(2) || 'N/A'}
-                    </div>
-                  </div>
-                </Popup>
-              </Polyline>
+                  </Popup>
+                </Polyline>
+                {/* Corridor Name Label - Truncated */}
+                {centerPoint && (() => {
+                  const maxLength = 20;
+                  const corridorName = corridor.name || 'Corridor';
+                  const truncatedName = corridorName.length > maxLength 
+                    ? corridorName.substring(0, maxLength - 3) + '...' 
+                    : corridorName;
+                  
+                  const textWidth = Math.min(corridorName.length * 7 + 16, maxLength * 7 + 16);
+                  
+                  return (
+                    <Marker
+                      position={centerPoint}
+                      icon={L.divIcon({
+                        html: `<div style="
+                          background: ${fillColor};
+                          color: white;
+                          padding: 6px 10px;
+                          border-radius: 6px;
+                          font-size: 11px;
+                          font-weight: 700;
+                          white-space: nowrap;
+                          overflow: hidden;
+                          text-overflow: ellipsis;
+                          max-width: ${textWidth}px;
+                          border: 2px solid ${borderColor};
+                          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                          text-align: center;
+                          cursor: pointer;
+                        " title="${corridorName}">${truncatedName}</div>`,
+                        className: 'corridor-label',
+                        iconSize: [textWidth, 30],
+                        iconAnchor: [textWidth / 2, 15]
+                      })}
+                      zIndexOffset={100}
+                    >
+                      <Tooltip permanent={false}>
+                        <div style={{ fontWeight: 700, fontSize: '12px' }}>{corridorName}</div>
+                      </Tooltip>
+                    </Marker>
+                  );
+                })()}
+              </React.Fragment>
             );
           })}
 
@@ -1104,25 +2059,129 @@ const MapComponent = ({
             );
           })}
 
-          {/* Risk/Poaching Zones (Red circles) */}
-          {showRiskZones && riskZones && Array.isArray(riskZones) && riskZones.map((zone, idx) => {
-            const position = zone.geometry?.coordinates || zone.position || [0, 0];
-            if (position[0] === 0 && position[1] === 0) return null;
-            
-            return (
-              <Circle
-                key={`risk-${zone.id || idx}`}
-                center={[position[0], position[1]]}
-                radius={zone.radius || 5000}
-                pathOptions={{
-                  color: MAP_COLORS.RISK_ZONE_BORDER,
-                  fillColor: MAP_COLORS.DANGER,
-                  fillOpacity: 0.45,
-                  weight: 4,
-                  opacity: 0.9,
-                  dashArray: '10, 5'
-                }}
-              >
+          {/* Layer 2: Conflict Zones (Polygons or Circles) - High-risk areas */}
+          {showRiskZones && riskZones && Array.isArray(riskZones) && riskZones.length > 0 && (() => {
+            return riskZones.map((zone, idx) => {
+              // Check if zone has polygon geometry
+              let polygonCoords = null;
+              
+              if (zone.geometry && zone.geometry.coordinates) {
+                const coords = zone.geometry.coordinates;
+                // GeoJSON Polygon: [[[lng, lat], [lng, lat], ...]]
+                if (Array.isArray(coords) && coords.length > 0 && Array.isArray(coords[0]) && Array.isArray(coords[0][0])) {
+                  polygonCoords = coords[0].map(coord => {
+                    // Swap [lng, lat] to [lat, lng] for Leaflet
+                    if (Math.abs(coord[0]) <= 90 && Math.abs(coord[1]) > 90) {
+                      return [coord[0], coord[1]]; // Already [lat, lng]
+                    }
+                    return [coord[1], coord[0]]; // Swap
+                  });
+                }
+              }
+              
+              // If we have polygon coordinates, render as polygon
+              if (polygonCoords && polygonCoords.length >= 3) {
+                return (
+                  <Polygon
+                    key={`conflict-polygon-${zone.id || idx}`}
+                    positions={polygonCoords}
+                    pathOptions={{
+                      color: '#991b1b', // Dark red border
+                      fillColor: '#DC2626', // Red fill
+                      fillOpacity: 0.4, // 40% opacity - highly visible
+                      weight: 3,
+                      opacity: 0.8,
+                      dashArray: '8, 4'
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ padding: '12px', minWidth: '200px' }}>
+                        <div style={{
+                          fontWeight: 700, 
+                          fontSize: '14px', 
+                          marginBottom: '8px', 
+                          color: MAP_COLORS.DANGER,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <AlertTriangle size={16} />
+                          {zone.name || `High-Risk Zone ${idx + 1}`}
+                        </div>
+                        <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                          <strong>Type:</strong> {zone.zone_type || 'Poaching Activity'}
+                        </div>
+                        <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                          <strong>Threat Level:</strong> {zone.risk_level || 'High'}
+                        </div>
+                        {zone.description && (
+                          <div style={{ fontSize: '11px', color: COLORS.textSecondary, marginTop: '8px', fontStyle: 'italic' }}>
+                            {zone.description}
+                          </div>
+                        )}
+                      </div>
+                    </Popup>
+                  </Polygon>
+                );
+              }
+              
+              // Fallback to Circle if no polygon data
+              let position = null;
+              
+              if (zone.geometry && zone.geometry.coordinates) {
+                const coords = zone.geometry.coordinates;
+                if (Array.isArray(coords)) {
+                  // Point: [lng, lat]
+                  if (coords.length === 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+                    if (Math.abs(coords[0]) <= 90 && Math.abs(coords[1]) > 90) {
+                      position = [coords[0], coords[1]];
+                    } else {
+                      position = [coords[1], coords[0]];
+                    }
+                  } else if (coords.length > 0 && Array.isArray(coords[0])) {
+                    const firstCoord = coords[0];
+                    if (Array.isArray(firstCoord) && firstCoord.length >= 2) {
+                      if (Math.abs(firstCoord[0]) <= 90 && Math.abs(firstCoord[1]) > 90) {
+                        position = [firstCoord[0], firstCoord[1]];
+                      } else {
+                        position = [firstCoord[1], firstCoord[0]];
+                      }
+                    }
+                  }
+                }
+              }
+              
+              if (!position) {
+                position = zone.position || zone.coordinates || [0, 0];
+                if (position[0] && Math.abs(position[0]) > 90) {
+                  position = [position[1], position[0]];
+                }
+              }
+              
+              if (!position || (position[0] === 0 && position[1] === 0)) {
+                return null;
+              }
+              
+              if (!isValidCoordinate(position)) {
+                return null;
+              }
+              
+              const bufferKm = zone.buffer_distance_km || 5;
+              const radius = bufferKm * 1000;
+              
+              return (
+                <Circle
+                  key={`conflict-circle-${zone.id || idx}`}
+                  center={position}
+                  radius={radius}
+                  pathOptions={{
+                    color: '#991b1b', // Dark red border
+                    fillColor: '#DC2626', // Red fill
+                    fillOpacity: 0.4, // 40% opacity - highly visible
+                    weight: 3,
+                    opacity: 0.8
+                  }}
+                >
                 <Popup>
                   <div style={{ padding: '12px', minWidth: '200px' }}>
                 <div style={{
@@ -1152,7 +2211,8 @@ const MapComponent = ({
                 </Popup>
               </Circle>
             );
-          })}
+          }).filter(Boolean);
+          })()}
 
           {/* Ranger Patrol Routes and Markers */}
           {showRangerPatrols && rangerPatrols && Array.isArray(rangerPatrols) && rangerPatrols.map((patrol, idx) => {
@@ -1195,31 +2255,42 @@ const MapComponent = ({
                 )}
                 
                 {/* Ranger current position marker (always show if position exists) */}
-                {hasPosition && (
-                  <Marker
-                    position={[patrol.current_position[0], patrol.current_position[1]]}
+                {hasPosition && (() => {
+                  // Handle both array and object position formats
+                  const position = Array.isArray(patrol.current_position) 
+                    ? patrol.current_position 
+                    : [patrol.current_position.lat, patrol.current_position.lon];
+                  
+                  return (
+                    <React.Fragment key={`ranger-${patrol.id}`}>
+                      <Marker
+                    position={position}
                     icon={createCustomIcon(MAP_COLORS.RANGER_ACTIVE, 'patrol')}
                   >
-                    <Popup maxWidth={280}>
-                      <div style={{ padding: '8px', fontFamily: 'system-ui, sans-serif' }}>
+                    <Popup maxWidth={300}>
+                      <div style={{ padding: '10px', fontFamily: 'system-ui, sans-serif' }}>
                         <h3 style={{ 
                           fontSize: '15px', 
                           fontWeight: 600, 
                           color: '#1F2937',
-                          margin: '0 0 8px 0',
+                          margin: '0 0 10px 0',
                           borderBottom: '2px solid #e5e7eb',
                           paddingBottom: '8px'
                         }}>
-                          {patrol.team_name || 'Ranger'}
+                          {patrol.name || patrol.team_name || 'Ranger'}
                         </h3>
                         <div style={{ 
                           display: 'grid', 
-                          gridTemplateColumns: '75px 1fr', 
-                          gap: '6px',
-                          fontSize: '13px'
+                          gridTemplateColumns: '90px 1fr', 
+                          gap: '8px',
+                          fontSize: '13px',
+                          marginBottom: '10px'
                         }}>
                           <strong>Badge:</strong>
                           <span>{patrol.badge || 'N/A'}</span>
+                          
+                          <strong>Team:</strong>
+                          <span>{patrol.team_name || 'Unassigned'}</span>
                           
                           <strong>Status:</strong>
                           <span style={{ 
@@ -1232,10 +2303,87 @@ const MapComponent = ({
                           <strong>Activity:</strong>
                           <span>{patrol.activity || 'Patrolling'}</span>
                         </div>
+                        
+                        {/* Location Status Badge */}
+                        {patrol.locationStatus && (
+                          <div style={{ 
+                            marginTop: '10px',
+                            padding: '8px',
+                            borderRadius: '6px',
+                            backgroundColor: 
+                              patrol.locationStatus === 'live' ? '#d1fae5' :
+                              patrol.locationStatus === 'stale' ? '#fef3c7' :
+                              patrol.locationStatus === 'checkpoint' ? '#dbeafe' :
+                              '#fee2e2',
+                            border: `2px solid ${
+                              patrol.locationStatus === 'live' ? '#10b981' :
+                              patrol.locationStatus === 'stale' ? '#f59e0b' :
+                              patrol.locationStatus === 'checkpoint' ? '#3b82f6' :
+                              '#ef4444'
+                            }`
+                          }}>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: 
+                                patrol.locationStatus === 'live' ? '#059669' :
+                                patrol.locationStatus === 'stale' ? '#d97706' :
+                                patrol.locationStatus === 'checkpoint' ? '#2563eb' :
+                                '#dc2626'
+                            }}>
+                              {patrol.locationSource === 'automatic_tracking' ? '📍' : '✅'}
+                              <span>{patrol.locationStatus.toUpperCase()}</span>
+                              {patrol.minutesSinceUpdate !== undefined && (
+                                <span style={{ fontSize: '11px', fontWeight: 500, opacity: 0.8 }}>
+                                  ({patrol.minutesSinceUpdate.toFixed(1)} min ago)
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ 
+                              fontSize: '11px', 
+                              color: '#6b7280',
+                              marginTop: '4px'
+                            }}>
+                              Source: {patrol.locationSource === 'automatic_tracking' ? 'GPS Tracking' : 'Manual Checkpoint'}
+                            </div>
+                            {patrol.isStale && (
+                              <div style={{ 
+                                fontSize: '11px', 
+                                color: '#dc2626',
+                                fontWeight: 600,
+                                marginTop: '4px'
+                              }}>
+                                ⚠️ Location may be outdated
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Recent Checkpoints */}
+                        {patrol.recentLogs && patrol.recentLogs.length > 0 && (
+                          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e5e7eb' }}>
+                            <strong style={{ fontSize: '12px', display: 'block', marginBottom: '6px' }}>Recent Checkpoints:</strong>
+                            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '11px', color: '#6b7280' }}>
+                              {patrol.recentLogs
+                                .filter(log => log.type === 'checkpoint')
+                                .slice(0, 3)
+                                .map((log, idx) => (
+                                  <li key={idx}>
+                                    {log.title} - {new Date(log.timestamp).toLocaleTimeString()}
+                                  </li>
+                                ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     </Popup>
-                  </Marker>
-                )}
+                      </Marker>
+                    </React.Fragment>
+                  );
+                })()}
               </React.Fragment>
             );
           })}

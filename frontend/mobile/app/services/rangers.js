@@ -115,6 +115,36 @@ const rangers = {
       }
     },
 
+    // Update log (full update)
+    update: async (id, logData) => {
+      try {
+        const response = await api.put(`/api/v1/rangers/logs/${id}/`, logData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update log');
+      }
+    },
+
+    // Partial update log
+    patch: async (id, partialData) => {
+      try {
+        const response = await api.patch(`/api/v1/rangers/logs/${id}/`, partialData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update log');
+      }
+    },
+
+    // Delete log
+    delete: async (id) => {
+      try {
+        await api.delete(`/api/v1/rangers/logs/${id}/`);
+        return { success: true };
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to delete log');
+      }
+    },
+
     // Resolve emergency
     resolve: async (logId) => {
       try {
@@ -170,6 +200,36 @@ const rangers = {
       }
     },
 
+    // Update route (full update)
+    update: async (id, routeData) => {
+      try {
+        const response = await api.put(`/api/v1/rangers/routes/${id}/`, routeData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update route');
+      }
+    },
+
+    // Partial update route
+    patch: async (id, partialData) => {
+      try {
+        const response = await api.patch(`/api/v1/rangers/routes/${id}/`, partialData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update route');
+      }
+    },
+
+    // Delete route
+    delete: async (id) => {
+      try {
+        await api.delete(`/api/v1/rangers/routes/${id}/`);
+        return { success: true };
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to delete route');
+      }
+    },
+
     // End patrol
     endPatrol: async (routeId) => {
       try {
@@ -183,6 +243,28 @@ const rangers = {
 
   // Ranger Tracking (GPS points)
   tracking: {
+    // Get all tracking data
+    getAll: async (filters = {}) => {
+      try {
+        const params = new URLSearchParams(filters).toString();
+        const url = `/api/v1/rangers/tracking/${params ? `?${params}` : ''}`;
+        const response = await api.get(url);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to fetch tracking data');
+      }
+    },
+
+    // Get tracking point by ID
+    getById: async (id) => {
+      try {
+        const response = await api.get(`/api/v1/rangers/tracking/${id}/`);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to fetch tracking point');
+      }
+    },
+
     // Submit GPS tracking point
     create: async (trackingData) => {
       try {
@@ -190,6 +272,36 @@ const rangers = {
         return response.data;
       } catch (error) {
         throw new Error(error.response?.data?.message || 'Failed to submit tracking data');
+      }
+    },
+
+    // Update tracking point
+    update: async (id, trackingData) => {
+      try {
+        const response = await api.put(`/api/v1/rangers/tracking/${id}/`, trackingData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update tracking data');
+      }
+    },
+
+    // Partial update tracking point
+    patch: async (id, partialData) => {
+      try {
+        const response = await api.patch(`/api/v1/rangers/tracking/${id}/`, partialData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update tracking data');
+      }
+    },
+
+    // Delete tracking point
+    delete: async (id) => {
+      try {
+        await api.delete(`/api/v1/rangers/tracking/${id}/`);
+        return { success: true };
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to delete tracking data');
       }
     },
 

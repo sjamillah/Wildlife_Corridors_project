@@ -4,101 +4,175 @@ import {
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  ScrollView, 
-  TextInput,
-  Switch,
   Modal,
-  Alert,
-  ActivityIndicator
+  Switch,
+  ScrollView,
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import SmartMap from '../../../components/maps/SmartMap';
-import { LogoHeader } from '../../../components/ui/LogoHeader';
-import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
-import { animals as animalsService, tracking, corridors as corridorsService, predictions } from '../../services';
-import { useWebSocket } from '../../hooks';
+import SmartMap from '@components/maps/SmartMap';
+import { BRAND_COLORS, STATUS_COLORS } from '@constants/Colors';
+import { animals as animalsService, corridors as corridorsService, predictions, conflictZones, rangers, alerts as alertsService } from '@services';
+import { useWebSocket, useOfflineMode, useOfflineGPS } from '@app/hooks';
+import { safeNavigate } from '@utils';
 
 const MapScreen = () => {
   const [selectedAnimal, setSelectedAnimal] = useState(null);
-  const [filterSpecies, setFilterSpecies] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showAnimalPanel, setShowAnimalPanel] = useState(false);
   const [showMLPanel, setShowMLPanel] = useState(false);
+  const [showAnimalPanel, setShowAnimalPanel] = useState(false);
   
   // WebSocket integration for real-time updates
   const { 
     animals: wsAnimals, 
-    isConnected, 
-    connectionStatus,
+    isConnected,
     alerts: wsAlerts,
-    lastUpdate,
     animalPaths 
   } = useWebSocket({
     autoConnect: true,
-    onAlert: (alert) => {
-      // Show notification for alerts with icon and severity
-      const alertTitle = alert.icon + ' ' + (alert.severity === 'critical' || alert.severity === 'high' ? 'CRITICAL ALERT' : 'Wildlife Alert');
-      Alert.alert(
-        alertTitle,
-        `${alert.animalName || 'Unknown animal'}\n${alert.message || 'Alert received'}`,
-        [{ text: 'OK' }],
-        { cancelable: false }
-      );
-    },
-    onPositionUpdate: (data) => {
-      console.log('Position update received:', data.animals?.length || 0, 'animals');
-    }
   });
   
   // Data states
   const [corridors, setCorridors] = useState([]);
   const [animalPredictions, setAnimalPredictions] = useState({});
   const [riskZones, setRiskZones] = useState([]);
+  const [rangerPatrols, setRangerPatrols] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
+  const [allAlerts, setAllAlerts] = useState([]); // All alerts from endpoint
   
-  // ML Feature Toggles (ranger field tools)
+  // Map Layer Toggles (matching web app)
   const [showPredictions, setShowPredictions] = useState(true);
   const [showBehavior, setShowBehavior] = useState(true);
   const [showRiskZones, setShowRiskZones] = useState(true);
+  const [showEnvironment, setShowEnvironment] = useState(false);
   const [showCorridors, setShowCorridors] = useState(true);
+  const [showRangerPatrols, setShowRangerPatrols] = useState(true);
   const [showMyLocation, setShowMyLocation] = useState(true);
 
-  // Transform WebSocket animals to display format
+  // ML Data states
+  const [behavioralStates, setBehavioralStates] = useState({});
+  const [riskHeatmap, setRiskHeatmap] = useState([]);
+  const [environmentData, setEnvironmentData] = useState({});
+
+  // Offline mode hooks
+  const {
+    isOnline,
+  } = useOfflineMode();
+
+  const {
+    location: gpsLocation,
+  } = useOfflineGPS({ enableBackground: false });
+
+  // Transform WebSocket animals to display format (matching web format)
   const [animals, setAnimals] = useState([]);
   
   useEffect(() => {
-    if (wsAnimals && wsAnimals.length > 0) {
-      const transformedAnimals = wsAnimals.map(animal => {
-        const activity = animal.movement?.activity_type || animal.behavior_state || 'Unknown';
-        const riskLevel = animal.risk_level || 'Low';
-        const speed = animal.movement?.speed_kmh || animal.speed || 0;
+    console.log('🔄 MapScreen: useEffect triggered - wsAnimals:', wsAnimals?.length || 0, 'isConnected:', isConnected);
+    
+    // Process WebSocket animals if available - ensures real-time updates
+    if (wsAnimals && Array.isArray(wsAnimals)) {
+      // Only update if WebSocket is connected and has data, or if explicitly empty
+      if (wsAnimals.length === 0 && !isConnected) {
+        console.log('⏸️ Mobile: WebSocket empty and not connected, keeping existing animals');
+        return;
+      }
+      
+      console.log('🔄 Mobile: Processing WebSocket animal data:', wsAnimals.length, 'animals');
+      // Filter to only show ACTIVE animals on the map
+      const activeAnimals = wsAnimals.filter(animal => {
+        const status = animal.status || 'inactive';
+        return status === 'active' || status === 'Active';
+      });
+      console.log(`📊 Filtered animals: ${activeAnimals.length} active out of ${wsAnimals.length} total`);
+      
+      const transformedAnimals = activeAnimals.map(animal => {
+        let lat = animal.current_position?.lat || animal.last_lat || 0;
+        let lon = animal.current_position?.lon || animal.last_lon || 0;
         
-        // Determine marker color based on state
-        let markerColor = STATUS_COLORS.SUCCESS; // Default green
-        if (riskLevel === 'High' || riskLevel === 'critical' || riskLevel === 'high') {
-          markerColor = STATUS_COLORS.ERROR; // Red for danger
-        } else if (activity === 'resting' || activity === 'feeding' || speed < 1) {
-          markerColor = STATUS_COLORS.WARNING; // Yellow for resting
+        // Coordinate validation and swapping if needed
+        if (Math.abs(lat) > 90 || (Math.abs(lat) > 20 && Math.abs(lon) < 10)) {
+          const temp = lat;
+          lat = lon;
+          lon = temp;
+        }
+        
+        const speed = animal.movement?.speed_kmh || 0;
+        let heading = animal.movement?.directional_angle;
+        
+        let predictedLat = animal.predicted_position?.lat;
+        let predictedLon = animal.predicted_position?.lon;
+        
+        const hasPredictedPosition = predictedLat && predictedLon;
+        const predictedSameAsCurrent = hasPredictedPosition && 
+          (Math.abs(predictedLat - lat) < 0.00001 && Math.abs(predictedLon - lon) < 0.00001);
+        
+        // Calculate predicted position if not provided or same as current
+        if (!hasPredictedPosition || predictedSameAsCurrent) {
+          if (speed > 0.5) {
+            if (typeof heading !== 'number' || heading === null || heading === 0) {
+              heading = Math.random() * 360;
+            }
+            
+            const timeAheadMinutes = speed > 2 ? 30 : 10;
+            const timeAheadHours = timeAheadMinutes / 60;
+            const distanceKm = speed * timeAheadHours;
+            const distanceDegrees = distanceKm / 111;
+            
+            const headingRadians = heading * (Math.PI / 180);
+            predictedLat = lat + (distanceDegrees * Math.cos(headingRadians));
+            predictedLon = lon + (distanceDegrees * Math.sin(headingRadians));
+          } else {
+            predictedLat = lat;
+            predictedLon = lon;
+          }
+        }
+        
+        const activityType = animal.movement?.activity_type || 
+                           (speed > 2 ? 'moving' : speed > 0.5 ? 'feeding' : 'resting');
+        
+        const behaviorState = animal.movement?.behavior_state || activityType;
+        const riskLevel = animal.risk_level || 'low';
+        
+        // Determine marker color based on activity and risk (matches web)
+        let markerColor = '#10B981'; // Green default
+        if (riskLevel === 'critical' || riskLevel === 'high') {
+          markerColor = '#DC2626'; // Red for danger
+        } else if (activityType === 'resting' || activityType === 'feeding') {
+          markerColor = '#F59E0B'; // Yellow for resting
+        }
+        
+        // Check for recent alerts
+        const hasAlert = wsAlerts.some(alert => 
+          alert.animalId === animal.id && 
+          (Date.now() - new Date(alert.timestamp).getTime()) < 300000
+        );
+        
+        if (hasAlert) {
+          markerColor = '#DC2626'; // Red for alerts
         }
         
         // Get alert icon if animal has recent alerts
         const recentAlert = wsAlerts.find(alert => 
           alert.animalId === animal.id && 
-          (Date.now() - new Date(alert.timestamp).getTime()) < 300000 // Within last 5 minutes
+          (Date.now() - new Date(alert.timestamp).getTime()) < 300000
         );
         
         return {
           id: animal.id || animal.collar_id,
           species: animal.species,
-          name: animal.name,
+          name: animal.name || animal.species,
           status: animal.status === 'active' ? 'Active' : 'Inactive',
           location: animal.current_position?.location_name || animal.last_known_location || 'Unknown',
           coordinates: {
-            lat: animal.current_position?.lat || animal.last_lat || 0,
-            lng: animal.current_position?.lon || animal.last_lon || 0
+            lat: lat,
+            lng: lon
+          },
+          predictedCoordinates: {
+            lat: predictedLat,
+            lng: predictedLon
           },
           battery: animal.collar_battery || 0,
           lastSeen: animal.last_updated || animal.last_seen || 'Unknown',
@@ -107,52 +181,299 @@ const MapScreen = () => {
                 animal.species?.toLowerCase().includes('wildebeest') ? '🦬' : 
                 animal.species?.toLowerCase().includes('lion') ? '🦁' : '🦏',
           speed: speed,
+          heading: heading,
           health: animal.health_status || 'Good',
-          behavior: activity,
+          behavior: behaviorState,
+          activityType: activityType,
           markerColor: markerColor,
           pathColor: animal.pathColor || markerColor,
           alertIcon: recentAlert?.icon || null,
-          hasAlert: !!recentAlert,
+          hasAlert: hasAlert,
           alertSeverity: recentAlert?.severity || null,
-          // Add path data
+          shouldAnimate: animal.shouldAnimate,
+          shouldWobble: animal.shouldWobble,
+          isResting: animal.isResting,
+          conflict_risk: animal.conflict_risk,
+          risk_level: animal.risk_level || animal.conflict_risk?.risk_level || 'low',
           path: animalPaths[animal.id] || [],
         };
       });
-      setAnimals(transformedAnimals);
+      // Force state update with new array reference to ensure React detects change
+      setAnimals([...transformedAnimals]);
+      setLoading(false);
+      console.log('✅ Mobile: Updated animals state:', transformedAnimals.length, 'animals from WebSocket');
+      console.log('🔄 Mobile: State updated, MapScreen should re-render');
+    } else if (wsAnimals && wsAnimals.length === 0 && isConnected) {
+      // WebSocket connected but no animals - clear state
+      console.log('⚠️ Mobile: WebSocket connected but no animals received');
+      setAnimals([]);
       setLoading(false);
     }
-  }, [wsAnimals, wsAlerts, animalPaths]);
+  }, [wsAnimals, wsAlerts, animalPaths, isConnected]);
 
   // Fallback: Fetch animals from REST API if WebSocket is not connected
   useEffect(() => {
+    let mounted = true;
+    let interval = null;
+    
     if (!isConnected) {
-      fetchAnimals();
-      const interval = setInterval(fetchAnimals, 30000); // Refresh every 30s
-      return () => clearInterval(interval);
+      const refreshAnimals = async () => {
+        if (!mounted) return;
+        try {
+          await fetchAnimals();
+        } catch (err) {
+          if (mounted) {
+            console.warn('Failed to fetch animals:', err.message);
+          }
+        }
+      };
+      
+      refreshAnimals();
+      interval = setInterval(refreshAnimals, 30000);
     }
+    
+    return () => {
+      mounted = false;
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
   }, [isConnected]);
 
-  // Fetch corridors
+  // Fetch corridors and risk zones on mount (optimized for fast loading with timeouts)
   useEffect(() => {
-    fetchCorridors();
+    let mounted = true;
+    let timeoutIds = [];
+    
+    const fetchData = async () => {
+      try {
+        // Load critical data first in parallel with timeout protection
+        const criticalPromises = [
+          Promise.race([
+            fetchCorridors(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+          ]).catch(err => { 
+            if (mounted) console.warn('Failed corridors:', err.message); 
+            return null; 
+          }),
+          Promise.race([
+            fetchRiskZones(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+          ]).catch(err => { 
+            if (mounted) console.warn('Failed risk zones:', err.message); 
+            return null; 
+          }),
+          Promise.race([
+            fetchAlerts(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+          ]).catch(err => { 
+            if (mounted) console.warn('Failed alerts:', err.message); 
+            return null; 
+          }),
+        ];
+        
+        // Don't block - use allSettled so failures don't stop the app
+        Promise.allSettled(criticalPromises).then(() => {
+          if (mounted) {
+            // Load secondary data after initial render (lazy load - 400ms delay)
+            const timeout = setTimeout(() => {
+              if (mounted) {
+                Promise.race([
+                  fetchRangerPatrols(),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+                ]).catch(err => console.warn('Failed ranger patrols:', err.message));
+              }
+            }, 400);
+            timeoutIds.push(timeout);
+          }
+        });
+      } catch (error) {
+        if (mounted) console.error('Error fetching initial data:', error);
+      }
+    };
+    
+    fetchData();
+    
+    return () => {
+      mounted = false;
+      timeoutIds.forEach(id => clearTimeout(id));
+    };
   }, []);
 
-  // Get user location (ranger's current position)
+  // Fetch alerts on mount and refresh every 30 seconds
+  // Don't depend on wsAlerts to prevent refetching on every WebSocket alert
   useEffect(() => {
-    getRangerLocation();
-    const interval = setInterval(getRangerLocation, 10000); // Update every 10s
-    return () => clearInterval(interval);
+    let mounted = true;
+    let alertInterval = null;
+    
+    const refreshAlerts = async () => {
+      if (!mounted) return;
+      try {
+        await fetchAlerts();
+      } catch (err) {
+        if (mounted) {
+          console.warn('Failed to refresh alerts:', err.message);
+        }
+      }
+    };
+    
+    // Initial fetch
+    refreshAlerts();
+    
+    // Refresh alerts every 30 seconds to catch mobile-created alerts
+    alertInterval = setInterval(refreshAlerts, 30000); // 30 seconds
+    
+    return () => {
+      mounted = false;
+      if (alertInterval) {
+        clearInterval(alertInterval);
+        alertInterval = null;
+      }
+    };
+  }, []); // Empty dependency array - only fetch on mount
+
+  // Get user location
+  useEffect(() => {
+    let mounted = true;
+    const getLocation = async () => {
+      try {
+        if (mounted) {
+          await getRangerLocation();
+        }
+      } catch (error) {
+        console.warn('Failed to get ranger location:', error);
+      }
+    };
+    getLocation();
+    const interval = setInterval(() => {
+      if (mounted) {
+        getLocation().catch(err => console.warn('Failed to update location:', err));
+      }
+    }, 30000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   // Fetch predictions when animals change
   useEffect(() => {
+    const fetchPreds = async () => {
+      try {
     if (animals.length > 0 && showPredictions) {
-      fetchPredictions();
+          await fetchPredictions();
     }
+      } catch (error) {
+        console.warn('Failed to fetch predictions:', error);
+      }
+    };
+    fetchPreds();
   }, [animals, showPredictions]);
+
+  // Build behavioral states from animals
+  useEffect(() => {
+    const states = {};
+    animals.forEach(animal => {
+      if (animal.id && (animal.behaviorState || animal.activityType || animal.behavior)) {
+        states[animal.id] = {
+          state: animal.behaviorState || animal.activityType || animal.behavior || 'unknown',
+          confidence: animal.speed > 2 ? 0.9 : animal.speed > 0.5 ? 0.7 : 0.5,
+          timestamp: new Date().toISOString()
+        };
+      }
+    });
+    setBehavioralStates(states);
+  }, [animals]);
+
+  // Fetch environment data
+  const fetchEnvironmentData = async () => {
+    if (!showEnvironment) return;
+    
+    try {
+      const centerLat = userLocation?.latitude || -2.0;
+      const centerLon = userLocation?.longitude || 35.5;
+      
+      const data = await predictions.getXGBoostEnvironment(
+        centerLat,
+        centerLon,
+        'elephant',
+        50000
+      );
+      
+      if (data) {
+        setEnvironmentData(data);
+        
+        if (data.available && data.coordinates) {
+          const heatmapPoint = {
+            position: [data.coordinates.lat || centerLat, data.coordinates.lon || centerLon],
+            intensity: data.habitat_score || 0.5,
+            type: 'habitat',
+            suitability: data.suitability || 'medium',
+            status: data.status || 'success',
+            message: data.message || null
+          };
+          setRiskHeatmap([heatmapPoint]);
+        } else {
+          const fallbackPoint = {
+            position: [centerLat, centerLon],
+            intensity: data.habitat_score || 0.5,
+            type: 'habitat',
+            suitability: 'unknown',
+            status: 'fallback',
+            message: data.message || 'ML service unavailable'
+          };
+          setRiskHeatmap([fallbackPoint]);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch environment data:', error);
+      setRiskHeatmap([]);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    let interval = null;
+    
+    if (showEnvironment) {
+      const refreshEnvironment = async () => {
+        if (!mounted) return;
+        try {
+          await fetchEnvironmentData();
+        } catch (error) {
+          if (mounted) {
+            console.error('Error refreshing environment:', error);
+          }
+        }
+      };
+      
+      refreshEnvironment();
+      interval = setInterval(refreshEnvironment, 300000); // Every 5 minutes
+    } else {
+      setRiskHeatmap([]);
+    }
+    
+    return () => {
+      mounted = false;
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+  }, [showEnvironment, userLocation]);
 
   const fetchAnimals = async () => {
     try {
+      // Check if online first
+      if (!isOnline) {
+        // Offline - load from cache
+        console.log('📴 Offline: Loading animals from cache');
+        await loadCachedAnimals();
+        return;
+      }
+      
+      // Online - fetch from API
       const data = await animalsService.getAll({ status: 'active' });
       const transformedAnimals = (data.results || data || []).map(animal => ({
         id: animal.id || animal.collar_id,
@@ -176,26 +497,311 @@ const MapScreen = () => {
       }));
       
       setAnimals(transformedAnimals);
+      
+      // Cache animals for offline use
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        await AsyncStorage.setItem('cached_animals', JSON.stringify(transformedAnimals));
+        await AsyncStorage.setItem('cached_animals_timestamp', new Date().toISOString());
+      } catch (cacheError) {
+        console.warn('Failed to cache animals:', cacheError);
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch animals:', error);
+      // Try to load from cache on error
+      await loadCachedAnimals();
+    }
+  };
+
+  const loadCachedAnimals = async () => {
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const cached = await AsyncStorage.getItem('cached_animals');
+      if (cached) {
+        const animals = JSON.parse(cached);
+        setAnimals(animals);
+        console.log('✅ Loaded', animals.length, 'animals from cache');
+      } else {
+        console.log('No cached animals found');
+      }
+    } catch (error) {
+      console.error('Failed to load cached animals:', error);
+    } finally {
       setLoading(false);
     }
   };
 
   const fetchCorridors = async () => {
     try {
+      if (!isOnline) {
+        await loadCachedCorridors();
+        return;
+      }
+      
       const data = await corridorsService.getAll();
-      setCorridors(data.results || data || []);
+      const corridorsData = data.results || data || [];
+      setCorridors(corridorsData);
+      
+      // Cache for offline
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        await AsyncStorage.setItem('cached_corridors', JSON.stringify(corridorsData));
+      } catch (e) {}
     } catch (error) {
       console.error('Failed to fetch corridors:', error);
+      await loadCachedCorridors();
     }
+  };
+
+  const loadCachedCorridors = async () => {
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const cached = await AsyncStorage.getItem('cached_corridors');
+      if (cached) {
+        setCorridors(JSON.parse(cached));
+      }
+    } catch (e) {}
+  };
+
+  const fetchRiskZones = async () => {
+    try {
+      if (!isOnline) {
+        await loadCachedRiskZones();
+        return;
+      }
+      
+      const data = await conflictZones.getActive();
+      const zonesData = data.results || data || [];
+      
+      const transformedZones = zonesData.map(zone => ({
+        id: zone.id,
+        position: zone.geometry?.coordinates || [zone.longitude || zone.lng, zone.latitude || zone.lat],
+        geometry: zone.geometry || {
+          type: 'Point',
+          coordinates: [zone.longitude || zone.lng, zone.latitude || zone.lat]
+        },
+        buffer_distance_km: zone.buffer_distance_km || zone.radius_km || 5,
+        intensity: zone.severity === 'high' ? 0.8 : zone.severity === 'medium' ? 0.5 : 0.3,
+        severity: zone.severity || 'medium',
+        zone_type: zone.zone_type,
+        is_active: zone.is_active
+      }));
+      
+      setRiskZones(transformedZones);
+      
+      // Cache for offline
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        await AsyncStorage.setItem('cached_risk_zones', JSON.stringify(transformedZones));
+      } catch (e) {}
+    } catch (error) {
+      console.error('Failed to fetch risk zones:', error);
+      await loadCachedRiskZones();
+    }
+  };
+
+  const loadCachedRiskZones = async () => {
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const cached = await AsyncStorage.getItem('cached_risk_zones');
+      if (cached) {
+        setRiskZones(JSON.parse(cached));
+      }
+    } catch (e) {}
+  };
+
+  // Fetch alerts from endpoint
+  const fetchAlerts = async () => {
+    try {
+      if (!isOnline) {
+        // Offline - load from cache
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        const cached = await AsyncStorage.getItem('cached_alerts');
+        if (cached) {
+          setAllAlerts(JSON.parse(cached));
+        }
+        return;
+      }
+      
+      // Fetch ALL alerts from API (not just active) to include mobile-created alerts
+      const data = await alertsService.getAll(); // No status filter to get all alerts
+      const alertsData = data.results || data || [];
+      console.log('MapScreen: Fetched alerts:', alertsData.length);
+      
+      // Deduplication: Group alerts by animal + alert type + location, keeping only the most recent one PER TYPE
+      // This allows multiple alert types for the same animal, but prevents duplicate alerts of the same type
+      const alertsByAnimalTypeLocation = new Map();
+      
+      // Process all alerts and keep only the most recent for each animal + type + location combination
+      alertsData.forEach(alert => {
+        const animalId = alert.animal_id || alert.animal || 'unknown';
+        const alertType = String(alert.alert_type || alert.type || 'general').toLowerCase().trim();
+        const lat = alert.latitude || (alert.coordinates && (Array.isArray(alert.coordinates) ? alert.coordinates[0] : alert.coordinates.lat)) || 0;
+        const lon = alert.longitude || (alert.coordinates && (Array.isArray(alert.coordinates) ? alert.coordinates[1] : alert.coordinates.lon)) || 0;
+        // Round coordinates to 3 decimal places (~111 meters) to group nearby alerts of the same type
+        // This prevents exact duplicates but allows different alert types at the same location
+        const latRounded = Math.round(lat * 1000) / 1000;
+        const lonRounded = Math.round(lon * 1000) / 1000;
+        // Key includes alertType so different types are kept separately
+        const key = `${animalId}-${alertType}-${latRounded}-${lonRounded}`;
+        
+        const alertTimestamp = new Date(alert.detected_at || alert.timestamp || alert.created_at || 0);
+        
+        // If we haven't seen this animal+type+location combo, or this alert is newer, keep it
+        const existing = alertsByAnimalTypeLocation.get(key);
+        if (!existing || alertTimestamp > new Date(existing.detected_at || existing.timestamp || existing.created_at || 0)) {
+          alertsByAnimalTypeLocation.set(key, {
+            ...alert,
+            id: alert.id || `api-${animalId}-${alert.detected_at || alert.timestamp || alert.created_at || Date.now()}`,
+            alert_type: alertType, // Normalize alert type
+            // Ensure coordinates are in the right format
+            latitude: lat,
+            longitude: lon,
+          });
+        }
+      });
+      
+      console.log(`📊 Processed ${alertsData.length} alerts, unique by type+location: ${alertsByAnimalTypeLocation.size}`);
+      // Log alert types for debugging
+      const alertTypes = new Set(Array.from(alertsByAnimalTypeLocation.values()).map(a => a.alert_type || a.type));
+      console.log(`📋 Alert types found: ${Array.from(alertTypes).join(', ')}`);
+      
+      // Then, merge WebSocket alerts - deduplication by animal + type + location
+      if (wsAlerts && wsAlerts.length > 0) {
+        console.log(`📡 Merging ${wsAlerts.length} WebSocket alerts`);
+        wsAlerts.forEach(wsAlert => {
+          const animalId = wsAlert.animalId || wsAlert.animal_id || 'unknown';
+          const alertType = String(wsAlert.type || wsAlert.alert_type || 'general').toLowerCase().trim();
+          const lat = wsAlert.latitude || (wsAlert.position && wsAlert.position.lat) || (wsAlert.coordinates && (Array.isArray(wsAlert.coordinates) ? wsAlert.coordinates[0] : wsAlert.coordinates.lat)) || 0;
+          const lon = wsAlert.longitude || (wsAlert.position && wsAlert.position.lon) || (wsAlert.coordinates && (Array.isArray(wsAlert.coordinates) ? wsAlert.coordinates[1] : wsAlert.coordinates.lon)) || 0;
+          // Round coordinates to 3 decimal places (~111 meters) to group nearby alerts of the same type
+          const latRounded = Math.round(lat * 1000) / 1000;
+          const lonRounded = Math.round(lon * 1000) / 1000;
+          // Key includes alertType so different types are kept separately
+          const key = `${animalId}-${alertType}-${latRounded}-${lonRounded}`;
+          
+          const wsAlertTimestamp = new Date(wsAlert.timestamp || wsAlert.detected_at || 0);
+          
+          // Check if we already have an alert for this animal + type + location
+          const existing = alertsByAnimalTypeLocation.get(key);
+          const existingTimestamp = existing 
+            ? new Date(existing.detected_at || existing.timestamp || existing.created_at || 0)
+            : new Date(0);
+          
+          // If this WebSocket alert is newer, replace the existing one
+          if (!existing || wsAlertTimestamp > existingTimestamp) {
+            const wsAlertId = wsAlert.id || `ws-${animalId}-${wsAlert.timestamp || Date.now()}-${alertType}`;
+            const newAlert = {
+              id: wsAlertId,
+              alert_type: alertType, // Normalize alert type
+              severity: wsAlert.severity || 'medium',
+              title: wsAlert.title || 'Wildlife Alert',
+              message: wsAlert.message || wsAlert.description || 'Alert received',
+              latitude: lat,
+              longitude: lon,
+              animal: animalId,
+              animal_id: animalId,
+              animal_name: wsAlert.animalName,
+              status: wsAlert.status || 'active',
+              detected_at: wsAlert.timestamp || wsAlert.detected_at || new Date().toISOString(),
+            };
+            
+            alertsByAnimalTypeLocation.set(key, newAlert);
+          }
+        });
+        console.log(`📊 After merging WebSocket alerts: ${alertsByAnimalTypeLocation.size} total unique alerts`);
+      }
+      
+      // Convert Map to Array - this ensures no duplicates
+      const combinedAlerts = Array.from(alertsByAnimalTypeLocation.values());
+      console.log('✅ MapScreen: Combined alerts (deduplicated):', combinedAlerts.length);
+      
+      // Log breakdown by alert type for debugging
+      const alertsByType = {};
+      combinedAlerts.forEach(alert => {
+        const type = alert.alert_type || alert.type || 'unknown';
+        alertsByType[type] = (alertsByType[type] || 0) + 1;
+      });
+      console.log('📋 Alert breakdown by type:', alertsByType);
+      
+      setAllAlerts(combinedAlerts);
+      
+      // Cache alerts for offline use
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        await AsyncStorage.setItem('cached_alerts', JSON.stringify(combinedAlerts));
+        await AsyncStorage.setItem('cached_alerts_timestamp', new Date().toISOString());
+      } catch (cacheError) {
+        console.warn('Failed to cache alerts:', cacheError);
+      }
+    } catch (error) {
+      console.warn('MapScreen: Alerts unavailable:', error.message);
+      setAllAlerts([]);
+    }
+  };
+
+  const fetchRangerPatrols = async () => {
+    try {
+      if (!isOnline) {
+        await loadCachedRangerPatrols();
+        return;
+      }
+      
+      const data = await rangers.getLiveStatus();
+      const rangersData = Array.isArray(data) ? data : [];
+      
+      const transformedPatrols = rangersData
+        .filter(ranger => {
+          const position = ranger.current_position || {};
+          return position.lat || position.lon || ranger.last_lat || ranger.last_lon;
+        })
+        .map(ranger => {
+          const position = ranger.current_position || {};
+          return {
+            id: ranger.ranger_id || ranger.id,
+            name: ranger.name || ranger.username,
+            team_name: ranger.team_name || 'Ranger Team',
+            current_position: {
+              lat: position.lat || ranger.last_lat,
+              lng: position.lon || ranger.last_lon
+            },
+            status: ranger.current_status || 'active',
+            activity: ranger.activity_type || 'patrolling',
+            locationStatus: position.status || 'live',
+            locationSource: ranger.location_source || 'automatic_tracking',
+            badge: ranger.badge_number || ''
+          };
+        });
+      
+      setRangerPatrols(transformedPatrols);
+      
+      // Cache for offline
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        await AsyncStorage.setItem('cached_ranger_patrols', JSON.stringify(transformedPatrols));
+      } catch (e) {}
+    } catch (error) {
+      console.error('Failed to fetch ranger patrols:', error);
+      await loadCachedRangerPatrols();
+    }
+  };
+
+  const loadCachedRangerPatrols = async () => {
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const cached = await AsyncStorage.getItem('cached_ranger_patrols');
+      if (cached) {
+        setRangerPatrols(JSON.parse(cached));
+      }
+    } catch (e) {}
   };
 
   const fetchPredictions = async () => {
     try {
       const predictionsData = {};
-      for (const animal of animals.slice(0, 5)) { // Limit to 5 for performance
+      for (const animal of animals.slice(0, 5)) {
         try {
           const prediction = await predictions.getAnimalPrediction(animal.id);
           if (prediction && prediction.predicted_path) {
@@ -238,147 +844,119 @@ const MapScreen = () => {
     }
   };
 
-  // Quick ranger actions
-  const handleQuickReport = () => {
-    Alert.alert(
-      'Quick Field Report',
-      'What would you like to report?',
-      [
-        { text: 'Wildlife Sighting', onPress: () => console.log('Sighting') },
-        { text: 'Poaching Activity', onPress: () => console.log('Poaching'), style: 'destructive' },
-        { text: 'Obstruction', onPress: () => console.log('Obstruction') },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
-
-  const handleSOSAlert = () => {
-    Alert.alert(
-      'Emergency SOS',
-      'Send distress signal to all nearby rangers?',
-      [
-        { 
-          text: 'Send SOS', 
-          onPress: () => {
-            Alert.alert('SOS Sent', 'Emergency signal broadcasted. Help is on the way.');
-            // TODO: Implement SOS functionality
-          },
-          style: 'destructive'
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
-
   const handleTrackAnimal = (animal) => {
     setSelectedAnimal(animal);
     setShowAnimalPanel(true);
   };
 
-  // Calculate stats
-  const totalTracked = animals.length;
-  const activeNow = animals.filter(a => a.status === 'Active').length;
-  const highRisk = animals.filter(a => a.risk === 'High').length;
-  const lowBattery = animals.filter(a => a.battery < 30).length;
-
-  // Filter animals
-  const filteredAnimals = filterSpecies === 'all' 
-    ? animals 
-    : animals.filter(a => a.species?.toLowerCase().includes(filterSpecies.toLowerCase()));
-
-  const searchFilteredAnimals = searchQuery === ''
-    ? filteredAnimals
-    : filteredAnimals.filter(a => 
-        a.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.species?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-  // Risk level styling
-  const getRiskStyle = (risk) => {
-    switch(risk?.toLowerCase()) {
-      case 'high': return { color: STATUS_COLORS.ERROR, bg: '#FEE2E2' };
-      case 'medium': return { color: STATUS_COLORS.WARNING, bg: '#FEF3C7' };
-      default: return { color: STATUS_COLORS.SUCCESS, bg: '#D1FAE5' };
-    }
-  };
+  // Calculate stats from actual map data
+  const totalAnimals = animals.length;
+  const safeAnimals = animals.filter(a => {
+    // Safe: low/medium risk level
+    const risk = (a.risk_level || a.risk || '').toLowerCase();
+    return risk === 'low' || risk === 'medium' || !risk;
+  }).length;
+  const movingAnimals = animals.filter(a => {
+    // Moving: has speed > 0.5 km/h or activity type indicates movement
+    const speed = a.speed || 0;
+    const activity = (a.activityType || '').toLowerCase();
+    return speed > 0.5 || activity.includes('moving') || activity.includes('active');
+  }).length;
+  const atRiskAnimals = animals.filter(a => {
+    // At Risk: high/critical risk level or critical health
+    const risk = (a.risk_level || a.risk || '').toLowerCase();
+    const health = (a.health || '').toLowerCase();
+    return risk === 'high' || risk === 'critical' || health === 'critical';
+  }).length;
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Header with Ranger Tools */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <LogoHeader title="Field Map" />
-          {/* WebSocket Connection Status */}
-          <View style={styles.connectionStatus}>
-            <View style={[
-              styles.connectionDot, 
-              { backgroundColor: isConnected ? STATUS_COLORS.SUCCESS : STATUS_COLORS.WARNING }
-            ]} />
-            <Text style={styles.connectionText}>
-              {isConnected ? 'Live' : 'Offline'}
-            </Text>
-          </View>
+      {/* Simple Header - Offline indicator and Emergency button only */}
+      <View style={styles.simpleHeader}>
+        {/* Offline Mode Indicator */}
+        <View style={styles.offlineIndicator}>
+          <MaterialCommunityIcons 
+            name={isOnline ? "wifi" : "wifi-off"} 
+            size={20} 
+            color={isOnline ? STATUS_COLORS.SUCCESS : STATUS_COLORS.ERROR} 
+          />
+          <Text style={[styles.offlineText, { color: isOnline ? STATUS_COLORS.SUCCESS : STATUS_COLORS.ERROR }]}>
+            {isOnline ? 'Online' : 'Offline'}
+          </Text>
         </View>
-        <View style={styles.headerActions}>
-          {/* SOS Button */}
-          <TouchableOpacity 
-            style={styles.sosButton}
-            onPress={handleSOSAlert}
-          >
-            <MaterialCommunityIcons name="alert-octagon" size={20} color={BRAND_COLORS.SURFACE} />
-            <Text style={styles.sosText}>SOS</Text>
-          </TouchableOpacity>
 
-          {/* Quick Report */}
+        {/* SOS Emergency Button */}
           <TouchableOpacity 
-            style={styles.quickReportButton}
-            onPress={handleQuickReport}
-          >
-            <MaterialCommunityIcons name="plus" size={24} color={BRAND_COLORS.SURFACE} />
+          style={styles.emergencyButton}
+          onPress={() => safeNavigate('/screens/patrol/ReportEmergencyScreen')}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="alert-octagon" size={24} color={BRAND_COLORS.SURFACE} />
+          <Text style={styles.emergencyButtonText}>Emergency</Text>
           </TouchableOpacity>
-
-          {/* ML Toggle */}
-          <TouchableOpacity 
-            style={styles.mlToggleButton}
-            onPress={() => setShowMLPanel(!showMLPanel)}
-          >
-            <MaterialCommunityIcons name="brain" size={24} color={BRAND_COLORS.SURFACE} />
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Map */}
       <View style={styles.mapContainer}>
+        {!loading && (
         <SmartMap 
-          animals={searchFilteredAnimals}
+            animals={animals}
           corridors={showCorridors ? corridors : []}
           predictions={showPredictions ? animalPredictions : {}}
           riskZones={showRiskZones ? riskZones : []}
+            rangerPatrols={showRangerPatrols ? rangerPatrols : []}
+            alerts={allAlerts || []}
           userLocation={showMyLocation ? userLocation : null}
+            behavioralStates={showBehavior ? behavioralStates : {}}
+            riskHeatmap={showEnvironment ? riskHeatmap : []}
           showBehavior={showBehavior}
+            showCorridors={showCorridors}
+            showRiskZones={showRiskZones}
+            showPredictions={showPredictions}
+            showEnvironment={showEnvironment}
+            showRangerPatrols={showRangerPatrols}
+            showAnimalMovement={true}
+            showBehaviorStates={showBehavior}
           onAnimalPress={handleTrackAnimal}
+            style={{ flex: 1, width: '100%', height: '100%' }}
         />
+        )}
 
-        {/* Map Overlay Stats */}
+        {/* Map Overlay Stats - Only show if animals exist */}
+        {totalAnimals > 0 && (
         <View style={styles.statsOverlay}>
           <View style={styles.statCard}>
-            <MaterialCommunityIcons name="paw" size={20} color={BRAND_COLORS.PRIMARY} />
-            <Text style={styles.statValue}>{totalTracked}</Text>
-            <Text style={styles.statLabel}>Tracked</Text>
+              <MaterialCommunityIcons name="shield-check" size={18} color={STATUS_COLORS.SUCCESS} />
+              <Text style={styles.statValue}>{safeAnimals}</Text>
+              <Text style={styles.statLabel}>Safe</Text>
           </View>
           <View style={styles.statCard}>
-            <MaterialCommunityIcons name="run" size={20} color={STATUS_COLORS.SUCCESS} />
-            <Text style={styles.statValue}>{activeNow}</Text>
-            <Text style={styles.statLabel}>Active</Text>
+              <MaterialCommunityIcons name="run-fast" size={18} color={BRAND_COLORS.PRIMARY} />
+              <Text style={styles.statValue}>{movingAnimals}</Text>
+              <Text style={styles.statLabel}>Moving</Text>
           </View>
           <View style={styles.statCard}>
-            <MaterialCommunityIcons name="alert" size={20} color={STATUS_COLORS.ERROR} />
-            <Text style={styles.statValue}>{highRisk}</Text>
+              <MaterialCommunityIcons name="alert" size={18} color={STATUS_COLORS.ERROR} />
+              <Text style={styles.statValue}>{atRiskAnimals}</Text>
             <Text style={styles.statLabel}>At Risk</Text>
           </View>
+            <View style={styles.statCard}>
+              <MaterialCommunityIcons name="paw" size={18} color={BRAND_COLORS.SECONDARY} />
+              <Text style={styles.statValue}>{totalAnimals}</Text>
+              <Text style={styles.statLabel}>Total</Text>
         </View>
+          </View>
+        )}
+
+        {/* Legend Button */}
+        <TouchableOpacity 
+          style={styles.legendButton}
+          onPress={() => setShowMLPanel(true)}
+        >
+          <MaterialCommunityIcons name="information" size={24} color={BRAND_COLORS.PRIMARY} />
+        </TouchableOpacity>
 
         {/* Loading Indicator */}
         {loading && (
@@ -389,81 +967,7 @@ const MapScreen = () => {
         )}
       </View>
 
-      {/* Filter Panel */}
-      <View style={styles.filterPanel}>
-        {/* Search */}
-        <View style={styles.searchContainer}>
-          <MaterialCommunityIcons name="magnify" size={20} color={BRAND_COLORS.TEXT_SECONDARY} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search animals..."
-            placeholderTextColor={BRAND_COLORS.TEXT_SECONDARY}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        {/* Species Filter */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
-          {['all', 'elephant', 'wildebeest', 'lion', 'rhino'].map((species) => (
-            <TouchableOpacity
-              key={species}
-              style={[styles.chip, filterSpecies === species && styles.chipActive]}
-              onPress={() => setFilterSpecies(species)}
-            >
-              <Text style={[styles.chipText, filterSpecies === species && styles.chipTextActive]}>
-                {species.charAt(0).toUpperCase() + species.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Animals List */}
-        <ScrollView style={styles.animalsList} showsVerticalScrollIndicator={false}>
-          {searchFilteredAnimals.map((animal) => {
-            const riskStyle = getRiskStyle(animal.risk);
-            return (
-              <TouchableOpacity
-                key={animal.id}
-                style={[
-                  styles.animalCard,
-                  animal.hasAlert && { borderLeftWidth: 4, borderLeftColor: animal.markerColor }
-                ]}
-                onPress={() => handleTrackAnimal(animal)}
-              >
-                <View style={styles.animalIconContainer}>
-                  <Text style={styles.animalIcon}>{animal.icon}</Text>
-                  {animal.hasAlert && animal.alertIcon && (
-                    <View style={[styles.alertBadge, { backgroundColor: animal.markerColor }]}>
-                      <Text style={styles.alertIcon}>{animal.alertIcon}</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.animalInfo}>
-                  <View style={styles.animalHeader}>
-                    <Text style={styles.animalName}>{animal.name}</Text>
-                    <View style={[styles.riskBadge, { backgroundColor: riskStyle.bg }]}>
-                      <Text style={[styles.riskText, { color: riskStyle.color }]}>{animal.risk}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.animalSpecies}>
-                    {animal.species} • {animal.behavior}
-                  </Text>
-                  <View style={styles.animalMeta}>
-                    <View style={[styles.statusDot, { backgroundColor: animal.markerColor }]} />
-                    <Text style={styles.metaText}>{animal.location}</Text>
-                    <Text style={styles.metaDot}>•</Text>
-                    <Text style={styles.metaText}>{animal.speed.toFixed(1)} km/h</Text>
-                  </View>
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={BRAND_COLORS.TEXT_SECONDARY} />
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* ML Features Panel (Ranger Tools) */}
+      {/* Map Legend Panel */}
       <Modal
         visible={showMLPanel}
         animationType="slide"
@@ -471,88 +975,169 @@ const MapScreen = () => {
         onRequestClose={() => setShowMLPanel(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.mlPanel}>
-            <View style={styles.mlHeader}>
-              <Text style={styles.mlTitle}>Map Layers</Text>
+          <View style={styles.legendPanel}>
+            <View style={styles.legendHeader}>
+              <Text style={styles.legendTitle}>Map Legend</Text>
               <TouchableOpacity onPress={() => setShowMLPanel(false)}>
                 <MaterialCommunityIcons name="close" size={24} color={BRAND_COLORS.TEXT} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.mlContent}>
-              {/* Movement Predictions */}
-              <View style={styles.mlSection}>
-                <MaterialCommunityIcons name="chart-timeline-variant" size={24} color={BRAND_COLORS.PRIMARY} />
-                <View style={styles.mlSectionContent}>
-                  <Text style={styles.mlSectionTitle}>AI Movement Predictions</Text>
-                  <Text style={styles.mlSectionDesc}>Show predicted animal paths</Text>
+            <ScrollView style={styles.legendContent}>
+              {/* Animal Risk Status */}
+              <View style={styles.legendSection}>
+                <Text style={styles.legendSectionTitle}>Animal Risk Status</Text>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendIcon, { backgroundColor: STATUS_COLORS.SUCCESS }]} />
+                  <Text style={styles.legendText}>Safe - Within corridor</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendIcon, { backgroundColor: STATUS_COLORS.WARNING }]} />
+                  <Text style={styles.legendText}>Caution - Outside corridor</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendIcon, { backgroundColor: STATUS_COLORS.ERROR }]} />
+                  <Text style={styles.legendText}>Danger - High risk zone</Text>
+                </View>
+              </View>
+
+              {/* Alert Types */}
+              <View style={styles.legendSection}>
+                <Text style={styles.legendSectionTitle}>Alert Types</Text>
+                <View style={styles.legendItem}>
+                  <MaterialCommunityIcons name="alert" size={16} color={STATUS_COLORS.ERROR} />
+                  <Text style={styles.legendText}>High Risk Zone Entry</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <MaterialCommunityIcons name="shield" size={16} color={BRAND_COLORS.PRIMARY} />
+                  <Text style={styles.legendText}>Poaching Risk</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <MaterialCommunityIcons name="map-marker" size={16} color={STATUS_COLORS.WARNING} />
+                  <Text style={styles.legendText}>Corridor Exit</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <MaterialCommunityIcons name="run" size={16} color={BRAND_COLORS.ACCENT} />
+                  <Text style={styles.legendText}>Rapid Movement</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <MaterialCommunityIcons name="battery-low" size={16} color={STATUS_COLORS.WARNING} />
+                  <Text style={styles.legendText}>Low Battery</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <MaterialCommunityIcons name="signal" size={16} color={BRAND_COLORS.TEXT_SECONDARY} />
+                  <Text style={styles.legendText}>Weak Signal</Text>
+                </View>
+              </View>
+
+              {/* Map Layers */}
+              <View style={styles.legendSection}>
+                <Text style={styles.legendSectionTitle}>Map Layers</Text>
+                
+                <View style={styles.layerToggle}>
+                  <View style={styles.layerInfo}>
+                    <MaterialCommunityIcons name="chart-timeline-variant" size={20} color={BRAND_COLORS.PRIMARY} />
+                    <View style={styles.layerText}>
+                      <Text style={styles.layerTitle}>Movement Paths</Text>
+                      <Text style={styles.layerDesc}>Show animal movement trails</Text>
+                    </View>
                 </View>
                 <Switch
-                  value={showPredictions}
-                  onValueChange={setShowPredictions}
+                    value={true}
+                    disabled={true}
                   trackColor={{ false: '#E5E7EB', true: BRAND_COLORS.PRIMARY }}
-                  thumbColor={BRAND_COLORS.SURFACE}
                 />
               </View>
 
-              {/* Behavior States */}
-              <View style={styles.mlSection}>
-                <MaterialCommunityIcons name="brain" size={24} color={BRAND_COLORS.HIGHLIGHT} />
-                <View style={styles.mlSectionContent}>
-                  <Text style={styles.mlSectionTitle}>Behavior Analysis</Text>
-                  <Text style={styles.mlSectionDesc}>Foraging, resting, migrating states</Text>
+                <View style={styles.layerToggle}>
+                  <View style={styles.layerInfo}>
+                    <MaterialCommunityIcons name="brain" size={20} color={BRAND_COLORS.HIGHLIGHT} />
+                    <View style={styles.layerText}>
+                      <Text style={styles.layerTitle}>Behavior States</Text>
+                      <Text style={styles.layerDesc}>Foraging, resting, migrating</Text>
+                    </View>
                 </View>
                 <Switch
                   value={showBehavior}
                   onValueChange={setShowBehavior}
                   trackColor={{ false: '#E5E7EB', true: BRAND_COLORS.HIGHLIGHT }}
-                  thumbColor={BRAND_COLORS.SURFACE}
                 />
               </View>
 
-              {/* Risk Zones */}
-              <View style={styles.mlSection}>
-                <MaterialCommunityIcons name="alert-circle" size={24} color={STATUS_COLORS.ERROR} />
-                <View style={styles.mlSectionContent}>
-                  <Text style={styles.mlSectionTitle}>Poaching Risk Zones</Text>
-                  <Text style={styles.mlSectionDesc}>High-risk areas for ranger awareness</Text>
+                <View style={styles.layerToggle}>
+                  <View style={styles.layerInfo}>
+                    <MaterialCommunityIcons name="alert-circle" size={20} color={STATUS_COLORS.ERROR} />
+                    <View style={styles.layerText}>
+                      <Text style={styles.layerTitle}>Risk Zones</Text>
+                      <Text style={styles.layerDesc}>Conflict and poaching zones</Text>
+                    </View>
                 </View>
                 <Switch
                   value={showRiskZones}
                   onValueChange={setShowRiskZones}
                   trackColor={{ false: '#E5E7EB', true: STATUS_COLORS.ERROR }}
-                  thumbColor={BRAND_COLORS.SURFACE}
                 />
               </View>
 
-              {/* Corridors */}
-              <View style={styles.mlSection}>
-                <MaterialCommunityIcons name="map-marker-path" size={24} color={BRAND_COLORS.ACCENT} />
-                <View style={styles.mlSectionContent}>
-                  <Text style={styles.mlSectionTitle}>Wildlife Corridors</Text>
-                  <Text style={styles.mlSectionDesc}>Protected movement pathways</Text>
+                <View style={styles.layerToggle}>
+                  <View style={styles.layerInfo}>
+                    <MaterialCommunityIcons name="map-marker-path" size={20} color={BRAND_COLORS.ACCENT} />
+                    <View style={styles.layerText}>
+                      <Text style={styles.layerTitle}>Corridors</Text>
+                      <Text style={styles.layerDesc}>Protected movement pathways</Text>
+                    </View>
                 </View>
                 <Switch
                   value={showCorridors}
                   onValueChange={setShowCorridors}
                   trackColor={{ false: '#E5E7EB', true: BRAND_COLORS.ACCENT }}
-                  thumbColor={BRAND_COLORS.SURFACE}
                 />
               </View>
 
-              {/* My Location */}
-              <View style={styles.mlSection}>
-                <MaterialCommunityIcons name="crosshairs-gps" size={24} color={STATUS_COLORS.INFO} />
-                <View style={styles.mlSectionContent}>
-                  <Text style={styles.mlSectionTitle}>My Location</Text>
-                  <Text style={styles.mlSectionDesc}>Show my position on map</Text>
+                <View style={styles.layerToggle}>
+                  <View style={styles.layerInfo}>
+                    <MaterialCommunityIcons name="chart-timeline-variant" size={20} color={STATUS_COLORS.INFO} />
+                    <View style={styles.layerText}>
+                      <Text style={styles.layerTitle}>AI Predictions</Text>
+                      <Text style={styles.layerDesc}>Predicted movement paths</Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={showPredictions}
+                    onValueChange={setShowPredictions}
+                    trackColor={{ false: '#E5E7EB', true: STATUS_COLORS.INFO }}
+                  />
+                </View>
+
+                <View style={styles.layerToggle}>
+                  <View style={styles.layerInfo}>
+                    <MaterialCommunityIcons name="crosshairs-gps" size={20} color={STATUS_COLORS.SUCCESS} />
+                    <View style={styles.layerText}>
+                      <Text style={styles.layerTitle}>My Location</Text>
+                      <Text style={styles.layerDesc}>Show my position</Text>
+                    </View>
                 </View>
                 <Switch
                   value={showMyLocation}
                   onValueChange={setShowMyLocation}
-                  trackColor={{ false: '#E5E7EB', true: STATUS_COLORS.INFO }}
-                  thumbColor={BRAND_COLORS.SURFACE}
-                />
+                    trackColor={{ false: '#E5E7EB', true: STATUS_COLORS.SUCCESS }}
+                  />
+                </View>
+
+                <View style={styles.layerToggle}>
+                  <View style={styles.layerInfo}>
+                    <MaterialCommunityIcons name="account-group" size={20} color={BRAND_COLORS.SECONDARY} />
+                    <View style={styles.layerText}>
+                      <Text style={styles.layerTitle}>Ranger Patrols</Text>
+                      <Text style={styles.layerDesc}>Active ranger positions</Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={showRangerPatrols}
+                    onValueChange={setShowRangerPatrols}
+                    trackColor={{ false: '#E5E7EB', true: BRAND_COLORS.SECONDARY }}
+                  />
+                </View>
               </View>
             </ScrollView>
           </View>
@@ -602,7 +1187,13 @@ const MapScreen = () => {
 
                   <View style={styles.detailSection}>
                     <Text style={styles.detailSectionTitle}>Risk Level</Text>
-                    <Text style={[styles.detailValue, { color: getRiskStyle(selectedAnimal.risk).color }]}>
+                    <Text style={[styles.detailValue, { 
+                      color: selectedAnimal.risk === 'High' || selectedAnimal.risk === 'high' 
+                        ? STATUS_COLORS.ERROR 
+                        : selectedAnimal.risk === 'Medium' || selectedAnimal.risk === 'medium'
+                        ? STATUS_COLORS.WARNING
+                        : STATUS_COLORS.SUCCESS
+                    }]}>
                       {selectedAnimal.risk}
                     </Text>
                   </View>
@@ -631,74 +1222,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BRAND_COLORS.BACKGROUND,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: BRAND_COLORS.PRIMARY,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  connectionStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  connectionText: {
-    color: BRAND_COLORS.SURFACE,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sosButton: {
-    backgroundColor: STATUS_COLORS.ERROR,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 4,
-  },
-  sosText: {
-    color: BRAND_COLORS.SURFACE,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  quickReportButton: {
-    backgroundColor: BRAND_COLORS.ACCENT,
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mlToggleButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   mapContainer: {
     flex: 1,
     position: 'relative',
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1a1a1a',
   },
   statsOverlay: {
     position: 'absolute',
@@ -707,6 +1236,7 @@ const styles = StyleSheet.create({
     right: 16,
     flexDirection: 'row',
     gap: 8,
+    zIndex: 10,
   },
   statCard: {
     flex: 1,
@@ -731,6 +1261,64 @@ const styles = StyleSheet.create({
     color: BRAND_COLORS.TEXT_SECONDARY,
     marginTop: 2,
   },
+  legendButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: BRAND_COLORS.SURFACE,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 10,
+  },
+  simpleHeader: {
+    backgroundColor: BRAND_COLORS.PRIMARY,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: Platform.OS === 'ios' ? 50 : 12,
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  offlineText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emergencyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: STATUS_COLORS.ERROR,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  emergencyButtonText: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   loadingOverlay: {
     position: 'absolute',
     top: 0,
@@ -746,147 +1334,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: BRAND_COLORS.TEXT_SECONDARY,
   },
-  filterPanel: {
-    backgroundColor: BRAND_COLORS.SURFACE,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 16,
-    maxHeight: '40%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: BRAND_COLORS.BACKGROUND,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    fontSize: 14,
-    color: BRAND_COLORS.TEXT,
-  },
-  filterChips: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  chip: {
-    backgroundColor: BRAND_COLORS.BACKGROUND,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  chipActive: {
-    backgroundColor: BRAND_COLORS.PRIMARY,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: BRAND_COLORS.TEXT,
-  },
-  chipTextActive: {
-    color: BRAND_COLORS.SURFACE,
-  },
-  animalsList: {
-    flex: 1,
-  },
-  animalCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: BRAND_COLORS.BACKGROUND,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  animalIconContainer: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  animalIcon: {
-    fontSize: 32,
-  },
-  alertBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: BRAND_COLORS.SURFACE,
-  },
-  alertIcon: {
-    fontSize: 10,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  animalInfo: {
-    flex: 1,
-  },
-  animalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  animalName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: BRAND_COLORS.TEXT,
-  },
-  riskBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  riskText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  animalSpecies: {
-    fontSize: 13,
-    color: BRAND_COLORS.TEXT_SECONDARY,
-    marginBottom: 4,
-  },
-  animalMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaText: {
-    fontSize: 11,
-    color: BRAND_COLORS.TEXT_SECONDARY,
-  },
-  metaDot: {
-    fontSize: 11,
-    color: BRAND_COLORS.TEXT_SECONDARY,
-    marginHorizontal: 4,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
-  mlPanel: {
+  legendPanel: {
     backgroundColor: BRAND_COLORS.SURFACE,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '70%',
+    maxHeight: '80%',
   },
-  mlHeader: {
+  legendHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -894,32 +1353,62 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: BRAND_COLORS.BORDER_LIGHT,
   },
-  mlTitle: {
+  legendTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: BRAND_COLORS.TEXT,
   },
-  mlContent: {
+  legendContent: {
     padding: 20,
   },
-  mlSection: {
+  legendSection: {
+    marginBottom: 24,
+  },
+  legendSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: BRAND_COLORS.TEXT,
+    marginBottom: 12,
+  },
+  legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    gap: 12,
+    marginBottom: 10,
+  },
+  legendIcon: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  legendText: {
+    fontSize: 14,
+    color: BRAND_COLORS.TEXT,
+  },
+  layerToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: BRAND_COLORS.BORDER_LIGHT,
   },
-  mlSectionContent: {
+  layerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
-    marginLeft: 12,
   },
-  mlSectionTitle: {
+  layerText: {
+    flex: 1,
+  },
+  layerTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: BRAND_COLORS.TEXT,
     marginBottom: 2,
   },
-  mlSectionDesc: {
+  layerDesc: {
     fontSize: 12,
     color: BRAND_COLORS.TEXT_SECONDARY,
   },

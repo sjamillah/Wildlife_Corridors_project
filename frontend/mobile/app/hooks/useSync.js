@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { sync } from '../services';
+import { sync } from '@services';
 import NetInfo from '@react-native-community/netinfo';
 
 /**

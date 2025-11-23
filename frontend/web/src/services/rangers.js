@@ -117,6 +117,33 @@ const rangers = {
       }
     },
 
+    update: async (id, logData) => {
+      try {
+        const response = await api.put(`/api/v1/rangers/logs/${id}/`, logData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update log');
+      }
+    },
+
+    patch: async (id, partialData) => {
+      try {
+        const response = await api.patch(`/api/v1/rangers/logs/${id}/`, partialData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update log');
+      }
+    },
+
+    delete: async (id) => {
+      try {
+        await api.delete(`/api/v1/rangers/logs/${id}/`);
+        return { success: true };
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to delete log');
+      }
+    },
+
     getEmergencies: async () => {
       try {
         const response = await api.get('/api/v1/rangers/logs/emergencies/');
@@ -186,12 +213,59 @@ const rangers = {
   },
 
   tracking: {
+    getAll: async (filters = {}) => {
+      try {
+        const params = new URLSearchParams(filters).toString();
+        const url = `/api/v1/rangers/tracking/${params ? `?${params}` : ''}`;
+        const response = await api.get(url);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to fetch tracking data');
+      }
+    },
+
+    getById: async (id) => {
+      try {
+        const response = await api.get(`/api/v1/rangers/tracking/${id}/`);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to fetch tracking point');
+      }
+    },
+
     create: async (trackingData) => {
       try {
         const response = await api.post('/api/v1/rangers/tracking/', trackingData);
         return response.data;
       } catch (error) {
         throw new Error(error.response?.data?.message || 'Failed to submit tracking data');
+      }
+    },
+
+    update: async (id, trackingData) => {
+      try {
+        const response = await api.put(`/api/v1/rangers/tracking/${id}/`, trackingData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update tracking data');
+      }
+    },
+
+    patch: async (id, partialData) => {
+      try {
+        const response = await api.patch(`/api/v1/rangers/tracking/${id}/`, partialData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update tracking data');
+      }
+    },
+
+    delete: async (id) => {
+      try {
+        await api.delete(`/api/v1/rangers/tracking/${id}/`);
+        return { success: true };
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to delete tracking data');
       }
     },
 
@@ -203,6 +277,64 @@ const rangers = {
         return response.data;
       } catch (error) {
         throw new Error(error.response?.data?.message || 'Failed to fetch ranger tracking');
+      }
+    },
+  },
+
+  teams: {
+    getAll: async (filters = {}) => {
+      try {
+        const params = new URLSearchParams(filters).toString();
+        const url = `/api/v1/rangers/teams/${params ? `?${params}` : ''}`;
+        const response = await api.get(url);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to fetch teams');
+      }
+    },
+
+    getById: async (id) => {
+      try {
+        const response = await api.get(`/api/v1/rangers/teams/${id}/`);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to fetch team');
+      }
+    },
+
+    create: async (teamData) => {
+      try {
+        const response = await api.post('/api/v1/rangers/teams/', teamData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to create team');
+      }
+    },
+
+    update: async (id, teamData) => {
+      try {
+        const response = await api.put(`/api/v1/rangers/teams/${id}/`, teamData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update team');
+      }
+    },
+
+    patch: async (id, partialData) => {
+      try {
+        const response = await api.patch(`/api/v1/rangers/teams/${id}/`, partialData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to update team');
+      }
+    },
+
+    delete: async (id) => {
+      try {
+        await api.delete(`/api/v1/rangers/teams/${id}/`);
+        return { success: true };
+      } catch (error) {
+        throw new Error(error.response?.data?.message || 'Failed to delete team');
       }
     },
   },

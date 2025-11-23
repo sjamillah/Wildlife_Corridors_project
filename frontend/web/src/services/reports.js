@@ -4,7 +4,7 @@ const reports = {
   getAll: async (filters = {}) => {
     try {
       const params = new URLSearchParams(filters).toString();
-      const url = `/api/v1/reports/${params ? `?${params}` : ''}`;
+      const url = `/api/v1/reports/reports/${params ? `?${params}` : ''}`;
       const response = await api.get(url);
       return response.data;
     } catch (error) {
@@ -14,7 +14,7 @@ const reports = {
 
   getById: async (id) => {
     try {
-      const response = await api.get(`/api/v1/reports/${id}/`);
+      const response = await api.get(`/api/v1/reports/reports/${id}/`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to fetch report details');
@@ -23,16 +23,52 @@ const reports = {
 
   getByCategory: async (categoryId) => {
     try {
-      const response = await api.get(`/api/v1/reports/?category=${categoryId}`);
+      const response = await api.get(`/api/v1/reports/reports/?category=${categoryId}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to fetch reports by category');
     }
   },
 
+  create: async (reportData) => {
+    try {
+      const response = await api.post('/api/v1/reports/reports/', reportData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to create report');
+    }
+  },
+
+  update: async (id, reportData) => {
+    try {
+      const response = await api.put(`/api/v1/reports/reports/${id}/`, reportData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update report');
+    }
+  },
+
+  patch: async (id, partialData) => {
+    try {
+      const response = await api.patch(`/api/v1/reports/reports/${id}/`, partialData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update report');
+    }
+  },
+
+  delete: async (id) => {
+    try {
+      await api.delete(`/api/v1/reports/reports/${id}/`);
+      return { success: true };
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to delete report');
+    }
+  },
+
   generate: async (reportData) => {
     try {
-      const response = await api.post('/api/v1/reports/generate/', reportData);
+      const response = await api.post('/api/v1/reports/reports/generate/', reportData);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to generate report');
@@ -41,7 +77,7 @@ const reports = {
 
   download: async (reportId) => {
     try {
-      const response = await api.get(`/api/v1/reports/${reportId}/download/`);
+      const response = await api.get(`/api/v1/reports/reports/${reportId}/download/`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to download report');
@@ -50,7 +86,7 @@ const reports = {
 
   getStats: async () => {
     try {
-      const response = await api.get('/api/v1/reports/stats/');
+      const response = await api.get('/api/v1/reports/reports/stats/');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to fetch report statistics');
@@ -59,7 +95,7 @@ const reports = {
 
   getTrends: async (days = 30) => {
     try {
-      const response = await api.get(`/api/v1/reports/trends/?days=${days}`);
+      const response = await api.get(`/api/v1/reports/reports/trends/?days=${days}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to fetch report trends');

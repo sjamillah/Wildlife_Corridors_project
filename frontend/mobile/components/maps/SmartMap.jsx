@@ -1,31 +1,13 @@
 import React from 'react';
-import { Platform } from 'react-native';
-
-// Platform-specific imports
-let MapboxMap = null;
-let OSMMap = null;
-
-if (Platform.OS !== 'web') {
-  // Only import Mapbox on native platforms
-  try {
-    MapboxMap = require('./MapboxMap').default;
-  } catch (e) {
-    console.log('Mapbox not available, using fallback');
-  }
-}
-
-// Always have OSMMap as fallback
-OSMMap = require('./OSMMap').default;
+import MapComponent from './MapComponent';
 
 /**
- * Smart Map Component
- * - Uses Mapbox on Mobile (real maps)
- * - Uses OSMMap on Web (no dependencies)
+ * Smart Map Component - Native Version
+ * - Uses react-native-maps with Esri ArcGIS satellite imagery (matches web app)
+ * - Works in Expo Go without API keys
+ * - For web, see SmartMap.web.jsx
  */
 const SmartMap = (props) => {
-  // Use Mapbox on mobile if available, otherwise use OSMMap
-  const MapComponent = (Platform.OS !== 'web' && MapboxMap) ? MapboxMap : OSMMap;
-  
   return <MapComponent {...props} />;
 };
 

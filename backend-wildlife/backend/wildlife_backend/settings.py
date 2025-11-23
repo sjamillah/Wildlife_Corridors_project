@@ -19,7 +19,9 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-this-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,testserver').split(',')
+# ALLOWED_HOSTS - Include Azure domain
+default_hosts = 'localhost,127.0.0.1,0.0.0.0,testserver,aureynx-backend-app-h9gebmcyfhg7f2h0.southafricanorth-01.azurewebsites.net'
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', default_hosts).split(',')
 
 # Application definition
 DJANGO_APPS = [
@@ -246,11 +248,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3001",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    # Add your production frontend URLs here if you have them
+    # "https://your-frontend-domain.com",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
 # Allow all origins (enable CORS for all domains)
+# For production, consider setting this to False and using CORS_ALLOWED_ORIGINS instead
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Allow all methods and headers

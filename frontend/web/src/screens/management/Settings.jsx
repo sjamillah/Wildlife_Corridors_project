@@ -80,12 +80,30 @@ const Settings = () => {
     }));
   };
 
-  const handleSave = () => {
-    console.log('Saving settings...', settings);
-    setSaveMessage('Settings saved successfully!');
-    setTimeout(() => setSaveMessage(''), 3000);
-    // TODO: API call to save to backend
-    // await fetch('/api/user/settings', { method: 'PUT', body: JSON.stringify(settings) });
+  const handleSave = async () => {
+    try {
+      setSaveMessage('Saving...');
+      
+      // Update profile information and preferences in one call
+      const profileUpdate = {
+        name: `${settings.profile.firstName} ${settings.profile.lastName}`.trim(),
+        phone: settings.profile.phone,
+        organization: settings.profile.organization,
+        department: settings.profile.department,
+        notification_preferences: settings.notifications,
+        security_preferences: settings.security,
+        system_preferences: settings.system,
+      };
+      
+      await auth.updateProfile(profileUpdate);
+      
+      setSaveMessage('Settings saved successfully!');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      setSaveMessage(`Failed to save: ${error.message}`);
+      setTimeout(() => setSaveMessage(''), 5000);
+    }
   };
 
   const handleReset = () => {
@@ -160,27 +178,76 @@ const Settings = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const profile = await auth.getProfile();
+        // Fetch fresh profile from backend
+        const profile = await auth.fetchProfile();
         const name = profile.name || profile.email?.split('@')[0] || 'User';
         const nameParts = name.split(' ');
         const firstName = nameParts[0] || 'User';
         const lastName = nameParts.slice(1).join(' ') || '';
         const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
         
+        // Get account metadata
+        const accountCreated = profile.date_joined || profile.created_at || new Date().toISOString();
+        const lastLogin = profile.last_login || null;
+        const accountStatus = profile.is_active ? 'Active' : 'Inactive';
+        
         setSettings(prev => ({
           ...prev,
           profile: {
-            ...prev.profile,
             firstName: firstName,
             lastName: lastName,
-            email: profile.email || prev.profile.email,
-            role: profile.role === 'ranger' ? 'Field Ranger' : 'Conservation Manager',
+            email: profile.email || '',
+            phone: profile.phone || profile.phone_number || '',
+            organization: profile.organization || profile.organization_name || '',
+            role: profile.role === 'ranger' ? 'Field Ranger' : 
+                  profile.role === 'conservation_manager' ? 'Conservation Manager' :
+                  profile.role === 'admin' ? 'System Administrator' :
+                  profile.role === 'viewer' ? 'Viewer' : 'User',
+            department: profile.department || '',
             avatar: initials,
-            userId: profile.id || prev.profile.userId,
-          }
+            accountCreated: accountCreated,
+            lastLogin: lastLogin ? new Date(lastLogin).toLocaleString() : 'Never',
+            accountStatus: accountStatus,
+            userId: profile.id || profile.user_id || '',
+          },
+          // Load preferences from profile if available (merge with defaults if partial)
+          notifications: profile.notification_preferences ? {
+            ...prev.notifications,
+            ...profile.notification_preferences
+          } : prev.notifications,
+          security: profile.security_preferences ? {
+            ...prev.security,
+            ...profile.security_preferences
+          } : prev.security,
+          system: profile.system_preferences ? {
+            ...prev.system,
+            ...profile.system_preferences
+          } : prev.system,
         }));
       } catch (error) {
         console.error('Failed to load user profile:', error);
+        // Fallback to cached profile
+        const cachedProfile = auth.getProfile();
+        if (cachedProfile) {
+          const name = cachedProfile.name || cachedProfile.email?.split('@')[0] || 'User';
+          const nameParts = name.split(' ');
+          const firstName = nameParts[0] || 'User';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+          
+          setSettings(prev => ({
+            ...prev,
+            profile: {
+              ...prev.profile,
+              firstName: firstName,
+              lastName: lastName,
+              email: cachedProfile.email || prev.profile.email,
+              role: cachedProfile.role === 'ranger' ? 'Field Ranger' : 'Conservation Manager',
+              avatar: initials,
+              userId: cachedProfile.id || prev.profile.userId,
+            }
+          }));
+        }
       }
     };
 
@@ -234,10 +301,6 @@ const Settings = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Calendar className="w-3.5 h-3.5" />
               Joined {new Date(settings.profile.accountCreated).toLocaleDateString()}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <User className="w-3.5 h-3.5" />
-              ID: {settings.profile.userId}
             </div>
             <div style={{
               padding: '4px 10px',
@@ -421,55 +484,45 @@ const Settings = () => {
               <label style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary }}>
                 Role
               </label>
-            <select
+            <input
+              type="text"
               value={settings.profile.role}
               onChange={(e) => handleSettingChange('profile', 'role', e.target.value)}
-                style={{
-                  padding: '12px 14px',
-                  border: `1px solid ${COLORS.borderLight}`,
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                  background: COLORS.whiteCard,
-                  cursor: 'pointer',
-                  outline: 'none',
-                  transition: 'all 0.2s ease'
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = COLORS.forestGreen; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = COLORS.borderLight; }}
-            >
-              <option value="Conservation Manager">Conservation Manager</option>
-              <option value="Field Coordinator">Field Coordinator</option>
-              <option value="Research Analyst">Research Analyst</option>
-              <option value="System Administrator">System Administrator</option>
-            </select>
+              style={{
+                padding: '12px 14px',
+                border: `1px solid ${COLORS.borderLight}`,
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                outline: 'none',
+                transition: 'all 0.2s ease',
+                background: COLORS.secondaryBg
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = COLORS.forestGreen; e.currentTarget.style.background = COLORS.whiteCard; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = COLORS.borderLight; e.currentTarget.style.background = COLORS.secondaryBg; }}
+            />
           </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary }}>
                 Department
               </label>
-            <select
+            <input
+              type="text"
               value={settings.profile.department}
               onChange={(e) => handleSettingChange('profile', 'department', e.target.value)}
-                style={{
-                  padding: '12px 14px',
-                  border: `1px solid ${COLORS.borderLight}`,
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                  background: COLORS.whiteCard,
-                  cursor: 'pointer',
-                  outline: 'none',
-                  transition: 'all 0.2s ease'
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = COLORS.forestGreen; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = COLORS.borderLight; }}
-            >
-              <option value="Field Operations">Field Operations</option>
-              <option value="Research & Analytics">Research & Analytics</option>
-              <option value="Community Outreach">Community Outreach</option>
-              <option value="Technical Support">Technical Support</option>
-            </select>
+              style={{
+                padding: '12px 14px',
+                border: `1px solid ${COLORS.borderLight}`,
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                outline: 'none',
+                transition: 'all 0.2s ease',
+                background: COLORS.secondaryBg
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = COLORS.forestGreen; e.currentTarget.style.background = COLORS.whiteCard; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = COLORS.borderLight; e.currentTarget.style.background = COLORS.secondaryBg; }}
+            />
           </div>
         </div>
       </div>
@@ -577,7 +630,7 @@ const Settings = () => {
         </div>
 
         <button
-          onClick={() => {
+          onClick={async () => {
             if (!settings.password.currentPassword) {
               alert('Please enter your current password');
               return;
@@ -591,18 +644,21 @@ const Settings = () => {
               return;
             }
             
-            // Validation passed
-            console.log('Updating password...');
-            setSaveMessage('Password updated successfully!');
-            setTimeout(() => setSaveMessage(''), 3000);
-            
-            // Clear password fields
-            handleSettingChange('password', 'currentPassword', '');
-            handleSettingChange('password', 'newPassword', '');
-            handleSettingChange('password', 'confirmPassword', '');
-            
-            // TODO: API call to update password
-            // await fetch('/api/user/password', { method: 'PUT', body: JSON.stringify({ current: currentPassword, new: newPassword }) });
+            try {
+              setSaveMessage('Updating password...');
+              await auth.changePassword(settings.password.currentPassword, settings.password.newPassword);
+              
+              setSaveMessage('Password updated successfully!');
+              setTimeout(() => setSaveMessage(''), 3000);
+              
+              // Clear password fields
+              handleSettingChange('password', 'currentPassword', '');
+              handleSettingChange('password', 'newPassword', '');
+              handleSettingChange('password', 'confirmPassword', '');
+            } catch (error) {
+              alert(`Failed to update password: ${error.message}`);
+              setSaveMessage('');
+            }
           }}
           style={{
             padding: '12px 20px',
@@ -908,7 +964,7 @@ const Settings = () => {
       <Sidebar onLogout={handleLogout} />
       
       {/* Main Content */}
-      <div style={{ marginLeft: '260px', minHeight: '100vh' }}>
+      <div className="responsive-content">
         {/* Page Header */}
         <section style={{ background: COLORS.forestGreen, padding: '28px 40px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -22,25 +22,24 @@ export const ThemeProvider = ({ children }) => {
   const [colorScheme, setColorScheme] = useState('light');
   const [manualOverride, setManualOverride] = useState(null);
 
-  const loadThemePreference = useCallback(async () => {
-    try {
-      const savedTheme = await AsyncStorage.getItem('themePreference');
-      if (savedTheme) {
-        setManualOverride(savedTheme);
-        setColorScheme(savedTheme);
-      } else {
-        setColorScheme(systemColorScheme || 'light');
-      }
-    } catch (error) {
-      console.log('Error loading theme preference:', error);
-      setColorScheme(systemColorScheme || 'light');
-    }
-  }, [systemColorScheme]);
-
   // Load saved theme preference on app start
   useEffect(() => {
+    const loadThemePreference = async () => {
+      try {
+        const savedTheme = await AsyncStorage.getItem('themePreference');
+        if (savedTheme) {
+          setManualOverride(savedTheme);
+          setColorScheme(savedTheme);
+        } else {
+          setColorScheme(systemColorScheme || 'light');
+        }
+      } catch (error) {
+        console.log('Error loading theme preference:', error);
+        setColorScheme(systemColorScheme || 'light');
+      }
+    };
     loadThemePreference();
-  }, [loadThemePreference]);
+  }, [systemColorScheme]);
 
   // Update theme when system theme changes (if no manual override)
   useEffect(() => {

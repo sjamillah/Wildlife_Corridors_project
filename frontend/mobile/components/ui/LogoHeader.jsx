@@ -1,15 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Image, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import Icon from './Icon';
-import { BRAND_COLORS, STATUS_COLORS } from '../../constants/Colors';
-import { WILDLIFE_ICONS, ICON_SIZES } from '../../constants/Icons';
-import { useAlerts } from '../../contexts/AlertsContext';
+import { BRAND_COLORS, STATUS_COLORS } from '@constants/Colors';
+import { WILDLIFE_ICONS, ICON_SIZES } from '@constants/Icons';
+import { useAlerts } from '@contexts/AlertsContext';
+import { auth as authService } from '@services';
+import { useOfflineMode } from '@app/hooks';
 
-export function LogoHeader() {
+export function LogoHeader({ title = 'Field Map' }) {
   const { alerts } = useAlerts();
-  const activeAlertCount = alerts?.filter(a => a.active).length || 3;
-  const isOnline = true; // TODO: Connect to actual network status
+  const { isOnline } = useOfflineMode();
+  const activeAlertCount = alerts?.filter(a => a.active).length || 0;
+  
+  const [userInfo, setUserInfo] = useState({
+    name: '',
+    role: 'Ranger',
+    badge: '',
+  });
+
+  // Load user profile
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        const user = await authService.getProfile();
+        setUserInfo({
+          name: user.name || user.email || 'Ranger',
+          role: user.role || 'Ranger',
+          badge: user.badge_number || '',
+        });
+      } catch (error) {
+        console.warn('Failed to load user info:', error);
+        // Try to get from AsyncStorage as fallback
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const stored = await AsyncStorage.getItem('userProfile');
+          if (stored) {
+            const user = JSON.parse(stored);
+            setUserInfo({
+              name: user.name || user.email || 'Ranger',
+              role: user.role || 'Ranger',
+              badge: user.badge_number || '',
+            });
+          }
+        } catch (_e) {
+          // Silently fail
+        }
+      }
+    };
+    loadUserInfo();
+  }, []);
   
   const handleNotificationPress = () => {
     router.push('/screens/(tabs)/AlertsScreen');
@@ -17,14 +57,26 @@ export function LogoHeader() {
   
   return (
     <View style={styles.header}>
-      {/* Logo - Larger and Clearer */}
-      <View style={styles.logoContainer}>
+      {/* Left Side: Logo */}
+      <View style={styles.leftSection}>
         <Image 
           source={require('../../assets/images/Aureynx_Logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
       </View>
+      
+      {/* Center: User Info */}
+      {userInfo.name && (
+        <View style={styles.centerSection}>
+          <Text style={styles.userName} numberOfLines={1}>
+            {userInfo.name}
+          </Text>
+          <Text style={styles.userRole} numberOfLines={1}>
+            {userInfo.role} {userInfo.badge ? `• ${userInfo.badge}` : ''}
+          </Text>
+        </View>
+      )}
       
       {/* Right Side: Status and Notifications */}
       <View style={styles.rightSection}>
@@ -61,7 +113,7 @@ export function LogoHeader() {
 const styles = StyleSheet.create({
   header: {
     backgroundColor: BRAND_COLORS.PRIMARY,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -72,17 +124,40 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  logoContainer: {
-    flex: 1,
+  leftSection: {
+    flex: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logo: {
-    width: 160,
-    height: 50,
+    width: 140,
+    height: 45,
+  },
+  centerSection: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  userName: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  userRole: {
+    color: BRAND_COLORS.SURFACE,
+    fontSize: 10,
+    fontWeight: '500',
+    opacity: 0.9,
+    textAlign: 'center',
   },
   rightSection: {
+    flex: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   statusBadge: {
     flexDirection: 'row',

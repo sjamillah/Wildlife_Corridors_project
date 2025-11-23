@@ -7,7 +7,6 @@
     "icon": "./assets/images/Aureynx_Logo.png",
     "scheme": "aureynx",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aureynx.wildlifecorridors",
@@ -53,13 +52,6 @@
           "backgroundColor": "#2E5D45"
         }
       ],
-      [
-        "@rnmapbox/maps",
-        {
-          "RNMapboxMapsImpl": "mapbox",
-          "RNMAPBOX_MAPS_DOWNLOAD_TOKEN": "pk.eyJ1IjoiamFtbXktbCIsImEiOiJjbWd0YWRmNnAwMjZwMmpyN252a2d2ajd1In0.M0mjFFqLPLGPfz2mEFNBKA"
-        }
-      ],
       "expo-font",
       "expo-web-browser"
     ],
@@ -71,7 +63,7 @@
       "eas": {
         "projectId": "d51b5b66-0676-476d-bb34-37e51bcf13d6"
       },
-      "apiUrl": "https://wildlife-project-backend.onrender.com",
+      "apiUrl": "https://aureynx-backend-app-h9gebmcyfhg7f2h0.southafricanorth-01.azurewebsites.net",
       "environment": "production"
     },
     "owner": "jammy-b",

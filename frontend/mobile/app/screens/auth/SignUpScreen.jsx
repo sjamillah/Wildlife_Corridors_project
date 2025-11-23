@@ -15,8 +15,8 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
-import { BRAND_COLORS } from '../../../constants/Colors';
-import { auth } from '../../services';
+import { BRAND_COLORS } from '@constants/Colors';
+import { auth } from '@services';
 
 export default function SignUpScreen() {
   const [firstName, setFirstName] = useState('');
@@ -163,23 +163,6 @@ export default function SignUpScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Role</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={role}
-                    onValueChange={setRole}
-                    style={styles.picker}
-                    enabled={!loading}
-                  >
-                    <Picker.Item label="Ranger" value="ranger" />
-                    <Picker.Item label="Conservation Manager" value="conservation_manager" />
-                    <Picker.Item label="Viewer" value="viewer" />
-                    <Picker.Item label="Administrator" value="admin" />
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
                 <Text style={styles.label}>Organization (Optional)</Text>
                 <TextInput
                   style={styles.input}
@@ -190,6 +173,24 @@ export default function SignUpScreen() {
                   autoCapitalize="words"
                   editable={!loading}
                 />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Role</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={role}
+                    onValueChange={setRole}
+                    style={styles.picker}
+                    enabled={!loading}
+                    mode="dropdown"
+                  >
+                    <Picker.Item label="Ranger" value="ranger" />
+                    <Picker.Item label="Conservation Manager" value="conservation_manager" />
+                    <Picker.Item label="Viewer" value="viewer" />
+                    <Picker.Item label="Administrator" value="admin" />
+                  </Picker>
+                </View>
               </View>
 
               <TouchableOpacity 
@@ -338,9 +339,13 @@ const styles = StyleSheet.create({
     borderColor: BRAND_COLORS.BORDER_LIGHT,
     borderRadius: 8,
     backgroundColor: BRAND_COLORS.SURFACE,
+    overflow: 'hidden',
+    zIndex: 1000,
+    elevation: 5,
   },
   picker: {
     height: 50,
+    width: '100%',
   },
   otpInput: {
     fontSize: 24,

@@ -42,8 +42,9 @@ export const useWebSocket = (options = {}) => {
    * Handle initial data from WebSocket
    */
   const handleInitialData = useCallback((data) => {
-    console.log('Received initial data:', data.animals?.length || 0, 'animals');
+    console.log('📥 WebSocket initial data received:', data.animals?.length || 0, 'animals');
     if (data.animals && Array.isArray(data.animals)) {
+      console.log('✅ Setting initial animals state:', data.animals.length);
       setAnimals(data.animals);
       setLastUpdate(new Date().toISOString());
     }
@@ -76,37 +77,59 @@ export const useWebSocket = (options = {}) => {
   }, []);
 
   /**
-   * Handle position updates from WebSocket
+   * Handle position updates from WebSocket (with activity-based movement)
    */
   const handlePositionUpdate = useCallback((data) => {
-    console.log('Received position update:', data.animals?.length || 0, 'animals');
+    console.log('🔄 WebSocket position update received:', data.animals?.length || 0, 'animals');
     
     if (data.animals && Array.isArray(data.animals)) {
       setAnimals(prevAnimals => {
+        console.log('📊 Updating animals state - previous:', prevAnimals.length, 'new:', data.animals.length);
         // Create a map of existing animals for quick lookup
         const animalMap = new Map(prevAnimals.map(animal => [animal.id, animal]));
 
         // Update or add animals from the update
         data.animals.forEach(updatedAnimal => {
           const existing = animalMap.get(updatedAnimal.id);
+          const activityType = updatedAnimal.movement?.activity_type || 'unknown';
+          const speed = updatedAnimal.movement?.speed_kmh || 0;
+          const conflictRisk = updatedAnimal.conflict_risk || {};
+          
+          // Determine if animal should animate based on activity_type
+          const shouldAnimate = activityType === 'moving' && speed > 2;
+          const shouldWobble = activityType === 'feeding';
+          const isResting = activityType === 'resting';
+          
           animalMap.set(updatedAnimal.id, {
             ...existing,
             ...updatedAnimal,
             // Calculate path color
             pathColor: getPathColor(updatedAnimal),
+            // Activity-based movement flags
+            activityType: activityType,
+            shouldAnimate: shouldAnimate,
+            shouldWobble: shouldWobble,
+            isResting: isResting,
+            // Conflict risk data
+            conflict_risk: conflictRisk,
+            // Update risk level based on conflict_risk
+            risk_level: conflictRisk.risk_level || updatedAnimal.risk_level || 'low',
           });
         });
 
         return Array.from(animalMap.values());
       });
 
-      // Track movement paths
+      // Track movement paths (only for moving/feeding animals, not resting)
       setAnimalPaths(prevPaths => {
         const newPaths = { ...prevPaths };
         
         data.animals.forEach(animal => {
           const position = animal.current_position;
-          if (position && position.lat && position.lon) {
+          const activityType = animal.movement?.activity_type || 'unknown';
+          
+          // Only track paths for moving/feeding animals
+          if (position && position.lat && position.lon && activityType !== 'resting') {
             if (!newPaths[animal.id]) {
               newPaths[animal.id] = [];
             }
@@ -119,6 +142,7 @@ export const useWebSocket = (options = {}) => {
                 lon: position.lon,
                 timestamp: animal.last_updated || new Date().toISOString(),
                 color: getPathColor(animal),
+                activity: activityType,
               }
             ].slice(-50); // Keep last 50 positions
           }
@@ -137,41 +161,127 @@ export const useWebSocket = (options = {}) => {
   }, [onPositionUpdate, getPathColor]);
 
   /**
-   * Handle alert messages from WebSocket
+   * Get alert icon based on alert type
+   */
+  const getAlertIcon = useCallback((alertType) => {
+    const icons = {
+      'high_risk_zone': '⚠️',
+      'poaching_risk': '🚨',
+      'corridor_exit': '📍',
+      'rapid_movement': '⚡',
+      'low_battery': '🔋',
+      'weak_signal': '📡',
+      'stationary_too_long': '⏸️',
+      'unusual_behavior': '❓',
+    };
+    return icons[alertType] || '⚠️';
+  }, []);
+
+  /**
+   * Get severity color
+   */
+  const getSeverityColor = useCallback((severity) => {
+    const colors = {
+      'critical': '#DC2626',
+      'high': '#EA580C',
+      'medium': '#F59E0B',
+      'low': '#3B82F6',
+    };
+    return colors[severity] || '#6B7280';
+  }, []);
+
+  /**
+   * Handle alert messages from WebSocket (new format: { type: 'alert', alert: {...} })
    */
   const handleAlert = useCallback((data) => {
-    console.log('Received alert:', data.message);
+    console.log('Received alert message:', data);
     
-    // Determine alert severity and type
-    const alertType = data.alert_type || 'general';
-    const severity = data.severity || 'medium';
+    // New format: { type: 'alert', timestamp: '...', alert: { ... } }
+    // Extract alert data from nested structure
+    const alertData = data.type === 'alert' ? (data.alert || data) : data;
     
+    // Extract fields from new alert structure
+    const alertType = alertData.alert_type || alertData.type || 'general';
+    const severity = alertData.severity || 'medium';
+    const metadata = alertData.metadata || {};
+    
+    // Build alert object with new structure
     const alert = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
+      id: alertData.id || `alert-${Date.now()}`,
+      timestamp: data.timestamp || alertData.timestamp || alertData.detected_at || new Date().toISOString(),
       type: alertType,
       severity: severity,
-      animalId: data.animal_id,
-      animalName: data.animal_name,
-      message: data.message,
-      location: data.location,
-      // Color code by severity
-      color: severity === 'critical' || severity === 'high' ? '#DC2626' : 
-             severity === 'medium' ? '#F59E0B' : '#10B981',
-      icon: alertType === 'poaching' ? '🚨' :
-            alertType === 'risk_zone' ? '⚠️' :
-            alertType === 'corridor_exit' ? '🚪' :
-            alertType === 'danger_zone' ? '☠️' : '📍',
+      status: alertData.status || 'active',
+      title: alertData.title || 'Wildlife Alert',
+      message: alertData.message || 'Alert received',
+      // Animal information
+      animalId: alertData.animal_id || alertData.animal,
+      animalName: alertData.animal_name || 'Unknown Animal',
+      animalSpecies: alertData.animal_species || alertData.species || 'Unknown',
+      // Location (new format uses latitude/longitude)
+      latitude: alertData.latitude,
+      longitude: alertData.longitude,
+      coordinates: alertData.latitude && alertData.longitude 
+        ? [alertData.latitude, alertData.longitude] 
+        : (alertData.coordinates || [0, 0]),
+      // Conflict zone information
+      conflictZoneId: alertData.conflict_zone,
+      conflictZoneName: alertData.conflict_zone_name || metadata.zone_name,
+      // Metadata (rich context)
+      metadata: {
+        zone_name: metadata.zone_name || alertData.conflict_zone_name,
+        zone_type: metadata.zone_type,
+        corridor: metadata.corridor,
+        distance_km: metadata.distance_km,
+        risk_level: metadata.risk_level || severity,
+        time_context: metadata.time_context,
+        velocity_ms: metadata.velocity_ms,
+        threat_species: metadata.threat_species,
+        real_world_location: metadata.real_world_location,
+        detected_via: metadata.detected_via,
+        ...metadata
+      },
+      // Display properties
+      color: getSeverityColor(severity),
+      icon: getAlertIcon(alertType),
+      // Acknowledgment/resolution info
+      acknowledgedAt: alertData.acknowledged_at,
+      resolvedAt: alertData.resolved_at,
+      acknowledgedBy: alertData.acknowledged_by_name || alertData.acknowledged_by,
     };
 
-    setAlerts(prevAlerts => [alert, ...prevAlerts].slice(0, 50)); // Keep last 50 alerts
+    setAlerts(prevAlerts => {
+      // Check for duplicates (same ID or same animal/zone within 2 hours)
+      const exists = prevAlerts.find(a => 
+        a.id === alert.id || 
+        (a.animalId === alert.animalId && 
+         a.conflictZoneName === alert.conflictZoneName &&
+         Math.abs(new Date(a.timestamp) - new Date(alert.timestamp)) < 7200000) // 2 hours
+      );
+      if (exists) {
+        console.log('Duplicate alert ignored:', alert.id);
+        return prevAlerts;
+      }
+      return [alert, ...prevAlerts].slice(0, 100); // Keep last 100 alerts
+    });
 
-    // Update animal risk level if this is a danger alert
+    // Update animal risk level and conflict status if this is a danger alert
     if (severity === 'critical' || severity === 'high') {
       setAnimals(prevAnimals => 
         prevAnimals.map(animal => 
-          animal.id === data.animal_id 
-            ? { ...animal, risk_level: severity, pathColor: '#DC2626' }
+          animal.id === alert.animalId 
+            ? { 
+                ...animal, 
+                risk_level: severity, 
+                pathColor: '#DC2626',
+                conflict_risk: {
+                  risk_level: severity,
+                  in_conflict_zone: true,
+                  zone_name: alert.conflictZoneName || metadata.zone_name,
+                  zone_type: metadata.zone_type,
+                  distance_km: metadata.distance_km,
+                }
+              }
             : animal
         )
       );
@@ -181,7 +291,7 @@ export const useWebSocket = (options = {}) => {
     if (onAlert) {
       onAlert(alert);
     }
-  }, [onAlert]);
+  }, [onAlert, getAlertIcon, getSeverityColor]);
 
   /**
    * Handle state change messages from WebSocket
@@ -252,6 +362,7 @@ export const useWebSocket = (options = {}) => {
 
   /**
    * Setup WebSocket listeners
+   * Using refs to avoid dependency issues that cause re-renders and disconnections
    */
   useEffect(() => {
     // Subscribe to WebSocket events
@@ -274,27 +385,33 @@ export const useWebSocket = (options = {}) => {
 
     // Auto-connect if enabled
     if (autoConnect) {
+      try {
       connect();
+      } catch (error) {
+        console.error('Failed to connect WebSocket:', error);
+        setError('Failed to connect to real-time updates');
+      }
     }
 
     // Cleanup on unmount
     return () => {
-      unsubscribers.current.forEach(unsub => unsub());
+      unsubscribers.current.forEach(unsub => {
+        try {
+          unsub();
+        } catch (error) {
+          console.warn('Error unsubscribing from WebSocket:', error);
+        }
+      });
       if (autoConnect) {
+        try {
         disconnect();
+        } catch (error) {
+          console.warn('Error disconnecting WebSocket:', error);
+        }
       }
     };
-  }, [
-    autoConnect,
-    connect,
-    disconnect,
-    handleConnection,
-    handleInitialData,
-    handlePositionUpdate,
-    handleAlert,
-    handleStateChange,
-    handleError,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect]); // Only depend on autoConnect to prevent unnecessary re-renders
 
   /**
    * Clear paths for all animals

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, MaterialIcons, FontAwesome5, Ionicons, Feather } from '@expo/vector-icons';
-import { UI_COLORS } from '../../constants/Colors';
+import { UI_COLORS } from '@constants/Colors';
 
 /**
  * Centralized Icon Component for Wildlife Corridors App

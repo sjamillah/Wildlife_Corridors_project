@@ -21,6 +21,7 @@ class WebSocketService {
     this.reconnectDelay = 3000; // Start with 3 seconds
     this.maxReconnectDelay = 30000; // Max 30 seconds
     this.heartbeatInterval = 30000; // 30 seconds
+    this.lastConnectionStatus = 'disconnected'; // Track last status to prevent flickering
   }
 
   /**
@@ -29,6 +30,10 @@ class WebSocketService {
   getWebSocketUrl() {
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
+    console.log('WebSocket URL Construction:');
+    console.log('  REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+    console.log('  Base API URL:', apiUrl);
+
     // Convert HTTP(S) URL to WS(S) URL
     let wsUrl = apiUrl
       .replace('https://', 'wss://')
@@ -36,6 +41,8 @@ class WebSocketService {
 
     // Add WebSocket endpoint
     wsUrl = `${wsUrl}/ws/animals/tracking/`;
+
+    console.log('  Final WebSocket URL:', wsUrl);
 
     return wsUrl;
   }
@@ -82,8 +89,12 @@ class WebSocketService {
     this.reconnectAttempts = 0;
     this.reconnectDelay = 3000;
 
-    // Notify listeners
-    this.emit('connection', { status: 'connected' });
+    // Only notify if status actually changed
+    if (this.lastConnectionStatus !== 'connected') {
+      console.log('Connection status changed: disconnected -> connected');
+      this.lastConnectionStatus = 'connected';
+      this.emit('connection', { status: 'connected' });
+    }
 
     // Start heartbeat
     this.startHeartbeat();
@@ -114,7 +125,9 @@ class WebSocketService {
           console.log('Received position update:', data.animals?.length || 0, 'animals');
           break;
         case 'alert':
-          console.log('Alert received:', data.message, 'Animal:', data.animal_name);
+          // New format: { type: 'alert', timestamp: '...', alert: { ... } }
+          const alertData = data.alert || data;
+          console.log('Alert received:', alertData.title || alertData.message, 'Animal:', alertData.animal_name || alertData.animalName, 'Severity:', alertData.severity);
           break;
         case 'state_change':
           console.log('State change:', data.status, data.message);
@@ -149,10 +162,14 @@ class WebSocketService {
     this.isConnecting = false;
     this.stopHeartbeat();
 
-    // Notify listeners
-    this.emit('connection', { status: 'disconnected', code: event.code, reason: event.reason });
+    // Only notify if status actually changed
+    if (this.lastConnectionStatus !== 'disconnected') {
+      console.log('Connection status changed: connected -> disconnected');
+      this.lastConnectionStatus = 'disconnected';
+      this.emit('connection', { status: 'disconnected', code: event.code, reason: event.reason });
+    }
 
-    // Reconnect if not intentionally closed
+    // Reconnect if not intentionally closed (but only if backend exists)
     if (this.shouldReconnect && event.code !== 1000) {
       this.scheduleReconnect();
     }
@@ -163,8 +180,12 @@ class WebSocketService {
    */
   scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      this.emit('connection', { status: 'failed', message: 'Max reconnection attempts reached' });
+      console.error('Max reconnection attempts reached - Backend WebSocket not available');
+      console.error('WebSocket connection failed, using REST API fallback');
+      if (this.lastConnectionStatus !== 'failed') {
+        this.lastConnectionStatus = 'failed';
+        this.emit('connection', { status: 'failed', message: 'Backend WebSocket not available' });
+      }
       return;
     }
 
@@ -265,14 +286,23 @@ class WebSocketService {
    * Emit event to listeners
    */
   emit(event, data) {
-    if (!this.listeners.has(event)) return;
+    if (!this.listeners.has(event)) {
+      if (process.env.NODE_ENV !== 'production' && (event === 'position_update' || event === 'initial_data' || event === 'alert')) {
+        console.warn(`⚠️ No listeners registered for event: ${event}`);
+      }
+      return;
+    }
 
     const callbacks = this.listeners.get(event);
-    callbacks.forEach(callback => {
+    // Create a copy to avoid issues if callbacks are modified during iteration
+    const callbacksCopy = [...callbacks];
+    console.log(`📡 Emitting ${event} to ${callbacksCopy.length} listener(s)`);
+    callbacksCopy.forEach(callback => {
       try {
         callback(data);
       } catch (error) {
         console.error(`Error in event listener for ${event}:`, error);
+        // Don't rethrow - prevent one bad listener from crashing the app
       }
     });
   }

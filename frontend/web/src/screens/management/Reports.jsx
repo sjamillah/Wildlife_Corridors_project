@@ -101,7 +101,7 @@ const Reports = () => {
     <div style={{ fontFamily: "'Inter', sans-serif", background: COLORS.creamBg, minHeight: '100vh' }}>
       <Sidebar onLogout={handleLogout} />
       
-      <div style={{ marginLeft: '260px', minHeight: '100vh' }}>
+      <div className="responsive-content">
         <section style={{ background: COLORS.forestGreen, padding: '28px 40px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'white', marginBottom: '6px' }}>

@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAlerts } from '../../../contexts/AlertsContext';
-import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
+import { useAlerts } from '@contexts/AlertsContext';
+import { BRAND_COLORS, STATUS_COLORS } from '@constants/Colors';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { observations, animals, rangers } from '../../services';
+import { observations, animals, rangers, reports } from '@services';
+import { safeNavigate } from '@utils';
 
 export default function FieldDataScreen() {
   const { addAlert } = useAlerts();
@@ -42,28 +43,28 @@ export default function FieldDataScreen() {
     incident: {
       title: 'Incident',
       types: [
-        { label: 'Poaching Activity', emoji: '🚨' },
-        { label: 'Human-Wildlife Conflict', emoji: '⚠️' },
-        { label: 'Equipment Malfunction', emoji: '⚙️' },
-        { label: 'Security Breach', emoji: '🔒' },
-        { label: 'Fire Outbreak', emoji: '🔥' },
-        { label: 'Injured Animal', emoji: '🩹' },
-        { label: 'Fence Damage', emoji: '🪛' },
-        { label: 'Vehicle Breakdown', emoji: '🚙' },
-        { label: 'Other', emoji: '📋' }
+        { label: 'Poaching Activity', icon: 'alert-octagon' },
+        { label: 'Human-Wildlife Conflict', icon: 'alert-circle' },
+        { label: 'Equipment Malfunction', icon: 'wrench' },
+        { label: 'Security Breach', icon: 'shield-alert' },
+        { label: 'Fire Outbreak', icon: 'fire' },
+        { label: 'Injured Animal', icon: 'medical-bag' },
+        { label: 'Fence Damage', icon: 'gate-alert' },
+        { label: 'Vehicle Breakdown', icon: 'car-wrench' },
+        { label: 'Other', icon: 'file-document' }
       ],
       hasSeverity: false,
     },
     obstruction: {
       title: 'Obstruction',
       types: [
-        { label: 'Fallen Tree', emoji: '🌳' },
-        { label: 'Rock Slide', emoji: '🪨' },
-        { label: 'Flood Damage', emoji: '💧' },
-        { label: 'Road Erosion', emoji: '🛣️' },
-        { label: 'Debris Pile', emoji: '🪵' },
-        { label: 'Mud Slide', emoji: '🌊' },
-        { label: 'Other', emoji: '⚠️' }
+        { label: 'Fallen Tree', icon: 'tree' },
+        { label: 'Rock Slide', icon: 'image-filter-hdr' },
+        { label: 'Flood Damage', icon: 'water-alert' },
+        { label: 'Road Erosion', icon: 'road' },
+        { label: 'Debris Pile', icon: 'package-variant' },
+        { label: 'Mud Slide', icon: 'waves' },
+        { label: 'Other', icon: 'alert' }
       ],
       hasSeverity: true,
       severityLevels: [
@@ -75,20 +76,20 @@ export default function FieldDataScreen() {
     wildlife: {
       title: 'Wildlife',
       types: [
-        { label: 'Elephant', emoji: '🐘' },
-        { label: 'Wildebeest', emoji: '🦬' },
-        { label: 'Other', emoji: '🦘' }
+        { label: 'Elephant', icon: 'elephant' },
+        { label: 'Wildebeest', icon: 'cow' },
+        { label: 'Other', icon: 'paw' }
       ],
       otherOptions: [
-        { label: 'Lion', emoji: '🦁' },
-        { label: 'Rhino', emoji: '🦏' },
-        { label: 'Giraffe', emoji: '🦒' },
-        { label: 'Zebra', emoji: '🦓' },
-        { label: 'Buffalo', emoji: '🐃' },
-        { label: 'Leopard', emoji: '🐆' },
-        { label: 'Cheetah', emoji: '🐆' },
-        { label: 'Hyena', emoji: '🐺' },
-        { label: 'Custom', emoji: '❓' }
+        { label: 'Lion', icon: 'google-circles-communities' },
+        { label: 'Rhino', icon: 'rhombus' },
+        { label: 'Giraffe', icon: 'giraffe' },
+        { label: 'Zebra', icon: 'horse' },
+        { label: 'Buffalo', icon: 'cow' },
+        { label: 'Leopard', icon: 'cat' },
+        { label: 'Cheetah', icon: 'cat' },
+        { label: 'Hyena', icon: 'dog' },
+        { label: 'Custom', icon: 'help-circle' }
       ],
       hasSeverity: false,
       hasName: true,
@@ -170,6 +171,7 @@ export default function FieldDataScreen() {
   };
 
   const handleSubmit = async () => {
+    // Validation
     if (!formData.type) {
       Alert.alert('Validation Error', 'Please select a type');
       return;
@@ -182,9 +184,129 @@ export default function FieldDataScreen() {
     setIsSubmitting(true);
 
     try {
-      // Save to backend based on report type
+      // Wrap everything in try-catch to prevent crashes
+      // Create report via reports endpoint (which will create alerts)
+      const reportData = {
+        title: formData.type || `${currentConfig.title} Report`,
+        description: formData.notes || `${formData.type || currentConfig.title} reported`,
+        category: currentReportType,
+        format: 'json',
+      };
+
+      // Add location if available
+      if (formData.location?.coords) {
+        reportData.latitude = formData.location.coords.latitude;
+        reportData.longitude = formData.location.coords.longitude;
+      }
+
+      // Add species-specific data for wildlife reports
       if (currentReportType === 'wildlife') {
-        // Wildlife sighting/observation
+        reportData.species_filter = formData.type;
+        if (formData.animalName) {
+          reportData.animal_id = formData.animalName;
+        }
+      }
+
+      // Add severity for incidents/obstructions
+      if (formData.severity) {
+        reportData.severity = formData.severity;
+      }
+
+      // Create report via generate endpoint (this should create alerts automatically)
+      let reportResponse = null;
+      let reportCreated = false;
+      
+      try {
+        reportResponse = await Promise.race([
+          reports.generate(reportData),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Report creation timeout')), 30000)
+          )
+        ]);
+        console.log('✅ Report created:', reportResponse);
+        reportCreated = true;
+      } catch (reportError) {
+        console.error('Report creation failed, trying fallback:', reportError);
+        // Try regular create endpoint as fallback
+        try {
+          reportResponse = await Promise.race([
+            reports.create(reportData),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Report creation timeout')), 30000)
+            )
+          ]);
+          console.log('✅ Report created via fallback:', reportResponse);
+          reportCreated = true;
+        } catch (fallbackError) {
+          console.error('Both report creation methods failed:', fallbackError);
+          // Don't throw - we'll still try to create alert
+          reportCreated = false;
+        }
+      }
+      
+      if (!reportCreated) {
+        console.warn('⚠️ Report creation failed, but continuing with alert creation');
+      }
+
+      // ALWAYS create an alert for managers (even if backend auto-creates, we ensure it's sent)
+      let alertCreated = false;
+      try {
+        const { alerts: alertsService } = await import('@services');
+        const alertData = {
+          title: formData.type || `${currentConfig.title} Report`,
+          message: formData.notes || `${formData.type || currentConfig.title} reported`,
+          alert_type: currentReportType === 'incident' ? 'incident' : 
+                     currentReportType === 'obstruction' ? 'obstruction' : 
+                     'wildlife_sighting',
+          severity: formData.severity || (currentReportType === 'incident' ? 'high' : 'medium'),
+          latitude: formData.location?.latitude || formData.location?.coords?.latitude || 0,
+          longitude: formData.location?.longitude || formData.location?.coords?.longitude || 0,
+          status: 'active',
+          source: 'mobile_app',
+        };
+        
+        // Create alert with timeout - this sends to managers via WebSocket
+        await Promise.race([
+          alertsService.create(alertData),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Alert creation timeout')), 30000)
+          )
+        ]);
+        alertCreated = true;
+        console.log('✅ Alert created successfully for report - managers notified');
+      } catch (alertError) {
+        console.error('❌ Failed to create alert:', alertError);
+        // Try to queue for later sync
+        try {
+          const prioritySyncQueue = (await import('@services/prioritySyncQueue')).default;
+          const alertData = {
+            title: formData.type || `${currentConfig.title} Report`,
+            message: formData.notes || `${formData.type || currentConfig.title} reported`,
+            alert_type: currentReportType === 'incident' ? 'incident' : 
+                       currentReportType === 'obstruction' ? 'obstruction' : 
+                       'wildlife_sighting',
+            severity: formData.severity || (currentReportType === 'incident' ? 'high' : 'medium'),
+            latitude: formData.location?.latitude || formData.location?.coords?.latitude || 0,
+            longitude: formData.location?.longitude || formData.location?.coords?.longitude || 0,
+            status: 'active',
+            source: 'mobile_app',
+          };
+          await prioritySyncQueue.add({
+            data: alertData,
+            endpoint: '/api/v1/alerts/alerts/',
+            priority: 'high',
+            maxRetries: 30,
+            retryInterval: 3000,
+          });
+          prioritySyncQueue.startAutoSync();
+          console.log('✅ Alert queued for sync');
+        } catch (queueError) {
+          console.error('Failed to queue alert:', queueError);
+        }
+      }
+
+      // Also save as observation for backward compatibility
+      if (currentReportType === 'wildlife') {
         const observationData = {
           observation_type: 'sighting',
           species: formData.type,
@@ -193,24 +315,9 @@ export default function FieldDataScreen() {
           latitude: formData.location?.coords?.latitude || null,
           longitude: formData.location?.coords?.longitude || null,
           observed_at: new Date().toISOString(),
-          // If you have current user data, add: observed_by: userId
         };
-
-        await observations.create(observationData);
-        console.log('Wildlife observation saved to backend:', observationData);
-
-        // Also log to ranger logs for unified tracking
-        await rangers.logs.create({
-          log_type: 'animal_sighting',
-          priority: 'medium',
-          title: `${formData.type} sighting`,
-          description: formData.notes || `${formData.count} ${formData.type} observed`,
-          lat: formData.location?.coords?.latitude || 0,
-          lon: formData.location?.coords?.longitude || 0,
-        }).catch(err => console.log('Ranger log failed (non-critical):', err));
-
+        await observations.create(observationData).catch(err => console.log('Observation save failed (non-critical):', err));
       } else if (currentReportType === 'incident' || currentReportType === 'obstruction') {
-        // Incident/obstruction as observation
         const observationData = {
           observation_type: currentReportType,
           notes: `${formData.type}: ${formData.notes || 'No additional notes'}`,
@@ -219,49 +326,56 @@ export default function FieldDataScreen() {
           longitude: formData.location?.coords?.longitude || null,
           observed_at: new Date().toISOString(),
         };
-
-        await observations.create(observationData);
-        console.log(`${currentConfig.title} report saved to backend:`, observationData);
+        await observations.create(observationData).catch(err => console.log('Observation save failed (non-critical):', err));
       }
 
-      // Also add to local alerts context
-      addAlert({
-        id: Date.now(),
-        type: currentReportType,
-        title: formData.type,
-        severity: formData.severity || 'medium',
-        location: formData.location 
-          ? `${formData.location.coords.latitude.toFixed(4)}, ${formData.location.coords.longitude.toFixed(4)}`
-          : 'Unknown',
-        timestamp: new Date().toISOString(),
-        notes: formData.notes,
-      });
-
       setIsSubmitting(false);
+      
+      // Show success message based on what was created
+      const successMessage = reportCreated && alertCreated
+        ? `${currentConfig.title} report submitted successfully! Managers have been notified.`
+        : reportCreated
+        ? `${currentConfig.title} report saved. Alert will be sent when connection is restored.`
+        : alertCreated
+        ? `Alert sent to managers. Report may not have been saved.`
+        : `Data queued for sync. Will be sent when connection is restored.`;
+      
       Alert.alert(
-        'Success', 
-        `${currentConfig.title} report submitted successfully and saved to backend!`,
-        [{ text: 'OK', onPress: () => {
-          setFormData({ 
-            type: '', 
-            animalName: '',
-            severity: '', 
-            species: '', 
-            count: 1, 
-            notes: '',
-            location: null,
-            photos: []
-          });
-          setShowOtherOptions(false);
-        }}]
+        reportCreated || alertCreated ? 'Success' : 'Queued', 
+        successMessage,
+        [{ 
+          text: 'OK', 
+          onPress: () => {
+            try {
+              // Reset form
+              setFormData({ 
+                type: '', 
+                animalName: '',
+                severity: '', 
+                species: '', 
+                count: 1, 
+                notes: '',
+                location: null,
+                photos: []
+              });
+              setShowOtherOptions(false);
+              // Navigate back safely
+              safeNavigate('/screens/(tabs)/DashboardScreen');
+            } catch (error) {
+              console.error('Error resetting form:', error);
+            }
+          }
+        }]
       );
 
     } catch (error) {
       setIsSubmitting(false);
-      console.error('Failed to submit report:', error);
+      console.error('❌ Failed to submit report:', error);
+      const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
       Alert.alert(
         'Error', 
-        `Failed to save report: ${error.message}. Please try again.`
+        `Failed to save report: ${errorMessage}\n\nPlease check your connection and try again.`,
+        [{ text: 'OK' }]
       );
     }
   };
@@ -278,7 +392,7 @@ export default function FieldDataScreen() {
       <View style={styles.screenHeader}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.push('/screens/(tabs)/DashboardScreen')}
+          onPress={() => safeNavigate('/screens/(tabs)/DashboardScreen')}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={BRAND_COLORS.SURFACE} />
         </TouchableOpacity>
@@ -326,12 +440,14 @@ export default function FieldDataScreen() {
 
         {/* Section 1: Type Selection */}
         <View style={styles.section}>
-          <View style={styles.sectionNumber}>
-            <Text style={styles.sectionNumberText}>1</Text>
-          </View>
           <View style={styles.sectionContent}>
             <Text style={styles.sectionTitle}>Select Type</Text>
-            <View style={styles.typeGrid}>
+            {/* Horizontal Slider for All Types (like wildlife) */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.typeSlider}
+            >
               {currentConfig.types.map((item) => (
                 <TouchableOpacity
                   key={item.label}
@@ -344,15 +460,19 @@ export default function FieldDataScreen() {
                     }
                   }}
                   style={[
-                    styles.typeCard,
+                    styles.typeCardSlider,
                     formData.type === item.label && styles.typeCardSelected
                   ]}
                 >
-                  <Text style={styles.typeEmoji}>{item.emoji}</Text>
+                  <MaterialCommunityIcons 
+                    name={item.icon || 'help-circle'} 
+                    size={32} 
+                    color={formData.type === item.label ? BRAND_COLORS.SURFACE : BRAND_COLORS.TEXT} 
+                  />
                   <Text style={styles.typeLabel}>{item.label}</Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
 
             {/* Show more wildlife options when "Other" is selected */}
             {showOtherOptions && currentReportType === 'wildlife' && (
@@ -368,7 +488,11 @@ export default function FieldDataScreen() {
                         formData.type === item.label && styles.typeCardSelected
                       ]}
                     >
-                      <Text style={styles.typeEmoji}>{item.emoji}</Text>
+                      <MaterialCommunityIcons 
+                        name={item.icon || 'help-circle'} 
+                        size={32} 
+                        color={formData.type === item.label ? BRAND_COLORS.SURFACE : BRAND_COLORS.TEXT} 
+                      />
                       <Text style={styles.typeLabel}>{item.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -381,9 +505,6 @@ export default function FieldDataScreen() {
         {/* Animal Name (Wildlife only) */}
         {currentReportType === 'wildlife' && formData.type && (
           <View style={styles.section}>
-            <View style={styles.sectionNumber}>
-              <Text style={styles.sectionNumberText}>2</Text>
-            </View>
             <View style={styles.sectionContent}>
               <Text style={styles.sectionTitle}>Animal Name (Optional)</Text>
               <TextInput
@@ -400,9 +521,6 @@ export default function FieldDataScreen() {
         {/* Section 2: Severity (for Obstruction) or Details */}
         {currentConfig.hasSeverity && (
           <View style={styles.section}>
-            <View style={styles.sectionNumber}>
-              <Text style={styles.sectionNumberText}>2</Text>
-            </View>
             <View style={styles.sectionContent}>
               <Text style={styles.sectionTitle}>Severity Level</Text>
               {currentConfig.severityLevels.map(({ level, color, description }) => (
@@ -430,9 +548,6 @@ export default function FieldDataScreen() {
 
         {/* Location Section (All report types) */}
         <View style={styles.section}>
-          <View style={styles.sectionNumber}>
-            <Text style={styles.sectionNumberText}>{currentConfig.hasSeverity ? '2' : currentReportType === 'wildlife' ? '3' : '2'}</Text>
-          </View>
           <View style={styles.sectionContent}>
             <Text style={styles.sectionTitle}>Location</Text>
             <TouchableOpacity
@@ -466,9 +581,6 @@ export default function FieldDataScreen() {
 
         {/* Additionals Section (All report types) - Notes & Photos */}
         <View style={styles.section}>
-          <View style={styles.sectionNumber}>
-            <Text style={styles.sectionNumberText}>{currentConfig.hasSeverity ? '3' : currentReportType === 'wildlife' ? '4' : '3'}</Text>
-          </View>
           <View style={styles.sectionContent}>
             <Text style={styles.sectionTitle}>Additionals (Optional)</Text>
             
@@ -634,29 +746,14 @@ const styles = StyleSheet.create({
     color: BRAND_COLORS.SURFACE,
   },
   section: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 24,
     backgroundColor: BRAND_COLORS.SURFACE,
     borderBottomWidth: 1,
     borderBottomColor: BRAND_COLORS.BORDER_LIGHT,
   },
-  sectionNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: BRAND_COLORS.TEXT,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  sectionNumberText: {
-    color: BRAND_COLORS.SURFACE,
-    fontSize: 13,
-    fontWeight: '700',
-  },
   sectionContent: {
-    flex: 1,
+    width: '100%',
   },
   sectionTitle: {
     fontSize: 16,
@@ -669,6 +766,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: BRAND_COLORS.TEXT_SECONDARY,
     marginBottom: 8,
+  },
+  typeSlider: {
+    paddingRight: 20,
+    gap: 12,
+  },
+  typeCardSlider: {
+    width: 120,
+    height: 140,
+    backgroundColor: BRAND_COLORS.BACKGROUND,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(228, 227, 214, 0.3)',
+    marginRight: 12,
+    paddingVertical: 16,
   },
   typeGrid: {
     flexDirection: 'row',

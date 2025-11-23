@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, AlertTriangle, MapPin, Users, Clock, Zap, Download, CheckCircle } from '@/components/shared/Icons';
-import Sidebar from '../../components/shared/Sidebar';
-import { BRAND_COLORS, COLORS, rgba } from '../../constants/Colors';
-import { rangers } from '../../services';
+import Sidebar from '@/components/shared/Sidebar';
+import { BRAND_COLORS, COLORS } from '@/constants/Colors';
+import { rangers, alerts as alertsService } from '@/services';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 const AlertHub = () => {
   const [selectedAlert, setSelectedAlert] = useState(null);
@@ -11,121 +12,161 @@ const AlertHub = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [emergencies, setEmergencies] = useState([]);
   const [resolving, setResolving] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [updating, setUpdating] = useState(null); // Track which alert is being updated
   const navigate = useNavigate();
 
-  // Static alerts data
-  const [alerts] = useState([
-    {
-      id: 'ALT-001',
-      type: 'Critical',
-      title: 'Human-Elephant Conflict',
-      description: 'Nafisa herd approaching Kimana Village - KWS rangers dispatched',
-      location: 'Kimana Village, Kajiado',
-      timestamp: '2 min ago',
-      status: 'active',
-      priority: 'critical',
-      animalId: 'KWS-E12',
-      animalType: 'African Elephant',
-      coordinates: [34.8532, -2.0891],
-      responseTeam: 'KWS Amboseli Unit',
-      estimatedRisk: 'High',
-      story: 'Elephant herd led by matriarch Nafisa has been detected moving towards Kimana Village. KWS rangers have been dispatched to intercept and guide the herd away from populated areas. Coordination with local community leaders is underway.',
-      riskLevel: 'Critical',
-      team: {
-        name: 'KWS Amboseli Unit',
-        members: ['John Mwangi', 'Sarah Kipchoge', 'David Ochieng'],
-        description: 'Specialized unit trained in human-wildlife conflict resolution'
-      }
-    },
-    {
-      id: 'ALT-002',
-      type: 'Warning',
-      title: 'Collar Battery Critical',
-      description: 'Duma\'s GPS collar at 12% battery - field team scheduled for tomorrow',
-      location: 'Aberdare National Park',
-      timestamp: '15 min ago',
-      status: 'acknowledged',
-      priority: 'high',
-      animalId: 'KWS-L04',
-      animalType: 'Leopard',
-      coordinates: [34.7821, -2.1245],
-      responseTeam: 'Tech Team',
-      estimatedRisk: 'Medium',
-      story: 'GPS collar on leopard Duma has dropped to critical battery levels. Field team has been scheduled for battery replacement tomorrow morning. Animal remains in safe monitoring range.',
-      riskLevel: 'High',
-      team: {
-        name: 'Tech Team',
-        members: ['Peter Kimani', 'Mary Wanjiku'],
-        description: 'Technical support team for tracking equipment maintenance'
-      }
-    },
-    {
-      id: 'ALT-003',
-      type: 'Health',
-      title: 'Unusual Movement Pattern',
-      description: 'Animal showing abnormal movement - possible injury or illness',
-      location: 'Highway Corridor',
-      timestamp: '1 hour ago',
-      status: 'investigating',
-      priority: 'medium',
-      animalId: 'R-008',
-      animalType: 'Black Rhino',
-      coordinates: [34.8901, -2.0672],
-      responseTeam: 'Vet Team',
-      estimatedRisk: 'Medium',
-      story: 'Rhino R-008 has been showing unusual movement patterns consistent with potential injury or illness. Veterinary team dispatched to assess condition and provide treatment if necessary.',
-      riskLevel: 'Medium',
-      team: {
-        name: 'Vet Team',
-        members: ['Dr. James Omondi', 'Dr. Grace Akinyi'],
-        description: 'Wildlife veterinary specialists for health assessments'
-      }
-    },
-    {
-      id: 'ALT-004',
-      type: 'Maintenance',
-      title: 'Scheduled Collar Check',
-      description: 'Routine maintenance window for GPS collar diagnostics',
-      location: 'Acacia Grove',
-      timestamp: '3 hours ago',
-      status: 'resolved',
-      priority: 'low',
-      animalId: 'G-017',
-      animalType: 'Giraffe',
-      coordinates: [34.8234, -2.1089],
-      responseTeam: 'Maintenance',
-      estimatedRisk: 'Low',
-      story: 'Routine scheduled maintenance check completed successfully. All collar systems functioning normally.',
-      riskLevel: 'Low',
-      team: {
-        name: 'Maintenance Team',
-        members: ['Michael Otieno'],
-        description: 'Routine maintenance and diagnostics team'
-      }
-    },
-    {
-      id: 'ALT-005',
-      type: 'Security',
-      title: 'Fence Breach Detected',
-      description: 'Perimeter sensors indicate possible fence damage in protected area',
-      location: 'North Ridge - Fence Line 4',
-      timestamp: '5 hours ago',
-      status: 'active',
-      priority: 'high',
-      animalId: 'Multiple',
-      animalType: 'Various',
-      coordinates: [34.7956, -2.0934],
-      responseTeam: 'Security Team',
-      estimatedRisk: 'High',
-      story: 'Perimeter sensors detected possible fence breach at Fence Line 4 on North Ridge. Security patrol dispatched to investigate and repair if needed. Enhanced monitoring activated.',
-      riskLevel: 'High',
-      team: {
-        name: 'Security Team',
-        members: ['Robert Kiptoo', 'Susan Chebet', 'Paul Mwangi'],
-        description: 'Security and perimeter monitoring unit'
-      }
+  // Helper function to calculate time ago
+  const getTimeAgo = (timestamp) => {
+    if (!timestamp) return 'Unknown';
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffMs = now - time;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
+
+  // Transform alert from API format to display format (new structure)
+  const transformAlert = useCallback((alert) => {
+    const timestamp = alert.detected_at || alert.timestamp || alert.created_at || new Date().toISOString();
+    const timeAgo = getTimeAgo(timestamp);
+    const metadata = alert.metadata || {};
+    
+    // Extract location from new format (latitude/longitude)
+    const lat = alert.latitude;
+    const lon = alert.longitude;
+    const coordinates = lat && lon ? [lat, lon] : (alert.coordinates || [0, 0]);
+    
+    // Build location string from metadata
+    const location = metadata.real_world_location || 
+                    metadata.zone_name || 
+                    alert.conflict_zone_name ||
+                    (coordinates[0] !== 0 && coordinates[1] !== 0 
+                      ? `${coordinates[0].toFixed(4)}, ${coordinates[1].toFixed(4)}` 
+                      : 'Unknown Location');
+    
+    return {
+      id: alert.id || `ALT-${Date.now()}`,
+      type: alert.alert_type || alert.type || 'general',
+      title: alert.title || 'Wildlife Alert',
+      description: alert.message || alert.description || 'Alert details not available',
+      location: location,
+      timestamp: timeAgo,
+      status: alert.status || 'active',
+      priority: alert.severity || 'medium',
+      severity: alert.severity || 'medium',
+      animalId: alert.animal || alert.animal_id,
+      animalName: (alert.animal_name || 'Unknown Animal').replace(/\s*-\s*[a-f0-9-]{36}$/i, '').replace(/\s*\([a-f0-9-]{36}\)$/i, '').trim(), // Remove UUIDs from animal name
+      animalSpecies: alert.animal_species || alert.species || 'Unknown',
+      coordinates: coordinates,
+      conflictZoneName: alert.conflict_zone_name || metadata.zone_name,
+      conflictZoneType: metadata.zone_type,
+      corridor: metadata.corridor,
+      distanceKm: metadata.distance_km,
+      timeContext: metadata.time_context,
+      responseTeam: alert.response_team || 'Response Team',
+      estimatedRisk: alert.severity === 'critical' ? 'High' : alert.severity === 'high' ? 'Medium' : 'Low',
+      story: alert.message || alert.description || 'Alert details not available',
+      riskLevel: alert.severity || 'medium',
+      source: alert.detected_via || alert.source || 'system',
+      rawTimestamp: timestamp,
+      metadata: metadata,
+      acknowledgedAt: alert.acknowledged_at,
+      resolvedAt: alert.resolved_at,
+      acknowledgedBy: alert.acknowledged_by_name || alert.acknowledged_by,
+      // Team info - handle both object and string formats, or create default
+      team: alert.team || (alert.response_team ? {
+        name: alert.response_team,
+        description: 'Response team assigned to this alert',
+        members: []
+      } : null),
+    };
+  }, []);
+
+  // WebSocket integration for real-time alerts (define first)
+  const { 
+    alerts: wsAlerts
+  } = useWebSocket({
+    autoConnect: true,
+    onAlert: (alert) => {
+      console.log('New alert received via WebSocket:', alert);
+      // Add new alert to the list
+      setAlerts(prev => {
+        // Check if alert already exists (by ID only - don't create duplicates for same alert)
+        const transformedAlert = transformAlert(alert);
+        const exists = prev.find(a => a.id === transformedAlert.id);
+        if (exists) {
+          console.log('🔔 Duplicate alert ignored:', transformedAlert.id);
+          return prev;
+        }
+        // Add new alert at the beginning
+        return [transformedAlert, ...prev];
+      });
     }
-  ]);
+  });
+
+  // Fetch alerts from API - get ALL alerts (not just active) to include mobile-created ones
+  const fetchAlerts = useCallback(async () => {
+    try {
+      console.log('🔔 Fetching all alerts from API...');
+      // Fetch all alerts, not just active ones, to include mobile-created alerts
+      const data = await alertsService.getAll(); // No status filter to get all alerts
+      console.log('🔔 Alerts API response:', data);
+      // Handle both array and object responses
+      const alertsArray = Array.isArray(data) ? data : (data.results || data || []);
+      console.log('🔔 Parsed alerts data:', alertsArray.length, 'alerts');
+      
+      // Transform API alerts to display format
+      const transformedAlerts = alertsArray.map(transformAlert);
+      console.log('🔔 Transformed alerts:', transformedAlerts.length);
+      
+      // Replace alerts instead of merging to avoid duplicates
+      setAlerts(transformedAlerts);
+    } catch (error) {
+      console.error('❌ Failed to fetch alerts:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      // Set empty array if fetch fails (no static fallback)
+      setAlerts([]);
+    }
+  }, [transformAlert]);
+
+  // Fetch alerts once on mount and merge with WebSocket - single fetch
+  useEffect(() => {
+    // Initial fetch
+    fetchAlerts();
+    
+    // Refresh alerts every 30 seconds
+    const interval = setInterval(fetchAlerts, 30000);
+    
+    return () => clearInterval(interval);
+  }, [fetchAlerts]);
+  
+  // Merge WebSocket alerts with fetched alerts (no separate fetch)
+  useEffect(() => {
+    if (wsAlerts && wsAlerts.length > 0) {
+      console.log('🔔 WebSocket alerts received:', wsAlerts.length);
+      const transformed = wsAlerts.map(transformAlert);
+      setAlerts(prev => {
+        // Merge without duplicates
+        const existingIds = new Set(prev.map(a => a.id));
+        const newAlerts = transformed.filter(a => !existingIds.has(a.id));
+        if (newAlerts.length > 0) {
+          console.log('🔔 Adding', newAlerts.length, 'new alerts from WebSocket');
+          return [...newAlerts, ...prev];
+        }
+        return prev;
+      });
+    }
+  }, [wsAlerts, transformAlert]);
+
+  // Use only fetched alerts - no static fallback
+  const displayAlerts = alerts;
 
   // Fetch emergencies from backend
   const fetchEmergencies = useCallback(async () => {
@@ -160,22 +201,99 @@ const AlertHub = () => {
     }
   };
 
-  // Combine static alerts with backend emergencies
-  const combinedAlerts = [
-    ...alerts,
-    ...emergencies.map(emergency => ({
+  // Handle acknowledging an alert
+  const handleAcknowledge = async (alertId) => {
+    if (!alertId) return;
+    
+    setUpdating(alertId);
+    try {
+      await alertsService.acknowledge(alertId);
+      console.log('Alert acknowledged:', alertId);
+      
+      // Update the alert in local state
+      setAlerts(prev => prev.map(alert => {
+        if (alert.id === alertId) {
+          return { ...alert, status: 'acknowledged', acknowledgedAt: new Date().toISOString() };
+        }
+        return alert;
+      }));
+      
+      // Update selected alert if it's the one being acknowledged
+      if (selectedAlert?.id === alertId) {
+        setSelectedAlert(prev => ({
+          ...prev,
+          status: 'acknowledged',
+          acknowledgedAt: new Date().toISOString()
+        }));
+      }
+      
+      // Refresh alerts to get latest data
+      await fetchAlerts();
+    } catch (error) {
+      console.error('Failed to acknowledge alert:', error);
+      alert('Failed to acknowledge alert. Please try again.');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  // Handle setting alert status to investigating
+  const handleInvestigating = async (alertId) => {
+    if (!alertId) return;
+    
+    setUpdating(alertId);
+    try {
+      await alertsService.updateStatus(alertId, 'investigating');
+      console.log('Alert status set to investigating:', alertId);
+      
+      // Update the alert in local state
+      setAlerts(prev => prev.map(alert => {
+        if (alert.id === alertId) {
+          return { ...alert, status: 'investigating' };
+        }
+        return alert;
+      }));
+      
+      // Update selected alert if it's the one being updated
+      if (selectedAlert?.id === alertId) {
+        setSelectedAlert(prev => ({
+          ...prev,
+          status: 'investigating'
+        }));
+      }
+      
+      // Refresh alerts to get latest data
+      await fetchAlerts();
+    } catch (error) {
+      console.error('Failed to update alert status:', error);
+      alert('Failed to update alert status. Please try again.');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  // Combine fetched alerts with backend emergencies
+  const combinedAlerts = useMemo(() => {
+    return [
+      ...displayAlerts,
+      ...emergencies.map(emergency => {
+        const timestamp = emergency.timestamp ? getTimeAgo(emergency.timestamp) : 'Unknown';
+        return {
       id: emergency.id,
       type: 'Emergency',
       title: emergency.emergency_type || 'Emergency Alert',
       description: emergency.description || 'Active emergency situation',
-      location: `${emergency.lat?.toFixed(4)}, ${emergency.lon?.toFixed(4)}`,
-      timestamp: new Date(emergency.timestamp).toLocaleString(),
+          location: emergency.lat && emergency.lon ? `${emergency.lat.toFixed(4)}, ${emergency.lon.toFixed(4)}` : 'Unknown Location',
+          timestamp: timestamp,
       status: emergency.status || 'active',
       priority: emergency.priority || 'high',
       isEmergency: true,
       emergencyData: emergency,
-    }))
+          team: null, // Emergencies may not have team info
+        };
+      })
   ];
+  }, [displayAlerts, emergencies]);
 
   const handleLogout = async () => {
     try {
@@ -192,36 +310,55 @@ const AlertHub = () => {
     }
   };
 
-  const filteredAlerts = combinedAlerts.filter(alert => {
-    const matchesSearch = alert.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         alert.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         alert.location.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesFilter = filterStatus === 'all' || alert.status === filterStatus;
+  const filteredAlerts = useMemo(() => {
+    return combinedAlerts.filter(alert => {
+      const matchesSearch = (alert.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           String(alert.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           (alert.location || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Case-insensitive status matching
+      const alertStatus = (alert.status || '').toLowerCase();
+      const filterStatusLower = filterStatus.toLowerCase();
+      const matchesFilter = filterStatus === 'all' || 
+                           alertStatus === filterStatusLower ||
+                           (filterStatusLower === 'active' && (alertStatus === 'active' || alertStatus === 'new' || alertStatus === 'pending'));
     
     return matchesSearch && matchesFilter;
   });
+  }, [combinedAlerts, searchQuery, filterStatus]);
 
-  // Auto-select first alert if none selected
-  React.useEffect(() => {
-    if (!selectedAlert && filteredAlerts.length > 0) {
-      setSelectedAlert(filteredAlerts[0]);
-    }
-  }, [filteredAlerts, selectedAlert]);
+  // Removed auto-select - user must click a card to open popup
 
-  const alertCounts = {
-    all: combinedAlerts.length,
-    active: combinedAlerts.filter(a => a.status === 'active').length,
-    acknowledged: combinedAlerts.filter(a => a.status === 'acknowledged').length,
-    investigating: combinedAlerts.filter(a => a.status === 'investigating').length,
-    resolved: combinedAlerts.filter(a => a.status === 'resolved').length
-  };
+  // Calculate status counts from actual alerts list (all alerts, not filtered)
+  const alertCounts = useMemo(() => {
+    // Always use combinedAlerts to show total counts from the actual alerts list
+    const allAlerts = combinedAlerts;
+    return {
+      all: allAlerts.length,
+      active: allAlerts.filter(a => {
+        const status = (a.status || '').toLowerCase();
+        return status === 'active' || status === 'new' || status === 'pending';
+      }).length,
+      acknowledged: allAlerts.filter(a => {
+        const status = (a.status || '').toLowerCase();
+        return status === 'acknowledged';
+      }).length,
+      investigating: allAlerts.filter(a => {
+        const status = (a.status || '').toLowerCase();
+        return status === 'investigating';
+      }).length,
+      resolved: allAlerts.filter(a => {
+        const status = (a.status || '').toLowerCase();
+        return status === 'resolved' || status === 'closed';
+      }).length
+    };
+  }, [combinedAlerts]);
 
   const getSeverityColor = (priority) => {
     switch (priority) {
       case 'critical': return COLORS.error;
       case 'high': return COLORS.ochre;
-      case 'medium': return COLORS.info;
+      case 'medium': return COLORS.warning;
       default: return COLORS.success;
     }
   };
@@ -230,7 +367,7 @@ const AlertHub = () => {
     switch (priority) {
       case 'critical': return COLORS.tintCritical;
       case 'high': return COLORS.tintWarning;
-      case 'medium': return rgba('statusInfo', 0.1);
+      case 'medium': return COLORS.tintWarning;
       default: return COLORS.tintSuccess;
     }
   };
@@ -248,7 +385,7 @@ const AlertHub = () => {
   const getStatusBg = (status) => {
     switch (status) {
       case 'active': return COLORS.tintCritical;
-      case 'acknowledged': return rgba('statusInfo', 0.1);
+      case 'acknowledged': return COLORS.tintRangers;
       case 'investigating': return COLORS.tintWarning;
       case 'resolved': return COLORS.tintSuccess;
       default: return COLORS.creamBg;
@@ -260,9 +397,9 @@ const AlertHub = () => {
       <Sidebar onLogout={handleLogout} />
       
       {/* Main Content */}
-      <div style={{ marginLeft: '260px', minHeight: '100vh' }}>
+      <div className="responsive-content">
         {/* Page Header */}
-        <section style={{ background: COLORS.forestGreen, padding: '28px 40px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <section className="alert-header" style={{ background: COLORS.forestGreen, padding: '28px 20px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'white', marginBottom: '6px', letterSpacing: '-0.6px' }}>
               Alert Management
@@ -280,138 +417,113 @@ const AlertHub = () => {
           </div>
         </section>
 
-        {/* Status Overview Bar */}
-        <section style={{ background: COLORS.secondaryBg, padding: '20px 40px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
-          <div style={{ display: 'flex', gap: '2px', background: COLORS.borderLight, borderRadius: '8px', overflow: 'hidden', height: '70px' }}>
-            {/* Active */}
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: COLORS.tintCritical,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-            onClick={() => setFilterStatus('active')}
-            >
-              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.error, marginBottom: '4px' }}>
-                {alertCounts.active}
-              </div>
-              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
-                Active
-              </div>
-            </div>
+        {/* Filter Buttons Bar */}
+        <section style={{ background: COLORS.secondaryBg, padding: '20px 20px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+          <style>{`
+            @media (min-width: 768px) {
+              .status-bar {
+                padding: 20px 40px !important;
+              }
+            }
+          `}</style>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {['all', 'active', 'acknowledged', 'investigating', 'resolved'].map((filter) => {
+              const isActive = filterStatus === filter;
+              const label = filter === 'all' ? 'All' :
+                           filter === 'active' ? 'Active' :
+                           filter === 'acknowledged' ? 'Acknowledged' :
+                           filter === 'investigating' ? 'Investigating' : 'Resolved';
+              
+              const count = filter === 'all' ? alertCounts.all :
+                           filter === 'active' ? alertCounts.active :
+                           filter === 'acknowledged' ? alertCounts.acknowledged :
+                           filter === 'investigating' ? alertCounts.investigating : alertCounts.resolved;
+              
+              const bgColor = isActive ? 
+                (filter === 'active' ? COLORS.tintCritical :
+                 filter === 'acknowledged' ? COLORS.tintRangers :
+                 filter === 'investigating' ? COLORS.tintWarning :
+                 filter === 'resolved' ? COLORS.tintSuccess : COLORS.forestGreen) :
+                COLORS.whiteCard;
+              
+              const textColor = isActive ?
+                (filter === 'active' ? COLORS.error :
+                 filter === 'acknowledged' ? COLORS.info :
+                 filter === 'investigating' ? COLORS.ochre :
+                 filter === 'resolved' ? COLORS.success : COLORS.white) :
+                COLORS.textSecondary;
 
-            {/* Acknowledged */}
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: rgba('statusInfo', 0.1),
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-            onClick={() => setFilterStatus('acknowledged')}
-            >
-              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.info, marginBottom: '4px' }}>
-                {alertCounts.acknowledged}
-              </div>
-              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
-                Acknowledged
-              </div>
-            </div>
-
-            {/* Investigating */}
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: COLORS.tintWarning,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-            onClick={() => setFilterStatus('investigating')}
-            >
-              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.ochre, marginBottom: '4px' }}>
-                {alertCounts.investigating}
-              </div>
-              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
-                Investigating
-              </div>
-            </div>
-
-            {/* Resolved */}
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: COLORS.tintSuccess,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-            onClick={() => setFilterStatus('resolved')}
-            >
-              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.success, marginBottom: '4px' }}>
-                {alertCounts.resolved}
-              </div>
-              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
-                Resolved
-              </div>
-            </div>
-
-            {/* Total */}
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: COLORS.secondaryBg,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-            onClick={() => setFilterStatus('all')}
-            >
-              <div style={{ fontSize: '28px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '4px' }}>
-                {alertCounts.all}
-              </div>
-              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: COLORS.textSecondary }}>
-                Total
-              </div>
-            </div>
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setFilterStatus(filter)}
+                  style={{
+                    padding: '12px 24px',
+                    border: `2px solid ${isActive ? textColor : COLORS.borderLight}`,
+                    background: bgColor,
+                    color: textColor,
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.08)',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.borderColor = COLORS.borderMedium;
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.borderColor = COLORS.borderLight;
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }
+                  }}
+                >
+                  <span>{label}</span>
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: isActive ? 'rgba(255,255,255,0.2)' : COLORS.secondaryBg,
+                    fontSize: '12px',
+                    fontWeight: 800
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        {/* Alerts Section - Split Layout */}
-        <section style={{ display: 'flex', height: 'calc(100vh - 240px)' }}>
-          {/* Left Panel - Alert Cards (60%) */}
-          <div style={{ width: '60%', overflowY: 'auto', background: COLORS.creamBg, padding: '32px 28px' }}>
-            {/* Panel Header */}
-            <div style={{ marginBottom: '24px' }}>
+        {/* Alerts Section - Responsive Grid Layout */}
+        <section style={{ padding: '32px 20px', minHeight: 'calc(100vh - 240px)' }}>
+          <style>{`
+            @media (min-width: 768px) {
+              .alerts-section {
+                padding: 32px 40px !important;
+              }
+            }
+          `}</style>
+          <div className="alerts-section" style={{ padding: '32px 20px' }}>
+            {/* Search and Filters */}
+            <div style={{ marginBottom: '28px' }}>
               {/* Search Box */}
-              <div style={{ position: 'relative', marginBottom: '16px' }}>
+              <div style={{ position: 'relative', marginBottom: '20px', maxWidth: '500px' }}>
                 <Search className="w-4 h-4" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: COLORS.textSecondary }} />
                 <input
                   type="text"
-                  placeholder="Search alerts..."
+                  placeholder="Search alerts by title, location, or ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -421,7 +533,7 @@ const AlertHub = () => {
                     borderRadius: '10px',
                     fontSize: '14px',
                     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                    background: 'white',
+                    background: COLORS.whiteCard,
                     outline: 'none',
                     transition: 'all 0.2s ease'
                   }}
@@ -435,108 +547,217 @@ const AlertHub = () => {
                   }}
                 />
               </div>
-              {/* Filter Pills */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {['all', 'active', 'acknowledged', 'investigating', 'resolved'].map((filter) => {
-                  const isActive = filterStatus === filter;
-                  const label = filter === 'all' ? 'All' :
-                               filter === 'active' ? 'Active' :
-                               filter === 'acknowledged' ? 'Acknowledged' :
-                               filter === 'investigating' ? 'Investigating' : 'Resolved';
-
-                  return (
-                    <button
-                      key={filter}
-                      onClick={() => setFilterStatus(filter)}
-                      style={{
-                        padding: '8px 16px',
-                        border: `1px solid ${isActive ? COLORS.forestGreen : COLORS.borderLight}`,
-                        background: isActive ? COLORS.forestGreen : COLORS.whiteCard,
-                        color: isActive ? COLORS.white : COLORS.textSecondary,
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                        transition: 'all 0.2s ease',
-                        whiteSpace: 'nowrap'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.borderColor = COLORS.borderMedium;
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.borderColor = COLORS.borderLight;
-                        }
-                      }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
 
-            {/* Alert Cards Grid */}
-            <div style={{ display: 'grid', gap: '20px' }}>
+            {/* Alert Cards Grid - Responsive */}
+            {filteredAlerts.length === 0 ? (
+              <div style={{
+                textAlign: 'left',
+                padding: '80px 20px',
+                background: COLORS.whiteCard,
+                borderRadius: '12px',
+                border: `2px dashed ${COLORS.borderLight}`
+              }}>
+                <AlertTriangle className="w-12 h-12" style={{ color: COLORS.textSecondary, marginBottom: '16px' }} />
+                <div style={{ fontSize: '18px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px', textAlign: 'left' }}>
+                  No Alerts Found
+                </div>
+                <div style={{ fontSize: '14px', color: COLORS.textSecondary, textAlign: 'left' }}>
+                  {alerts.length === 0
+                    ? 'No alerts have been created yet. Alerts from mobile app reports will appear here.'
+                    : 'No alerts match your current filter. Try adjusting your search or filter criteria.'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
               {filteredAlerts.map((alert) => {
                 const severityColor = getSeverityColor(alert.priority);
+                  const statusColor = getStatusColor(alert.status);
+                  const statusBg = getStatusBg(alert.status);
 
                 return (
                   <div
                     key={alert.id}
-                    onClick={() => setSelectedAlert(alert)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedAlert(alert);
+                      }}
                     style={{
                       background: COLORS.whiteCard,
                       border: `1px solid ${selectedAlert?.id === alert.id ? COLORS.burntOrange : COLORS.borderLight}`,
-                      borderRadius: '8px',
-                      padding: '20px',
+                        borderRadius: '12px',
+                        padding: '24px',
                       cursor: 'pointer',
                       position: 'relative',
-                      transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        boxShadow: selectedAlert?.id === alert.id ? '0 4px 12px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.05)'
                     }}
                     onMouseEnter={(e) => {
                       if (selectedAlert?.id !== alert.id) {
                         e.currentTarget.style.borderColor = COLORS.borderMedium;
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (selectedAlert?.id !== alert.id) {
                         e.currentTarget.style.borderColor = COLORS.borderLight;
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
+                          e.currentTarget.style.transform = 'translateY(0)';
                       }
                     }}
                   >
-                    {/* Left Accent Bar */}
+                      {/* Top Accent Bar */}
                     <div style={{
                       position: 'absolute',
-                      left: 0,
                       top: 0,
-                      bottom: 0,
-                      width: '4px',
-                      borderRadius: '8px 0 0 8px',
+                        left: 0,
+                        right: 0,
+                        height: '4px',
+                        borderRadius: '12px 12px 0 0',
                       background: severityColor
                     }}></div>
 
-                    {/* Name */}
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '12px' }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <div style={{ flex: 1, textAlign: 'left' }}>
+                          <div style={{ fontSize: '18px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '8px', lineHeight: 1.3, textAlign: 'left' }}>
                       {alert.title}
+                          </div>
+                        </div>
+                        <span style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          background: statusBg,
+                          color: statusColor,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {alert.status}
+                        </span>
                     </div>
 
-                    {/* Location */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: COLORS.textSecondary }}>
+                      {/* Description */}
+                      <div style={{ fontSize: '14px', color: COLORS.textSecondary, marginBottom: '16px', lineHeight: 1.6, textAlign: 'left' }}>
+                        {alert.description}
+                      </div>
+
+                      {/* Location and Time */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '16px', borderTop: `1px solid ${COLORS.borderLight}`, textAlign: 'left' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: COLORS.textSecondary, textAlign: 'left' }}>
                       <MapPin className="w-4 h-4" />
-                      <span>{alert.location}</span>
+                          <span style={{ textAlign: 'left' }}>{alert.location}</span>
                     </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: COLORS.textSecondary, textAlign: 'left' }}>
+                          <Clock className="w-4 h-4" />
+                          <span style={{ textAlign: 'left' }}>{alert.timestamp}</span>
+                        </div>
+                        {alert.animalName && (
+                          <div style={{ fontSize: '13px', color: COLORS.textSecondary, fontWeight: 500, textAlign: 'left' }}>
+                            Animal: {alert.animalName} {alert.animalSpecies && `(${alert.animalSpecies})`}
+                          </div>
+                        )}
+                      </div>
+
                   </div>
                 );
               })}
             </div>
-          </div>
+            )}
 
-          {/* Right Panel - Details (40%) */}
-          <div style={{ width: '40%', background: COLORS.whiteCard, overflowY: 'auto', padding: '40px 36px', borderLeft: `2px solid ${COLORS.borderLight}` }}>
+            {/* Details Panel - Modal/Overlay Style */}
+            {selectedAlert && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.5)',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px'
+              }}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setSelectedAlert(null);
+              }}
+              >
+                <div style={{
+                  background: COLORS.whiteCard,
+                  borderRadius: '16px',
+                  width: '100%',
+                  maxWidth: '600px',
+                  maxHeight: '90vh',
+                  overflowY: 'auto',
+                  padding: '40px',
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                  position: 'relative'
+                }}
+                onClick={(e) => {
+                  // Don't close if clicking inside the modal content
+                  if (e.target === e.currentTarget) {
+                    setSelectedAlert(null);
+                  }
+                }}
+                >
+                  {/* Close Button - Must be clickable */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Close button clicked');
+                      setSelectedAlert(null);
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '16px',
+                      right: '16px',
+                      background: COLORS.secondaryBg,
+                      border: `2px solid ${COLORS.borderMedium}`,
+                      fontSize: '28px',
+                      lineHeight: '1',
+                      color: COLORS.textPrimary,
+                      cursor: 'pointer',
+                      width: '44px',
+                      height: '44px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '8px',
+                      transition: 'all 0.2s ease',
+                      zIndex: 1003,
+                      padding: 0,
+                      margin: 0,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      fontWeight: 'bold'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = COLORS.error;
+                      e.currentTarget.style.borderColor = COLORS.error;
+                      e.currentTarget.style.color = 'white';
+                      e.currentTarget.style.transform = 'scale(1.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = COLORS.secondaryBg;
+                      e.currentTarget.style.borderColor = COLORS.borderMedium;
+                      e.currentTarget.style.color = COLORS.textPrimary;
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    aria-label="Close alert details"
+                  >
+                    ×
+                  </button>
             {selectedAlert ? (
               <>
                 {/* Details Header */}
@@ -556,13 +777,9 @@ const AlertHub = () => {
                     <AlertTriangle className="w-7 h-7" style={{ color: getSeverityColor(selectedAlert.priority) }} />
                   </div>
                   {/* Title */}
-                  <h2 style={{ fontSize: '22px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '6px', lineHeight: 1.3 }}>
+                  <h2 style={{ fontSize: '22px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '6px', lineHeight: 1.3, textAlign: 'left' }}>
                     {selectedAlert.title}
                   </h2>
-                  {/* ID */}
-                  <div style={{ fontSize: '12px', color: COLORS.textSecondary, fontWeight: 500, marginBottom: '16px' }}>
-                    {selectedAlert.id}
-                  </div>
                   {/* Badges */}
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '28px' }}>
                     <span style={{
@@ -586,7 +803,7 @@ const AlertHub = () => {
                       letterSpacing: '0.5px',
                       background: selectedAlert.priority === 'critical' ? COLORS.error :
                                  selectedAlert.priority === 'high' ? COLORS.ochre :
-                                 selectedAlert.priority === 'medium' ? COLORS.info : COLORS.success,
+                                 selectedAlert.priority === 'medium' ? COLORS.warning : COLORS.success,
                       color: 'white'
                     }}>
                       {selectedAlert.priority}
@@ -646,58 +863,53 @@ const AlertHub = () => {
                 {/* Info Grid */}
                 <div style={{ display: 'grid', gap: '16px', marginBottom: '32px' }}>
                   <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
-                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', textAlign: 'left' }}>
                       Location
                     </div>
-                    <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}>
                       <MapPin className="w-4.5 h-4.5" style={{ color: COLORS.textSecondary }} />
-                      {selectedAlert.location}
+                      <span style={{ textAlign: 'left' }}>{selectedAlert.location}</span>
                     </div>
                   </div>
 
+                  {selectedAlert.animalName && (
                   <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
-                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', textAlign: 'left' }}>
                       Animal
                     </div>
-                    <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500 }}>
-                      {selectedAlert.animalType} - {selectedAlert.animalId}
+                      <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500, textAlign: 'left' }}>
+                        {selectedAlert.animalName} {selectedAlert.animalSpecies && `(${selectedAlert.animalSpecies})`}
                     </div>
                   </div>
+                  )}
 
                   <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
-                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', textAlign: 'left' }}>
                       Timestamp
                     </div>
-                    <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}>
                       <Clock className="w-4.5 h-4.5" style={{ color: COLORS.textSecondary }} />
-                      {selectedAlert.timestamp}
+                      <span style={{ textAlign: 'left' }}>{selectedAlert.timestamp}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Risk Card */}
-                <div style={{ paddingBottom: '16px', borderBottom: `1px solid ${COLORS.borderLight}`, marginBottom: '32px' }}>
-                  <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                    Risk Level
-                  </div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: COLORS.error, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <AlertTriangle className="w-5 h-5" />
-                    {selectedAlert.riskLevel}
-                  </div>
-                </div>
-
-                {/* Team Section */}
+                {/* Team Section - Only show if team exists */}
+                {selectedAlert.team && (
                 <div style={{ paddingBottom: '16px', borderBottom: `1px solid ${COLORS.borderLight}`, marginBottom: '32px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                     <Users className="w-4.5 h-4.5" style={{ color: COLORS.textSecondary }} />
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: COLORS.textPrimary }}>
-                      {selectedAlert.team.name}
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: COLORS.textPrimary, textAlign: 'left' }}>
+                        {selectedAlert.team.name || selectedAlert.responseTeam || 'Response Team'}
                     </div>
                   </div>
+                    {selectedAlert.team.description && (
                   <div style={{ fontSize: '14px', color: BRAND_COLORS.TEXT_TERTIARY, lineHeight: 1.6, textAlign: 'left' }}>
                     {selectedAlert.team.description}
                   </div>
+                    )}
                 </div>
+                )}
 
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '32px', paddingTop: '24px', borderTop: `1px solid ${COLORS.borderLight}` }}>
@@ -729,33 +941,76 @@ const AlertHub = () => {
                     Respond
                   </button>
                   {/* Secondary Buttons */}
+                  {selectedAlert.status !== 'acknowledged' && selectedAlert.status !== 'resolved' && (
                   <button
-                    onClick={() => console.log('Acknowledge', selectedAlert.id)}
+                      onClick={() => handleAcknowledge(selectedAlert.id)}
+                      disabled={updating === selectedAlert.id}
                     style={{
                       width: '100%',
                       padding: '12px',
-                      background: 'transparent',
+                        background: updating === selectedAlert.id ? COLORS.borderLight : 'transparent',
                       border: `1px solid ${COLORS.borderLight}`,
-                      color: COLORS.textSecondary,
+                        color: updating === selectedAlert.id ? COLORS.textSecondary : COLORS.textSecondary,
                       borderRadius: '6px',
                       fontSize: '13px',
                       fontWeight: 600,
                       textTransform: 'uppercase',
                       letterSpacing: '0.3px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
+                        cursor: updating === selectedAlert.id ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease',
+                        opacity: updating === selectedAlert.id ? 0.6 : 1
                     }}
                     onMouseEnter={(e) => {
+                        if (updating !== selectedAlert.id) {
                       e.currentTarget.style.borderColor = COLORS.borderMedium;
                       e.currentTarget.style.background = COLORS.secondaryBg;
+                        }
                     }}
                     onMouseLeave={(e) => {
+                        if (updating !== selectedAlert.id) {
                       e.currentTarget.style.borderColor = COLORS.borderLight;
                       e.currentTarget.style.background = 'transparent';
+                        }
                     }}
                   >
-                    Acknowledge
+                      {updating === selectedAlert.id ? 'Updating...' : 'Acknowledge'}
                   </button>
+                  )}
+                  {selectedAlert.status !== 'investigating' && selectedAlert.status !== 'resolved' && (
+                    <button
+                      onClick={() => handleInvestigating(selectedAlert.id)}
+                      disabled={updating === selectedAlert.id}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        background: updating === selectedAlert.id ? COLORS.borderLight : 'transparent',
+                        border: `1px solid ${COLORS.borderLight}`,
+                        color: updating === selectedAlert.id ? COLORS.textSecondary : COLORS.textSecondary,
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.3px',
+                        cursor: updating === selectedAlert.id ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease',
+                        opacity: updating === selectedAlert.id ? 0.6 : 1
+                      }}
+                      onMouseEnter={(e) => {
+                        if (updating !== selectedAlert.id) {
+                          e.currentTarget.style.borderColor = COLORS.borderMedium;
+                          e.currentTarget.style.background = COLORS.secondaryBg;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (updating !== selectedAlert.id) {
+                          e.currentTarget.style.borderColor = COLORS.borderLight;
+                          e.currentTarget.style.background = 'transparent';
+                        }
+                      }}
+                    >
+                      {updating === selectedAlert.id ? 'Updating...' : 'Mark as Investigating'}
+                    </button>
+                  )}
                   <button
                     onClick={() => console.log('Export', selectedAlert.id)}
                     style={{
@@ -790,14 +1045,24 @@ const AlertHub = () => {
                   </button>
                 </div>
               </>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: COLORS.textSecondary, fontSize: '14px' }}>
-                Select an alert to view details
+            ) : null}
+                </div>
               </div>
             )}
           </div>
         </section>
       </div>
+
+      <style>{`
+        @media (min-width: 768px) {
+          .alert-header {
+            padding: 28px 40px !important;
+          }
+          .status-bar {
+            padding: 20px 40px !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

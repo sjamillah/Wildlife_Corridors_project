@@ -119,6 +119,28 @@ const tracking = {
       throw new Error(error.response?.data?.message || 'Failed to fetch tracking data by date range');
     }
   },
+
+  // Analyze behavior for an animal
+  analyzeBehavior: async (animalId, filters = {}) => {
+    try {
+      const params = new URLSearchParams({ ...filters, animal: animalId }).toString();
+      const response = await api.get(`/api/v1/tracking/behavior/analyze/?${params}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to analyze behavior');
+    }
+  },
+
+  // Get behavior summary for all animals
+  getBehaviorSummary: async (filters = {}) => {
+    try {
+      const params = new URLSearchParams(filters).toString();
+      const response = await api.get(`/api/v1/tracking/behavior/summary/${params ? `?${params}` : ''}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch behavior summary');
+    }
+  },
 };
 
 // Observations
@@ -155,10 +177,20 @@ const observations = {
     }
   },
 
-  // Update observation
+  // Update observation (full update)
   update: async (id, observationData) => {
     try {
       const response = await api.put(`/api/v1/tracking/observations/${id}/`, observationData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update observation');
+    }
+  },
+
+  // Partial update observation
+  patch: async (id, partialData) => {
+    try {
+      const response = await api.patch(`/api/v1/tracking/observations/${id}/`, partialData);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to update observation');

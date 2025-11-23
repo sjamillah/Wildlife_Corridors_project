@@ -44,7 +44,12 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      minHeight: '100vh', 
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+    }} className="md:flex-row">
       {/* Left Side - Image with Content */}
       <div style={{
         flex: '0 0 60%',
@@ -56,8 +61,9 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '60px 48px',
-      }}>
+        padding: '40px 24px',
+        minHeight: '300px'
+      }} className="md:min-h-screen md:p-16">
         {/* Overlay for better text readability */}
         <div style={{
           position: 'absolute',
@@ -120,27 +126,27 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
 
       {/* Right Side - Register Form */}
       <div style={{
-        flex: '0 0 40%',
+        flex: '1',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: COLORS.creamBg,
-        padding: '40px',
+        padding: '20px',
         overflowY: 'auto',
-      }}>
+      }} className="md:p-10">
         <div style={{
           width: '100%',
           maxWidth: '480px',
           background: COLORS.whiteCard,
           borderRadius: '16px',
-          padding: '48px',
+          padding: '24px',
           boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
-        }}>
+        }} className="md:p-12">
           <div style={{ marginBottom: '32px' }}>
-            <h2 style={{ fontSize: '28px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '8px', letterSpacing: '-0.5px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 800, color: COLORS.textPrimary, marginBottom: '8px', letterSpacing: '-0.5px' }} className="md:text-[28px]">
               Create Account
             </h2>
-            <p style={{ fontSize: '15px', color: COLORS.textSecondary }}>
+            <p style={{ fontSize: '14px', color: COLORS.textSecondary }} className="md:text-[15px]">
               Join the Aureynx Conservation Platform
             </p>
           </div>
@@ -148,7 +154,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
           {!showOTP ? (
             /* Registration Form */
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }} className="md:grid-cols-2">
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px' }}>
                   First Name
@@ -245,7 +251,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
               />
             </div>
 
-              <div>
+              <div style={{ position: 'relative', zIndex: 10 }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px' }}>
                   Role
                 </label>
@@ -264,14 +270,18 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                     outline: 'none',
                     transition: 'all 0.2s ease',
                     cursor: 'pointer',
+                    position: 'relative',
+                    zIndex: 11,
                   }}
                   onFocus={(e) => {
                     e.currentTarget.style.borderColor = COLORS.forestGreen;
                     e.currentTarget.style.boxShadow = `0 0 0 3px ${COLORS.forestGreen}15`;
+                    e.currentTarget.style.zIndex = 12;
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.borderColor = COLORS.borderLight;
                     e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.zIndex = 11;
                   }}
                 >
                   <option value="ranger">Ranger</option>
@@ -281,7 +291,7 @@ const Register = ({ showPassword, setShowPassword, setCurrentScreen, onSuccessfu
                 </select>
               </div>
 
-            <div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, marginBottom: '8px' }}>
                 Organization
               </label>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Colors } from '../../constants/Colors';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Colors } from '@constants/Colors';
+import { useTheme } from '@contexts/ThemeContext';
 
 // Professional background for tab bar that adapts to theme
 export default function TabBarBackground() {

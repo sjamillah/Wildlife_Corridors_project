@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Card } from '../../../components/ui/Card';
-import { Colors, STATUS_COLORS } from '../../../constants/Colors';
-import { useTheme } from '../../../contexts/ThemeContext';
+import { Card } from '@components/ui/Card';
+import { Colors, STATUS_COLORS } from '@constants/Colors';
+import { useTheme } from '@contexts/ThemeContext';
 
 export default function PanicAlertScreen() {
   const { theme } = useTheme();

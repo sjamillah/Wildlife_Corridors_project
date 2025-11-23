@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@components/*": ["./components/*"],
+      "@components/maps/*": ["./components/maps/*"],
+      "@components/ui/*": ["./components/ui/*"],
+      "@app/*": ["./app/*"],
+      "@app/hooks": ["./app/hooks/index.js"],
+      "@app/hooks/*": ["./app/hooks/*"],
+      "@constants": ["./constants"],
+      "@constants/*": ["./constants/*"],
+      "@constants/Colors": ["./constants/Colors.js"],
+      "@contexts/*": ["./contexts/*"],
+      "@hooks/*": ["./hooks/*"],
+      "@services": ["./app/services/index.js"],
+      "@services/*": ["./app/services/*"],
+      "@utils/*": ["./app/utils/*"]
+    },
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "jsx": "react-native",
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "**/*.js",
+    "**/*.jsx",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": ["node_modules", "dist", "android", "ios", ".expo"]
+}
+

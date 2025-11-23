@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { TouchableOpacity, Text, StyleSheet, Dimensions } from 'react-native';
-import { Colors, UI_COLORS, BRAND_COLORS } from '../../constants/Colors';
-import { useTheme } from '../../contexts/ThemeContext';
+import { TouchableOpacity, Text, StyleSheet, Dimensions, Platform } from 'react-native';
+import { Colors, UI_COLORS, BRAND_COLORS } from '@constants/Colors';
+import { useTheme } from '@contexts/ThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -134,9 +134,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    // Web-compatible shadow
+    // Platform-specific shadows
+    ...Platform.select({
+      web: {
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    // Mobile shadow fallback
+      },
+      default: {
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -145,6 +148,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 2,
+      },
+    }),
   },
   text: {
     fontWeight: '700',

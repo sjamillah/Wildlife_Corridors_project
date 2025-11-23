@@ -75,6 +75,26 @@ const tracking = {
       throw new Error(error.response?.data?.message || 'Failed to fetch animal tracking data');
     }
   },
+
+  analyzeBehavior: async (animalId, filters = {}) => {
+    try {
+      const params = new URLSearchParams({ ...filters, animal: animalId }).toString();
+      const response = await api.get(`/api/v1/tracking/behavior/analyze/?${params}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to analyze behavior');
+    }
+  },
+
+  getBehaviorSummary: async (filters = {}) => {
+    try {
+      const params = new URLSearchParams(filters).toString();
+      const response = await api.get(`/api/v1/tracking/behavior/summary/${params ? `?${params}` : ''}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch behavior summary');
+    }
+  },
 };
 
 const observations = {

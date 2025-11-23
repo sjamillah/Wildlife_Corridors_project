@@ -149,6 +149,24 @@ const animals = {
       throw new Error(error.response?.data?.message || 'Failed to fetch active animals');
     }
   },
+
+  // Get movement trail for an animal
+  getMovementTrail: async (animalId, options = {}) => {
+    try {
+      const { points = 100, days, hours, all = true } = options;
+      const params = new URLSearchParams();
+      if (points) params.append('points', points);
+      if (days) params.append('days', days);
+      if (hours) params.append('hours', hours);
+      if (all) params.append('all', all);
+      
+      const url = `/api/v1/animals/${animalId}/movement_trail/?${params.toString()}`;
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch movement trail');
+    }
+  },
 };
 
 export default animals;

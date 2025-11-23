@@ -1,7 +1,14 @@
 import React from 'react';
 import { Activity, Navigation, AlertTriangle, Battery, Heart } from '@/components/shared/Icons';
 
-const StatsBar = ({ animals }) => {
+const StatsBar = ({ animals = [] }) => {
+  // Filter to only active animals (matching mobile app behavior)
+  const activeAnimals = animals.filter(a => {
+    const status = a.status || '';
+    return status === 'active' || status === 'Active' || status === 'Moving' || 
+           (a.activityType === 'moving' && (a.speed || 0) > 0.5);
+  });
+  
   const stats = [
     { 
       label: 'Total Tracked', 
@@ -10,22 +17,34 @@ const StatsBar = ({ animals }) => {
     },
     { 
       label: 'Active Now', 
-      value: animals.filter(a => a.status === 'Moving').length, 
+      value: activeAnimals.length, 
       icon: Navigation 
     },
     { 
       label: 'High Risk', 
-      value: animals.filter(a => a.risk === 'High' || a.risk === 'Critical').length, 
+      value: animals.filter(a => {
+        const risk = a.risk || a.riskLevel || a.riskStatus || 'low';
+        const riskStr = String(risk).toLowerCase();
+        return riskStr === 'high' || riskStr === 'critical' || 
+               a.riskLevel === 'high' || a.riskLevel === 'critical' ||
+               a.riskStatus === 'high';
+      }).length, 
       icon: AlertTriangle 
     },
     { 
       label: 'Low Battery', 
-      value: animals.filter(a => a.battery < 30).length, 
+      value: animals.filter(a => {
+        const battery = a.battery || a.batteryLevel || 100;
+        return battery < 30;
+      }).length, 
       icon: Battery 
     },
     { 
       label: 'Health Alerts', 
-      value: animals.filter(a => a.health === 'Monitoring').length, 
+      value: animals.filter(a => {
+        const health = a.health || a.health_status || 'Good';
+        return health === 'Monitoring' || health === 'Warning' || health === 'Critical';
+      }).length, 
       icon: Heart 
     }
   ];

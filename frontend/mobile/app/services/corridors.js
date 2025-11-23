@@ -33,10 +33,20 @@ const corridors = {
     }
   },
 
-  // Update corridor
+  // Update corridor (full update)
   update: async (id, corridorData) => {
     try {
       const response = await api.put(`/api/v1/corridors/${id}/`, corridorData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update corridor');
+    }
+  },
+
+  // Partial update corridor
+  patch: async (id, partialData) => {
+    try {
+      const response = await api.patch(`/api/v1/corridors/${id}/`, partialData);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to update corridor');

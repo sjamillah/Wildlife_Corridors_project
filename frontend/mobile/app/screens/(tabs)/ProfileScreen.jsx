@@ -13,9 +13,10 @@ import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
-import { rangers, auth as authService } from '../../services';
-import gpsTracking from '../../services/gpsTracking';
+import { BRAND_COLORS, STATUS_COLORS } from '@constants/Colors';
+import { rangers, auth as authService, alerts, reports } from '@services';
+import gpsTracking from '@services/gpsTracking';
+import { safeNavigate } from '@utils';
 
 const TOKEN_KEY = 'authToken'; // Must match auth.js
 const REFRESH_TOKEN_KEY = 'refreshToken'; // Must match auth.js
@@ -23,8 +24,72 @@ const USER_PROFILE_KEY = 'userProfile'; // Must match auth.js
 const RANGER_PROFILE_KEY = '@wildlife_ranger_profile';
 
 const ProfileScreen = () => {
-  const [notifications, setNotifications] = useState(true);
-  const [locationSharing, setLocationSharing] = useState(true);
+  const [notifications, setNotifications] = useState(false); // Will be loaded from backend
+  const [locationSharing, setLocationSharing] = useState(false); // Will be loaded from backend
+  
+  // Load settings from backend
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        // First check if user is authenticated
+        const isAuth = await authService.isAuthenticated();
+        if (!isAuth) {
+          // Not authenticated, use defaults
+          setNotifications(true);
+          setLocationSharing(true);
+          return;
+        }
+
+        // Try to fetch from server, fallback to cached profile
+        const user = await authService.fetchProfile().catch(async () => {
+          // If fetch fails, try cached profile
+          return await authService.getProfile();
+        });
+        
+        if (user) {
+          // Load notification preferences (default to true if not set)
+          if (user.notification_preferences !== undefined) {
+            setNotifications(user.notification_preferences.enabled !== false);
+          } else {
+            setNotifications(true); // Default to enabled
+          }
+          // Load location sharing preference (default to true if not set)
+          if (user.location_sharing !== undefined) {
+            setLocationSharing(user.location_sharing);
+          } else {
+            setLocationSharing(true); // Default to enabled
+          }
+        } else {
+          // No user data, use defaults
+          setNotifications(true);
+          setLocationSharing(true);
+        }
+      } catch (error) {
+        // Silently fail and use defaults - prevents crashes in Expo Go
+        if (__DEV__) {
+          console.warn('Failed to load settings (non-critical):', error.message);
+        }
+        setNotifications(true);
+        setLocationSharing(true);
+      }
+    };
+    
+    loadSettings();
+  }, []);
+  
+  // Save settings to backend
+  const saveSettings = async (notifValue, locationValue) => {
+    try {
+      // Update user preferences via profile update
+      await authService.updateProfile({
+        notification_preferences: { enabled: notifValue },
+        location_sharing: locationValue,
+      });
+    } catch (error) {
+      console.warn('Failed to save settings:', error);
+      // Settings will still be updated locally
+    }
+  };
   const [onDutyStatus, setOnDutyStatus] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -47,8 +112,17 @@ const ProfileScreen = () => {
     try {
       setLoading(true);
       
-      // Get user profile from auth
-      const user = await authService.getProfile();
+      // Get user profile from auth (fetch fresh from backend)
+      const user = await authService.fetchProfile().catch(async () => {
+        // Fallback to cached profile if fetch fails
+        return await authService.getProfile();
+      });
+      
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
       setUserInfo({
         name: user.name || user.email,
         email: user.email,
@@ -70,6 +144,31 @@ const ProfileScreen = () => {
         
         // Cache ranger profile
         await AsyncStorage.setItem(RANGER_PROFILE_KEY, JSON.stringify(ranger));
+        
+        // Fetch dynamic stats
+        try {
+          // Get patrols count (routes/logs)
+          const routesData = await rangers.routes.getAll({ ranger: ranger.id }).catch(() => ({ results: [] }));
+          const logsData = await rangers.logs.getAll({ ranger: ranger.id }).catch(() => ({ results: [] }));
+          const patrolsCount = (routesData.results || routesData || []).length + (logsData.results || logsData || []).length;
+          
+          // Get alerts count (created by this ranger)
+          const alertsData = await alerts.getAll({ created_by: user.id }).catch(() => ({ results: [] }));
+          const alertsCount = (alertsData.results || alertsData || []).length;
+          
+          // Get reports count
+          const reportsData = await reports.getAll({ created_by: user.id }).catch(() => ({ results: [] }));
+          const reportsCount = (reportsData.results || reportsData || []).length;
+          
+          setStats([
+            { label: 'Patrols', value: patrolsCount, icon: 'walk' },
+            { label: 'Alerts', value: alertsCount, icon: 'alert-circle' },
+            { label: 'Reports', value: reportsCount, icon: 'file-document' },
+          ]);
+        } catch (statsError) {
+          console.warn('Failed to fetch stats:', statsError);
+          // Keep default stats if fetch fails
+        }
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
@@ -141,11 +240,11 @@ const ProfileScreen = () => {
     }
   };
 
-  const stats = [
-    { label: 'Patrols', value: 156, icon: 'walk' },
-    { label: 'Alerts', value: 89, icon: 'alert-circle' },
-    { label: 'Reports', value: 23, icon: 'file-document' },
-  ];
+  const [stats, setStats] = useState([
+    { label: 'Patrols', value: 0, icon: 'walk' },
+    { label: 'Alerts', value: 0, icon: 'alert-circle' },
+    { label: 'Reports', value: 0, icon: 'file-document' },
+  ]);
 
   const menuItems = [
     { id: 'edit', title: 'Edit Profile', icon: 'account-edit' },
@@ -171,7 +270,7 @@ const ProfileScreen = () => {
               await authService.logout();
               console.log('Logout successful, navigating to SignIn...');
               // Navigate to sign in screen with replace to clear navigation stack
-              router.replace('/screens/auth/SignInScreen');
+              safeNavigate('/screens/auth/SignInScreen', { method: 'replace' });
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('Error', 'Failed to sign out. Please try again.');
@@ -267,7 +366,10 @@ const ProfileScreen = () => {
             <Text style={styles.settingLabel}>Notifications</Text>
             <Switch
               value={notifications}
-              onValueChange={setNotifications}
+              onValueChange={(value) => {
+                setNotifications(value);
+                saveSettings(value, locationSharing);
+              }}
               trackColor={{ false: BRAND_COLORS.BORDER_MEDIUM, true: BRAND_COLORS.PRIMARY }}
               thumbColor={BRAND_COLORS.SURFACE}
             />
@@ -277,7 +379,10 @@ const ProfileScreen = () => {
             <Text style={styles.settingLabel}>Location Sharing</Text>
             <Switch
               value={locationSharing}
-              onValueChange={setLocationSharing}
+              onValueChange={(value) => {
+                setLocationSharing(value);
+                saveSettings(notifications, value);
+              }}
               trackColor={{ false: BRAND_COLORS.BORDER_MEDIUM, true: BRAND_COLORS.PRIMARY }}
               thumbColor={BRAND_COLORS.SURFACE}
             />

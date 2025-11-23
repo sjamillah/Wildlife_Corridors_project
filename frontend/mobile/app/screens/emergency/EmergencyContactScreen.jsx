@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'r
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Card } from '../../../components/ui/Card';
-import { Colors, BRAND_COLORS, STATUS_COLORS } from '../../../constants/Colors';
-import { useTheme } from '../../../contexts/ThemeContext';
+import { Card } from '@components/ui/Card';
+import { Colors, BRAND_COLORS, STATUS_COLORS } from '@constants/Colors';
+import { useTheme } from '@contexts/ThemeContext';
 
 export default function EmergencyContactScreen() {
   const { theme } = useTheme();

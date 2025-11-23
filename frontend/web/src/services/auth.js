@@ -7,11 +7,12 @@ const USER_PROFILE_KEY = 'userProfile';
 const auth = {
   sendRegistrationOTP: async ({ email, name, role = 'ranger' }) => {
     try {
-      console.log('Sending OTP request to backend...');
-      console.log('Email:', email);
-      console.log('Name:', name);
-      console.log('Role:', role);
-      console.log('API URL:', publicApi.defaults.baseURL);
+      console.log('Sending Registration OTP...');
+      console.log('   Email:', email);
+      console.log('   Name:', name);
+      console.log('   Role:', role);
+      console.log('   API URL:', publicApi.defaults.baseURL);
+      console.log('   Full URL:', `${publicApi.defaults.baseURL}/api/v1/auth/register/`);
       
       const response = await publicApi.post('/api/v1/auth/register/', {
         email,
@@ -20,7 +21,7 @@ const auth = {
       });
 
       console.log('OTP sent successfully!');
-      console.log('Response:', response.data);
+      console.log('   Response:', response.data);
       
       localStorage.setItem('pendingRegistration', JSON.stringify({
         email,
@@ -30,10 +31,13 @@ const auth = {
 
       return response.data;
     } catch (error) {
-      console.error('Send OTP FAILED');
-      console.error('Error status:', error.response?.status);
-      console.error('Error data:', error.response?.data);
-      console.error('Full error:', error);
+      console.error('Send Registration OTP FAILED');
+      console.error('   Error status:', error.response?.status);
+      console.error('   Error data:', error.response?.data);
+      console.error('   API URL used:', publicApi.defaults.baseURL);
+      console.error('   Request URL:', error.config?.url);
+      console.error('   Full URL:', error.config?.baseURL + error.config?.url);
+      console.error('   Full error:', error.message);
       
       const errorData = error.response?.data;
       let errorMessage = 'Failed to send OTP';
@@ -120,15 +124,25 @@ const auth = {
 
   sendLoginOTP: async (email) => {
     try {
-      console.log('Sending login OTP to:', email);
+      console.log('Sending Login OTP...');
+      console.log('   Email:', email);
+      console.log('   API URL:', publicApi.defaults.baseURL);
+      console.log('   Full URL:', `${publicApi.defaults.baseURL}/api/v1/auth/login/`);
+      
       const response = await publicApi.post('/api/v1/auth/login/', {
         email,
       });
+      
       console.log('Login OTP sent successfully:', response.data);
       localStorage.setItem('pendingLogin', email);
       return response.data;
     } catch (error) {
-      console.error('Login OTP error:', error.response?.data);
+      console.error('Send Login OTP FAILED');
+      console.error('   Error status:', error.response?.status);
+      console.error('   Error data:', error.response?.data);
+      console.error('   API URL used:', publicApi.defaults.baseURL);
+      console.error('   Request URL:', error.config?.url);
+      console.error('   Full URL:', error.config?.baseURL + error.config?.url);
       throw new Error(error.response?.data?.error || error.response?.data?.message || 'Failed to send OTP');
     }
   },
@@ -221,6 +235,17 @@ const auth = {
     } catch (error) {
       console.error('Error getting profile:', error);
       return null;
+    }
+  },
+
+  updateProfile: async (profileData) => {
+    try {
+      const response = await api.patch('/api/v1/auth/me/', profileData);
+      const updatedUser = response.data;
+      localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(updatedUser));
+      return updatedUser;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update profile');
     }
   },
 };

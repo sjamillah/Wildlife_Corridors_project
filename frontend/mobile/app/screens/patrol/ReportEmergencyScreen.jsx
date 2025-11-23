@@ -14,8 +14,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BRAND_COLORS } from '../../../constants/Colors';
-import { rangers } from '../../services';
+import { BRAND_COLORS } from '@constants/Colors';
+import { rangers, auth as authService } from '@services';
+import { safeNavigate } from '@utils';
+// Don't import prioritySyncQueue at top level - import dynamically to prevent SSR issues
 
 const EMERGENCY_TYPES = [
   { id: 'poacher', label: 'Poacher Activity', icon: 'account-alert', color: '#ef4444' },
@@ -89,57 +91,263 @@ const ReportEmergencyScreen = () => {
     try {
       const emergencyType = EMERGENCY_TYPES.find(t => t.id === selectedType);
       
+      // Get ranger and team info with error handling
+      let userProfile = null;
+      let rangerId = null;
+      let teamId = null;
+      try {
+        userProfile = await authService.getProfile();
+        rangerId = userProfile?.ranger_id || userProfile?.id;
+        teamId = userProfile?.team_id;
+      } catch (profileError) {
+        console.warn('Failed to get user profile:', profileError);
+        // Continue without profile - emergency is more important
+      }
+      
+      // Get current location or last known
+      const currentLocation = location || await getLastKnownLocation();
+      
       const emergencyData = {
+        ranger: rangerId,
+        team: teamId,
         log_type: 'emergency',
         priority: 'critical',
         title: `${emergencyType.label}${requestingBackup ? ' - BACKUP REQUESTED' : ''}`,
         description: description,
-        lat: location?.lat || 0,
-        lon: location?.lon || 0,
+        lat: currentLocation?.lat || 0,
+        lon: currentLocation?.lon || 0,
         notes: requestingBackup ? 'Backup team requested' : '',
+        timestamp: new Date().toISOString(),
       };
 
-      await rangers.logs.create(emergencyData);
+      // Create alert data for managers (CRITICAL - sends via WebSocket)
+      const { alerts: alertsService } = await import('@services');
+      const alertData = {
+        alert_type: 'emergency',
+        severity: 'critical',
+        title: `EMERGENCY: ${emergencyType.label}`,
+        message: `${description}${requestingBackup ? ' - BACKUP REQUESTED' : ''}`,
+        latitude: currentLocation?.lat || 0,
+        longitude: currentLocation?.lon || 0,
+        ranger_id: rangerId,
+        ranger_name: userProfile?.name || 'Unknown Ranger',
+        team_id: teamId,
+        source: 'mobile_emergency',
+        status: 'active',
+        priority: 'critical',
+        requires_immediate_response: true
+      };
 
-      Alert.alert(
-        'EMERGENCY SENT',
-        'Control center has been notified. Stay safe and await instructions.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      // Try to send both emergency log and alert immediately
+      let emergencySent = false;
+      let alertSent = false;
 
-      // Clear form
-      setSelectedType(null);
-      setDescription('');
-      setRequestingBackup(false);
+      try {
+        // Send emergency log (creates alert on backend)
+        await rangers.logs.create(emergencyData);
+        emergencySent = true;
+        console.log('✅ Emergency log created');
+      } catch (logError) {
+        console.error('Failed to create emergency log:', logError);
+        // Continue - we'll still try to send alert
+      }
+
+      try {
+        // Create alert directly for managers (CRITICAL - sends via WebSocket)
+        await alertsService.create(alertData);
+        alertSent = true;
+        console.log('✅ Emergency alert created - managers notified');
+      } catch (alertError) {
+        console.error('Failed to create alert directly:', alertError);
+        
+        // Queue for retry using prioritySyncQueue if available
+        try {
+          const prioritySyncQueue = (await import('@services/prioritySyncQueue')).default;
+          await prioritySyncQueue.add({
+            data: alertData,
+            endpoint: '/api/v1/alerts/alerts/',
+            priority: 'high',
+            maxRetries: 30,
+            retryInterval: 3000,
+          });
+          prioritySyncQueue.startAutoSync();
+          console.log('✅ Alert queued for sync');
+        } catch (queueError) {
+          console.error('Failed to queue alert:', queueError);
+          // Still show success - at least we tried
+        }
+      }
+
+      // Show success if either was sent
+      if (emergencySent || alertSent) {
+          Alert.alert(
+            'EMERGENCY SENT',
+            'Control center and managers have been notified. Stay safe and await instructions.',
+            [{ 
+              text: 'OK', 
+              onPress: () => {
+                try {
+                  // Clear form
+                  setSelectedType(null);
+                  setDescription('');
+                  setRequestingBackup(false);
+                  // Navigate back safely
+                  router.back();
+                } catch (navError) {
+                  console.warn('Navigation error:', navError);
+                  safeNavigate('/screens/(tabs)/DashboardScreen');
+                }
+              }
+            }]
+          );
+      } else {
+        // Both failed - queue for offline
+        await queueEmergency(emergencyData, emergencyType.label);
+      }
+
     } catch (error) {
-      console.error('Failed to send emergency:', error);
-      
-      // Critical: Save offline if network fails
-      await saveEmergencyOffline(emergencyData);
+      console.error('❌ Failed to send emergency:', error);
+      const errorMessage = error.message || error.response?.data?.message || 'Unknown error';
       Alert.alert(
-        'SAVED OFFLINE',
-        'Emergency saved locally. It will be sent when connection is restored.',
-        [{ text: 'OK', onPress: () => router.back() }]
+        'ERROR',
+        `Failed to send emergency: ${errorMessage}\n\nPlease try again or contact support immediately.`,
+        [{ text: 'OK' }]
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const saveEmergencyOffline = async (emergencyData) => {
+  const queueEmergency = async (emergencyData, emergencyTypeLabel) => {
     try {
-      const queueKey = '@offline_emergencies';
-      const existing = await AsyncStorage.getItem(queueKey);
-      const queue = existing ? JSON.parse(existing) : [];
-      queue.push({ ...emergencyData, timestamp: new Date().toISOString() });
-      await AsyncStorage.setItem(queueKey, JSON.stringify(queue));
+      // Try to use prioritySyncQueue if available
+      let queueSuccess = false;
+      try {
+        const prioritySyncQueue = (await import('@services/prioritySyncQueue')).default;
+        
+        // Queue emergency log
+        await prioritySyncQueue.add({
+          data: emergencyData,
+          endpoint: '/api/v1/rangers/logs/',
+          priority: 'high',
+          maxRetries: 30,
+          retryInterval: 3000,
+        });
+        
+        // Queue alert for managers
+        const userProfile = await authService.getProfile().catch(() => null);
+        const alertData = {
+          alert_type: 'emergency',
+          severity: 'critical',
+          title: `EMERGENCY: ${emergencyTypeLabel}`,
+          message: `${emergencyData.description}${emergencyData.notes ? ' - ' + emergencyData.notes : ''}`,
+          latitude: emergencyData.lat || 0,
+          longitude: emergencyData.lon || 0,
+          ranger_id: emergencyData.ranger,
+          ranger_name: userProfile?.name || 'Unknown Ranger',
+          team_id: emergencyData.team,
+          source: 'mobile_emergency',
+          status: 'active',
+          priority: 'critical',
+          requires_immediate_response: true
+        };
+        
+        await prioritySyncQueue.add({
+          data: alertData,
+          endpoint: '/api/v1/alerts/alerts/',
+          priority: 'high',
+          maxRetries: 30,
+          retryInterval: 3000,
+        });
+        
+        prioritySyncQueue.startAutoSync();
+        queueSuccess = true;
+      } catch (queueError) {
+        console.warn('Priority queue not available, saving to AsyncStorage:', queueError);
+        // Fallback: save to AsyncStorage for manual sync
+        try {
+          const stored = await AsyncStorage.getItem('pending_emergencies') || '[]';
+          const pending = JSON.parse(stored);
+          pending.push({
+            ...emergencyData,
+            alertData: {
+              alert_type: 'emergency',
+              severity: 'critical',
+              title: `EMERGENCY: ${emergencyTypeLabel}`,
+              message: `${emergencyData.description}${emergencyData.notes ? ' - ' + emergencyData.notes : ''}`,
+              latitude: emergencyData.lat || 0,
+              longitude: emergencyData.lon || 0,
+              ranger_id: emergencyData.ranger,
+              source: 'mobile_emergency',
+              status: 'active',
+              priority: 'critical',
+            },
+            timestamp: new Date().toISOString()
+          });
+          await AsyncStorage.setItem('pending_emergencies', JSON.stringify(pending));
+          queueSuccess = true;
+        } catch (storageError) {
+          console.error('Failed to save to storage:', storageError);
+        }
+      }
+      
+      if (queueSuccess) {
+        Alert.alert(
+          'EMERGENCY QUEUED',
+          'Emergency saved offline. It will be sent to managers immediately when connection is restored.',
+          [{ 
+            text: 'OK', 
+            onPress: () => {
+              try {
+                setSelectedType(null);
+                setDescription('');
+                setRequestingBackup(false);
+                router.back();
+              } catch (navError) {
+                console.warn('Navigation error:', navError);
+                safeNavigate('/screens/(tabs)/DashboardScreen');
+              }
+            }
+          }]
+        );
+      } else {
+        throw new Error('Failed to queue emergency');
+      }
     } catch (error) {
-      console.error('Failed to save emergency offline:', error);
+      console.error('❌ Failed to queue emergency:', error);
+      Alert.alert(
+        'ERROR',
+        `Failed to save emergency: ${error.message}\n\nPlease check your connection and try again, or contact support immediately.`,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const getLastKnownLocation = async () => {
+    try {
+      // Try to get current location first
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        try {
+          const currentLocation = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+            timeout: 5000, // 5 second timeout for faster response
+          });
+          return {
+            lat: currentLocation.coords.latitude,
+            lon: currentLocation.coords.longitude,
+            accuracy: currentLocation.coords.accuracy,
+          };
+        } catch {
+          // Fall through to stored location
+        }
+      }
+      
+      // Fallback to stored location
+      const stored = await AsyncStorage.getItem('last_known_location');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
     }
   };
 
@@ -149,7 +357,17 @@ const ReportEmergencyScreen = () => {
       
       {/* Header */}
       <View style={styles.emergencyHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => {
+            try {
+              router.back();
+            } catch (error) {
+              console.warn('Navigation error:', error);
+              safeNavigate('/screens/(tabs)/DashboardScreen');
+            }
+          }} 
+          style={styles.backButton}
+        >
           <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.emergencyHeaderTitle}>REPORT EMERGENCY</Text>

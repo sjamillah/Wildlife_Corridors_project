@@ -1,5 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
-import { sync } from '../services';
+import { sync } from '@services';
 
 /**
  * Network monitoring utility

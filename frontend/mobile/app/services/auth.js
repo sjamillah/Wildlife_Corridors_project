@@ -9,8 +9,12 @@ const auth = {
   // Send OTP for registration (EMAIL-based)
   sendRegistrationOTP: async ({ phone, email, name, password, role = 'ranger' }) => {
     try {
-      console.log('Sending OTP request:', { email, name, role });
-      console.log('API Base URL:', api.defaults.baseURL);
+      console.log('Sending Registration OTP...');
+      console.log('   Email:', email);
+      console.log('   Name:', name);
+      console.log('   Role:', role);
+      console.log('   API URL:', api.defaults.baseURL);
+      console.log('   Full URL:', `${api.defaults.baseURL}/api/v1/auth/register/`);
       
       // Backend sends OTP to EMAIL via /register/ endpoint
       const response = await api.post('/api/v1/auth/register/', {
@@ -19,7 +23,8 @@ const auth = {
         role,
       });
 
-      console.log('OTP sent successfully:', response.data);
+      console.log('OTP sent successfully!');
+      console.log('   Response:', response.data);
       
       // Store registration data temporarily for after OTP verification
       await AsyncStorage.setItem('pendingRegistration', JSON.stringify({
@@ -30,9 +35,13 @@ const auth = {
 
       return response.data; // { message, otp_id, expires_in }
     } catch (error) {
-      console.error('Send OTP error:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
+      console.error('Send Registration OTP FAILED');
+      console.error('   Error status:', error.response?.status);
+      console.error('   Error data:', error.response?.data);
+      console.error('   API URL used:', api.defaults.baseURL);
+      console.error('   Request URL:', error.config?.url);
+      console.error('   Full URL:', error.config?.baseURL + error.config?.url);
+      console.error('   Full error:', error.message);
       
       const errorData = error.response?.data;
       let errorMessage = 'Failed to send OTP';
@@ -122,23 +131,29 @@ const auth = {
   // Login with email (sends OTP)
   login: async (email) => {
     try {
-      console.log('Sending login OTP to:', email);
-      console.log('API Base URL:', api.defaults.baseURL);
+      console.log('Sending Login OTP...');
+      console.log('   Email:', email);
+      console.log('   API URL:', api.defaults.baseURL);
+      console.log('   Full URL:', `${api.defaults.baseURL}/api/v1/auth/login/`);
       
       const response = await api.post('/api/v1/auth/login/', {
         email,
       });
 
-      console.log('Login OTP sent:', response.data);
+      console.log('Login OTP sent successfully!');
+      console.log('   Response:', response.data);
       
       // Store email for OTP verification
       await AsyncStorage.setItem('pendingLogin', email);
 
       return response.data; // { message, otp_id, expires_in }
     } catch (error) {
-      console.error('Login error:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
+      console.error('Send Login OTP FAILED');
+      console.error('   Error status:', error.response?.status);
+      console.error('   Error data:', error.response?.data);
+      console.error('   API URL used:', api.defaults.baseURL);
+      console.error('   Request URL:', error.config?.url);
+      console.error('   Full URL:', error.config?.baseURL + error.config?.url);
       throw new Error(error.response?.data?.error || error.response?.data?.message || error.message || 'Login failed');
     }
   },
@@ -256,6 +271,18 @@ const auth = {
     } catch (error) {
       console.error('Error getting profile:', error);
       return null;
+    }
+  },
+
+  // Update user profile
+  updateProfile: async (profileData) => {
+    try {
+      const response = await api.patch('/api/v1/auth/me/', profileData);
+      const updatedUser = response.data;
+      await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(updatedUser));
+      return updatedUser;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update profile');
     }
   },
 };

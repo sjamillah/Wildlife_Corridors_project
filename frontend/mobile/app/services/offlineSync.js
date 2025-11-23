@@ -1,260 +1,248 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from './api';
+/**
+ * Offline Sync Service
+ * Handles syncing offline data when device comes back online
+ */
 
-const TRACKING_QUEUE_KEY = 'offline_tracking_queue';
-const OBSERVATIONS_QUEUE_KEY = 'offline_observations_queue';
+import offlineStorage from './offlineStorage';
+import api from './api';
+import alertsService from './alerts';
+import trackingService from './tracking';
+
+const SYNC_BATCH_SIZE = 10;
+const MAX_RETRIES = 3;
 
 const offlineSync = {
-  // Save tracking data to offline queue
-  saveTrackingOffline: async (trackingData) => {
+  /**
+   * Sync all offline data
+   */
+  async syncAll(onProgress = null) {
     try {
-      const queue = await offlineSync.getTrackingQueue();
-      const newItem = {
-        ...trackingData,
-        id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        timestamp: trackingData.timestamp || new Date().toISOString(),
-        synced: false,
-        createdAt: new Date().toISOString(),
-      };
-      queue.push(newItem);
-      await AsyncStorage.setItem(TRACKING_QUEUE_KEY, JSON.stringify(queue));
-      return { success: true, queueSize: queue.length };
-    } catch (error) {
-      console.error('Error saving tracking data offline:', error);
-      throw error;
-    }
-  },
+      const stats = await offlineStorage.getStorageStats();
+      const total = stats.unsyncedGPS + stats.unsyncedAlerts + stats.syncQueue;
+      let synced = 0;
 
-  // Save observation to offline queue
-  saveObservationOffline: async (observationData) => {
-    try {
-      const queue = await offlineSync.getObservationsQueue();
-      const newItem = {
-        ...observationData,
-        id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        observed_at: observationData.observed_at || new Date().toISOString(),
-        synced: false,
-        createdAt: new Date().toISOString(),
-      };
-      queue.push(newItem);
-      await AsyncStorage.setItem(OBSERVATIONS_QUEUE_KEY, JSON.stringify(queue));
-      return { success: true, queueSize: queue.length };
-    } catch (error) {
-      console.error('Error saving observation offline:', error);
-      throw error;
-    }
-  },
-
-  // Get tracking queue
-  getTrackingQueue: async () => {
-    try {
-      const queueData = await AsyncStorage.getItem(TRACKING_QUEUE_KEY);
-      return queueData ? JSON.parse(queueData) : [];
-    } catch (error) {
-      console.error('Error getting tracking queue:', error);
-      return [];
-    }
-  },
-
-  // Get observations queue
-  getObservationsQueue: async () => {
-    try {
-      const queueData = await AsyncStorage.getItem(OBSERVATIONS_QUEUE_KEY);
-      return queueData ? JSON.parse(queueData) : [];
-    } catch (error) {
-      console.error('Error getting observations queue:', error);
-      return [];
-    }
-  },
-
-  // Get unsynced tracking data
-  getUnsyncedTracking: async () => {
-    try {
-      const queue = await offlineSync.getTrackingQueue();
-      return queue.filter(item => !item.synced);
-    } catch (error) {
-      console.error('Error getting unsynced tracking:', error);
-      return [];
-    }
-  },
-
-  // Get unsynced observations
-  getUnsyncedObservations: async () => {
-    try {
-      const queue = await offlineSync.getObservationsQueue();
-      return queue.filter(item => !item.synced);
-    } catch (error) {
-      console.error('Error getting unsynced observations:', error);
-      return [];
-    }
-  },
-
-  // Sync all offline data with backend
-  syncAllData: async () => {
-    try {
-      const trackingQueue = await offlineSync.getUnsyncedTracking();
-      const observationsQueue = await offlineSync.getUnsyncedObservations();
-
-      let syncedCount = 0;
-      const errors = [];
-
-      // Sync tracking data
-      for (const item of trackingQueue) {
-        try {
-          await api.post('/api/v1/tracking/', {
-            animal: item.animal,
-            lat: item.lat,
-            lon: item.lon,
-            altitude_m: item.altitude_m,
-            speed_kmh: item.speed_kmh,
-            heading: item.heading,
-            accuracy_m: item.accuracy_m,
-            battery_level: item.battery_level,
-            timestamp: item.timestamp,
-          });
-          
-          // Mark as synced
-          await offlineSync.markTrackingSynced(item.id);
-          syncedCount++;
-        } catch (error) {
-          errors.push({
-            type: 'tracking',
-            id: item.id,
-            error: error.message,
-          });
-        }
+      // Sync GPS locations
+      if (stats.unsyncedGPS > 0) {
+        const result = await this.syncGPSLocations((count) => {
+          synced += count;
+          if (onProgress) onProgress({ synced, total, type: 'gps' });
+        });
+        console.log(`✅ Synced ${result.synced} GPS locations`);
       }
 
-      // Sync observations
-      for (const item of observationsQueue) {
-        try {
-          await api.post('/api/v1/tracking/observations/', {
-            animal: item.animal,
-            observation_type: item.observation_type,
-            description: item.description,
-            lat: item.lat,
-            lon: item.lon,
-            observed_at: item.observed_at,
-            behavior: item.behavior,
-          });
-          
-          // Mark as synced
-          await offlineSync.markObservationSynced(item.id);
-          syncedCount++;
-        } catch (error) {
-          errors.push({
-            type: 'observation',
-            id: item.id,
-            error: error.message,
-          });
-        }
+      // Sync alerts
+      if (stats.unsyncedAlerts > 0) {
+        const result = await this.syncAlerts((count) => {
+          synced += count;
+          if (onProgress) onProgress({ synced, total, type: 'alerts' });
+        });
+        console.log(`✅ Synced ${result.synced} alerts`);
+      }
+
+      // Sync sync queue
+      if (stats.syncQueue > 0) {
+        const result = await this.syncQueue((count) => {
+          synced += count;
+          if (onProgress) onProgress({ synced, total, type: 'queue' });
+        });
+        console.log(`✅ Synced ${result.synced} queue items`);
       }
 
       return {
         success: true,
-        synced: syncedCount,
-        total: trackingQueue.length + observationsQueue.length,
-        errors: errors.length > 0 ? errors : null,
+        synced,
+        total
       };
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('❌ Sync failed:', error);
       return {
         success: false,
-        message: error.message,
-        synced: 0,
+        error: error.message
       };
     }
   },
 
-  // Mark tracking item as synced
-  markTrackingSynced: async (itemId) => {
+  /**
+   * Sync GPS locations
+   */
+  async syncGPSLocations(onProgress = null) {
     try {
-      const queue = await offlineSync.getTrackingQueue();
-      const updatedQueue = queue.map(item => 
-        item.id === itemId ? { ...item, synced: true, syncedAt: new Date().toISOString() } : item
-      );
-      await AsyncStorage.setItem(TRACKING_QUEUE_KEY, JSON.stringify(updatedQueue));
+      const locations = await offlineStorage.getUnsyncedGPSLocations(SYNC_BATCH_SIZE * 5);
+      let synced = 0;
+      let failed = 0;
+
+      // Batch sync
+      for (let i = 0; i < locations.length; i += SYNC_BATCH_SIZE) {
+        const batch = locations.slice(i, i + SYNC_BATCH_SIZE);
+        
+        try {
+          // Send batch to server
+          const response = await api.post('/api/v1/tracking/batch/', {
+            locations: batch.map(loc => ({
+              latitude: loc.latitude,
+              longitude: loc.longitude,
+              accuracy: loc.accuracy,
+              altitude: loc.altitude,
+              heading: loc.heading,
+              speed: loc.speed,
+              timestamp: new Date(loc.timestamp).toISOString()
+            }))
+          });
+
+          if (response.status === 200 || response.status === 201) {
+            // Mark as synced
+            const ids = batch.map(loc => loc.id);
+            await offlineStorage.markGPSLocationsSynced(ids);
+            synced += batch.length;
+            
+            if (onProgress) onProgress(synced);
+          } else {
+            failed += batch.length;
+          }
     } catch (error) {
-      console.error('Error marking tracking as synced:', error);
+          console.error('Failed to sync GPS batch:', error);
+          failed += batch.length;
+        }
+      }
+
+      return { synced, failed, total: locations.length };
+    } catch (error) {
+      console.error('❌ Failed to sync GPS locations:', error);
+      return { synced: 0, failed: 0, total: 0 };
     }
   },
 
-  // Mark observation as synced
-  markObservationSynced: async (itemId) => {
+  /**
+   * Sync alerts
+   */
+  async syncAlerts(onProgress = null) {
     try {
-      const queue = await offlineSync.getObservationsQueue();
-      const updatedQueue = queue.map(item => 
-        item.id === itemId ? { ...item, synced: true, syncedAt: new Date().toISOString() } : item
-      );
-      await AsyncStorage.setItem(OBSERVATIONS_QUEUE_KEY, JSON.stringify(updatedQueue));
+      const alerts = await offlineStorage.getUnsyncedAlerts();
+      let synced = 0;
+      let failed = 0;
+
+      for (const alert of alerts) {
+        try {
+          // Create alert via API
+          const response = await alertsService.create({
+            type: alert.type,
+            severity: alert.severity,
+            latitude: alert.latitude,
+            longitude: alert.longitude,
+            message: alert.message,
+            animal_id: alert.animal_id,
+            timestamp: new Date(alert.timestamp).toISOString()
+          });
+
+          if (response && response.id) {
+            // Mark as synced
+            await offlineStorage.markAlertSynced(alert.id);
+            synced++;
+            
+            if (onProgress) onProgress(synced);
+          } else {
+            failed++;
+          }
+        } catch (error) {
+          console.error(`Failed to sync alert ${alert.id}:`, error);
+          failed++;
+        }
+      }
+
+      return { synced, failed, total: alerts.length };
     } catch (error) {
-      console.error('Error marking observation as synced:', error);
+      console.error('❌ Failed to sync alerts:', error);
+      return { synced: 0, failed: 0, total: 0 };
     }
   },
 
-  // Get sync statistics
-  getSyncStats: async () => {
+  /**
+   * Sync sync queue
+   */
+  async syncQueue(onProgress = null) {
     try {
-      const trackingQueue = await offlineSync.getTrackingQueue();
-      const observationsQueue = await offlineSync.getObservationsQueue();
+      const queue = await offlineStorage.getSyncQueue(SYNC_BATCH_SIZE * 5);
+      let synced = 0;
+      let failed = 0;
 
-      const unsyncedTracking = trackingQueue.filter(item => !item.synced);
-      const unsyncedObservations = observationsQueue.filter(item => !item.synced);
+      for (const item of queue) {
+        try {
+          const { table_name, record_id, operation, data } = item;
+          
+          // Route to appropriate API endpoint based on table
+          let success = false;
+          
+          switch (table_name) {
+            case 'offline_alerts':
+              if (operation === 'create') {
+                const response = await alertsService.create(data);
+                success = !!response?.id;
+              }
+              break;
+              
+            case 'offline_reports':
+              if (operation === 'create') {
+                // Use reports service
+                const response = await api.post('/api/v1/reports/', data);
+                success = response.status === 200 || response.status === 201;
+              }
+              break;
+              
+            default:
+              console.warn(`Unknown table for sync: ${table_name}`);
+          }
 
-      return {
-        total_tracking: trackingQueue.length,
-        unsynced_tracking: unsyncedTracking.length,
-        synced_tracking: trackingQueue.length - unsyncedTracking.length,
-        total_observations: observationsQueue.length,
-        unsynced_observations: unsyncedObservations.length,
-        synced_observations: observationsQueue.length - unsyncedObservations.length,
-        total_unsynced: unsyncedTracking.length + unsyncedObservations.length,
-      };
+          if (success) {
+            await offlineStorage.removeFromSyncQueue(item.id);
+            synced++;
+            
+            if (onProgress) onProgress(synced);
+          } else {
+            // Increment retry count
+            item.retry_count = (item.retry_count || 0) + 1;
+            if (item.retry_count >= MAX_RETRIES) {
+              // Remove after max retries
+              await offlineStorage.removeFromSyncQueue(item.id);
+              failed++;
+            } else {
+              failed++;
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to sync queue item ${item.id}:`, error);
+          failed++;
+        }
+      }
+
+      return { synced, failed, total: queue.length };
     } catch (error) {
-      console.error('Error getting sync stats:', error);
-      return {
-        total_tracking: 0,
-        unsynced_tracking: 0,
-        synced_tracking: 0,
-        total_observations: 0,
-        unsynced_observations: 0,
-        synced_observations: 0,
-        total_unsynced: 0,
-      };
+      console.error('❌ Failed to sync queue:', error);
+      return { synced: 0, failed: 0, total: 0 };
     }
   },
 
-  // Clear synced data (cleanup)
-  clearSyncedData: async () => {
+  /**
+   * Auto-sync when online (called by useOfflineMode)
+   */
+  async autoSync() {
     try {
-      const trackingQueue = await offlineSync.getTrackingQueue();
-      const observationsQueue = await offlineSync.getObservationsQueue();
+      const stats = await offlineStorage.getStorageStats();
+      const hasUnsyncedData = stats.unsyncedGPS > 0 || 
+                             stats.unsyncedAlerts > 0 || 
+                             stats.syncQueue > 0;
 
-      const unsyncedTracking = trackingQueue.filter(item => !item.synced);
-      const unsyncedObservations = observationsQueue.filter(item => !item.synced);
+      if (hasUnsyncedData) {
+        console.log('🔄 Auto-syncing offline data...');
+        const result = await this.syncAll();
+        return result;
+      }
 
-      await AsyncStorage.setItem(TRACKING_QUEUE_KEY, JSON.stringify(unsyncedTracking));
-      await AsyncStorage.setItem(OBSERVATIONS_QUEUE_KEY, JSON.stringify(unsyncedObservations));
-
-      return { success: true };
+      return { success: true, synced: 0, total: 0 };
     } catch (error) {
-      console.error('Error clearing synced data:', error);
-      throw error;
+      console.error('❌ Auto-sync failed:', error);
+      return { success: false, error: error.message };
     }
-  },
-
-  // Clear all offline data (reset)
-  clearAllData: async () => {
-    try {
-      await AsyncStorage.removeItem(TRACKING_QUEUE_KEY);
-      await AsyncStorage.removeItem(OBSERVATIONS_QUEUE_KEY);
-      return { success: true };
-    } catch (error) {
-      console.error('Error clearing all data:', error);
-      throw error;
     }
-  },
 };
 
 export default offlineSync;
-

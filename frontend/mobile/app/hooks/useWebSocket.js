@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import websocketService from '../services/websocket';
+import websocketService from '@services/websocket';
 
 /**
  * Custom hook for managing WebSocket connection and real-time animal tracking
@@ -42,10 +42,13 @@ export const useWebSocket = (options = {}) => {
    * Handle initial data from WebSocket
    */
   const handleInitialData = useCallback((data) => {
-    console.log('Received initial data:', data.animals?.length || 0, 'animals');
+    console.log('📥 Mobile WebSocket initial data received:', data.animals?.length || 0, 'animals');
     if (data.animals && Array.isArray(data.animals)) {
-      setAnimals(data.animals);
+      console.log('✅ Mobile: Setting initial animals state:', data.animals.length);
+      // Force state update by creating a new array reference
+      setAnimals([...data.animals]);
       setLastUpdate(new Date().toISOString());
+      console.log('🔄 Mobile: State updated, should trigger re-render');
     }
   }, []);
 
@@ -76,37 +79,63 @@ export const useWebSocket = (options = {}) => {
   }, []);
 
   /**
-   * Handle position updates from WebSocket
+   * Handle position updates from WebSocket (with activity-based movement)
    */
   const handlePositionUpdate = useCallback((data) => {
-    console.log('Received position update:', data.animals?.length || 0, 'animals');
+    console.log('🔄 Mobile WebSocket position update received:', data.animals?.length || 0, 'animals');
     
     if (data.animals && Array.isArray(data.animals)) {
       setAnimals(prevAnimals => {
+        console.log('📊 Mobile: Updating animals state - previous:', prevAnimals.length, 'new:', data.animals.length);
         // Create a map of existing animals for quick lookup
         const animalMap = new Map(prevAnimals.map(animal => [animal.id, animal]));
 
         // Update or add animals from the update
         data.animals.forEach(updatedAnimal => {
           const existing = animalMap.get(updatedAnimal.id);
+          const activityType = updatedAnimal.movement?.activity_type || 'unknown';
+          const speed = updatedAnimal.movement?.speed_kmh || 0;
+          const conflictRisk = updatedAnimal.conflict_risk || {};
+          
+          // Determine if animal should animate based on activity_type
+          const shouldAnimate = activityType === 'moving' && speed > 2;
+          const shouldWobble = activityType === 'feeding';
+          const isResting = activityType === 'resting';
+          
           animalMap.set(updatedAnimal.id, {
             ...existing,
             ...updatedAnimal,
             // Calculate path color
             pathColor: getPathColor(updatedAnimal),
+            // Activity-based movement flags
+            activityType: activityType,
+            shouldAnimate: shouldAnimate,
+            shouldWobble: shouldWobble,
+            isResting: isResting,
+            // Conflict risk data
+            conflict_risk: conflictRisk,
+            // Update risk level based on conflict_risk
+            risk_level: conflictRisk.risk_level || updatedAnimal.risk_level || 'low',
           });
         });
 
-        return Array.from(animalMap.values());
+        const newAnimals = Array.from(animalMap.values());
+        console.log('✅ Mobile: Animals state updated, new count:', newAnimals.length);
+        console.log('🔄 Mobile: State change should trigger UI re-render');
+        // Force new array reference to ensure React detects the change
+        return newAnimals;
       });
 
-      // Track movement paths
+      // Track movement paths (only for moving/feeding animals, not resting)
       setAnimalPaths(prevPaths => {
         const newPaths = { ...prevPaths };
         
         data.animals.forEach(animal => {
           const position = animal.current_position;
-          if (position && position.lat && position.lon) {
+          const activityType = animal.movement?.activity_type || 'unknown';
+          
+          // Only track paths for moving/feeding animals
+          if (position && position.lat && position.lon && activityType !== 'resting') {
             if (!newPaths[animal.id]) {
               newPaths[animal.id] = [];
             }
@@ -119,6 +148,7 @@ export const useWebSocket = (options = {}) => {
                 lon: position.lon,
                 timestamp: animal.last_updated || new Date().toISOString(),
                 color: getPathColor(animal),
+                activity: activityType,
               }
             ].slice(-50); // Keep last 50 positions
           }
@@ -137,41 +167,105 @@ export const useWebSocket = (options = {}) => {
   }, [onPositionUpdate, getPathColor]);
 
   /**
-   * Handle alert messages from WebSocket
+   * Get alert icon based on alert type
+   */
+  const getAlertIcon = useCallback((alertType) => {
+    const icons = {
+      'high_risk_zone': '⚠️',
+      'poaching_risk': '🚨',
+      'corridor_exit': '📍',
+      'rapid_movement': '⚡',
+      'low_battery': '🔋',
+      'weak_signal': '📡',
+      'stationary_too_long': '⏸️',
+      'unusual_behavior': '❓',
+    };
+    return icons[alertType] || '⚠️';
+  }, []);
+
+  /**
+   * Get severity color
+   */
+  const getSeverityColor = useCallback((severity) => {
+    const colors = {
+      'critical': '#DC2626',
+      'high': '#EA580C',
+      'medium': '#F59E0B',
+      'low': '#3B82F6',
+    };
+    return colors[severity] || '#6B7280';
+  }, []);
+
+  /**
+   * Handle alert messages from WebSocket (new format)
    */
   const handleAlert = useCallback((data) => {
-    console.log('Received alert:', data.message);
+    console.log('Received alert:', data);
     
-    // Determine alert severity and type
-    const alertType = data.alert_type || 'general';
-    const severity = data.severity || 'medium';
+    // Handle new alert structure: { type: 'alert', alert: { ... } }
+    const alertData = data.alert || data;
+    
+    const alertType = alertData.alert_type || alertData.type || 'general';
+    const severity = alertData.severity || 'medium';
+    const animal = alertData.animal || {};
+    const position = alertData.position || {};
+    const metadata = alertData.metadata || {};
+    
+    // Generate a stable ID for the alert
+    const alertId = alertData.id || 
+      (alertData.animal_id && alertData.timestamp 
+        ? `${alertData.animal_id}-${alertData.timestamp}` 
+        : `alert-${Date.now()}-${Math.random()}`);
     
     const alert = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
+      id: alertId,
+      timestamp: alertData.timestamp || new Date().toISOString(),
       type: alertType,
       severity: severity,
-      animalId: data.animal_id,
-      animalName: data.animal_name,
-      message: data.message,
-      location: data.location,
+      status: alertData.status || 'active',
+      title: alertData.title || `${animal.name || 'Animal'} Alert`,
+      message: alertData.message || 'Alert received',
+      animalId: animal.id || alertData.animal_id,
+      animalName: animal.name || alertData.animal_name,
+      position: position,
+      metadata: metadata,
       // Color code by severity
-      color: severity === 'critical' || severity === 'high' ? '#DC2626' : 
-             severity === 'medium' ? '#F59E0B' : '#10B981',
-      icon: alertType === 'poaching' ? '🚨' :
-            alertType === 'risk_zone' ? '⚠️' :
-            alertType === 'corridor_exit' ? '🚪' :
-            alertType === 'danger_zone' ? '☠️' : '📍',
+      color: getSeverityColor(severity),
+      icon: getAlertIcon(alertType),
     };
 
-    setAlerts(prevAlerts => [alert, ...prevAlerts].slice(0, 50)); // Keep last 50 alerts
+    // Only add alert if it doesn't already exist (deduplicate by ID)
+    setAlerts(prevAlerts => {
+      // Check if alert with this ID already exists
+      const existingIndex = prevAlerts.findIndex(a => a.id === alert.id);
+      
+      if (existingIndex >= 0) {
+        // Alert already exists, update it instead of adding duplicate
+        const updated = [...prevAlerts];
+        updated[existingIndex] = { ...updated[existingIndex], ...alert };
+        return updated.slice(0, 50);
+      }
+      
+      // New alert, add it to the beginning
+      return [alert, ...prevAlerts].slice(0, 50);
+    });
 
-    // Update animal risk level if this is a danger alert
+    // Update animal risk level and conflict status if this is a danger alert
     if (severity === 'critical' || severity === 'high') {
       setAnimals(prevAnimals => 
         prevAnimals.map(animal => 
-          animal.id === data.animal_id 
-            ? { ...animal, risk_level: severity, pathColor: '#DC2626' }
+          animal.id === alert.animalId 
+            ? { 
+                ...animal, 
+                risk_level: severity, 
+                pathColor: '#DC2626',
+                conflict_risk: {
+                  risk_level: severity,
+                  in_conflict_zone: true,
+                  zone_name: metadata.zone_name,
+                  zone_type: metadata.zone_type,
+                }
+              }
             : animal
         )
       );
@@ -181,7 +275,7 @@ export const useWebSocket = (options = {}) => {
     if (onAlert) {
       onAlert(alert);
     }
-  }, [onAlert]);
+  }, [onAlert, getAlertIcon, getSeverityColor]);
 
   /**
    * Handle state change messages from WebSocket
@@ -211,7 +305,11 @@ export const useWebSocket = (options = {}) => {
    */
   const handleError = useCallback((data) => {
     console.error('WebSocket error:', data);
+    // Don't set error state for transient errors to prevent UI crashes
+    // Only set error for critical failures
+    if (data && data.error && typeof data.error === 'string' && data.error.includes('fatal')) {
     setError('WebSocket connection error');
+    }
   }, []);
 
   /**
@@ -252,6 +350,7 @@ export const useWebSocket = (options = {}) => {
 
   /**
    * Setup WebSocket listeners
+   * Using refs to avoid dependency issues that cause re-renders
    */
   useEffect(() => {
     // Subscribe to WebSocket events
@@ -272,29 +371,60 @@ export const useWebSocket = (options = {}) => {
       unsubError,
     ];
 
-    // Auto-connect if enabled
+    // Auto-connect if enabled (with delay to prevent race conditions)
+    let connectTimer = null;
     if (autoConnect) {
-      connect();
+      // Small delay to ensure component is fully mounted and token is available
+      connectTimer = setTimeout(() => {
+        try {
+          connect();
+        } catch (error) {
+          console.error('Failed to connect WebSocket:', error);
+          setError('Failed to connect to real-time updates');
+        }
+      }, 1000); // 1 second delay to ensure auth token is stored
     }
+    
+    // Cleanup on unmount
+    return () => {
+      if (connectTimer) {
+        clearTimeout(connectTimer);
+      }
+      unsubscribers.current.forEach(unsub => {
+        try {
+          unsub();
+        } catch (error) {
+          console.warn('Error unsubscribing from WebSocket:', error);
+        }
+      });
+      if (autoConnect) {
+        try {
+          disconnect();
+        } catch (error) {
+          console.warn('Error disconnecting WebSocket:', error);
+        }
+      }
+    };
 
     // Cleanup on unmount
     return () => {
-      unsubscribers.current.forEach(unsub => unsub());
+      unsubscribers.current.forEach(unsub => {
+        try {
+          unsub();
+        } catch (error) {
+          console.warn('Error unsubscribing from WebSocket:', error);
+        }
+      });
       if (autoConnect) {
+        try {
         disconnect();
+        } catch (error) {
+          console.warn('Error disconnecting WebSocket:', error);
+        }
       }
     };
-  }, [
-    autoConnect,
-    connect,
-    disconnect,
-    handleConnection,
-    handleInitialData,
-    handlePositionUpdate,
-    handleAlert,
-    handleStateChange,
-    handleError,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect]); // Only depend on autoConnect to prevent unnecessary re-renders
 
   /**
    * Clear paths for all animals

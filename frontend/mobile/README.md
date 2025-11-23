@@ -1253,9 +1253,9 @@ frontend/mobile/
 │   │   └── ...
 │   │
 │   ├── maps/                # Map components
-│   │   ├── MapboxMap.jsx
-│   │   ├── OSMMap.jsx
-│   │   └── SmartMap.jsx
+│   │   ├── MapComponent.jsx    # Main map component (react-native-maps with OpenStreetMap)
+│   │   ├── SmartMap.jsx        # Platform-specific map wrapper
+│   │   └── SmartMap.web.jsx    # Web fallback
 │   │
 │   ├── ThemedText.jsx
 │   └── ThemedView.jsx
@@ -1459,7 +1459,7 @@ npx expo start --clear
    npm install react-native-maps
    ```
 
-5. Check map API keys (if using Mapbox/Google Maps)
+5. Maps use OpenStreetMap (no API keys required)
 
 6. Test with different map provider
 

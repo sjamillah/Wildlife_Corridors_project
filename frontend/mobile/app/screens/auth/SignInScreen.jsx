@@ -14,8 +14,8 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { router } from 'expo-router';
-import { BRAND_COLORS } from '../../../constants/Colors';
-import { auth } from '../../services';
+import { BRAND_COLORS } from '@constants/Colors';
+import { auth } from '@services';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -51,12 +51,25 @@ export default function SignInScreen() {
 
     try {
       setLoading(true);
-      await auth.verifyLoginOTP(email, otp);
+      console.log('Verifying OTP and logging in...');
+      const result = await auth.verifyLoginOTP(email, otp);
+      console.log('Login successful, navigating to dashboard...');
+      
+      // Small delay to ensure token is stored before navigation
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Navigate to main app tabs (DashboardScreen is the default)
-      router.replace('/screens/(tabs)/DashboardScreen');
+      try {
+        router.replace('/screens/(tabs)/DashboardScreen');
+        console.log('Navigation initiated');
+      } catch (navError) {
+        console.error('Navigation error:', navError);
+        // Fallback: try push instead of replace
+        router.push('/screens/(tabs)/DashboardScreen');
+      }
     } catch (error) {
+      console.error('Login verification error:', error);
       Alert.alert('Verification Failed', error.message || 'Invalid OTP');
-    } finally {
       setLoading(false);
     }
   };

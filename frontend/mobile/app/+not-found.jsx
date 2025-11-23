@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Colors } from '../constants/Colors';
-import { useTheme } from '../contexts/ThemeContext';
+import { Colors } from '@constants/Colors';
+import { useTheme } from '@contexts/ThemeContext';
 
 export default function NotFoundScreen() {
   const { theme } = useTheme();

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { animals } from '../services';
+import { animals } from '@services';
 
 /**
  * Custom hook for fetching animals

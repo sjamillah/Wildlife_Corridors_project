@@ -15,6 +15,7 @@ class WebSocketService {
     this.ws = null;
     this.reconnectTimer = null;
     this.heartbeatTimer = null;
+    this.connectionTimeout = null;
     this.listeners = new Map();
     this.isConnecting = false;
     this.shouldReconnect = true;
@@ -23,6 +24,8 @@ class WebSocketService {
     this.reconnectDelay = 3000; // Start with 3 seconds
     this.maxReconnectDelay = 30000; // Max 30 seconds
     this.heartbeatInterval = 30000; // 30 seconds
+    this.connectionTimeoutMs = 15000; // 15 seconds connection timeout
+    this.lastConnectionStatus = 'disconnected'; // Track last status to prevent flickering
   }
 
   /**
@@ -35,6 +38,11 @@ class WebSocketService {
       Constants.manifest?.extra?.apiUrl ||
       'https://wildlife-project-backend.onrender.com';
 
+    console.log('WebSocket URL Construction:');
+    console.log('  EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
+    console.log('  app.json apiUrl:', Constants.expoConfig?.extra?.apiUrl);
+    console.log('  Base API URL:', apiUrl);
+
     // Convert HTTP(S) URL to WS(S) URL
     let wsUrl = apiUrl
       .replace('https://', 'wss://')
@@ -42,6 +50,8 @@ class WebSocketService {
 
     // Add WebSocket endpoint
     wsUrl = `${wsUrl}/ws/animals/tracking/`;
+
+    console.log('  Final WebSocket URL:', wsUrl);
 
     return wsUrl;
   }
@@ -66,7 +76,23 @@ class WebSocketService {
     console.log(`Connecting to WebSocket: ${wsUrl}`);
 
     try {
+      // Clear any existing connection timeout
+      if (this.connectionTimeout) {
+        clearTimeout(this.connectionTimeout);
+        this.connectionTimeout = null;
+      }
+
       this.ws = new WebSocket(wsUrl);
+
+      // Set connection timeout
+      this.connectionTimeout = setTimeout(() => {
+        if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+          console.warn('WebSocket connection timeout - closing and retrying');
+          this.ws.close();
+          this.isConnecting = false;
+          this.scheduleReconnect();
+        }
+      }, this.connectionTimeoutMs);
 
       this.ws.onopen = this.handleOpen.bind(this);
       this.ws.onmessage = this.handleMessage.bind(this);
@@ -75,6 +101,10 @@ class WebSocketService {
     } catch (error) {
       console.error('WebSocket connection error:', error);
       this.isConnecting = false;
+      if (this.connectionTimeout) {
+        clearTimeout(this.connectionTimeout);
+        this.connectionTimeout = null;
+      }
       this.scheduleReconnect();
     }
   }
@@ -88,8 +118,18 @@ class WebSocketService {
     this.reconnectAttempts = 0;
     this.reconnectDelay = 3000;
 
-    // Notify listeners
-    this.emit('connection', { status: 'connected' });
+    // Clear connection timeout
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
+    // Only notify if status actually changed
+    if (this.lastConnectionStatus !== 'connected') {
+      console.log('Connection status changed: disconnected -> connected');
+      this.lastConnectionStatus = 'connected';
+      this.emit('connection', { status: 'connected' });
+    }
 
     // Start heartbeat
     this.startHeartbeat();
@@ -144,23 +184,60 @@ class WebSocketService {
    */
   handleError(event) {
     console.error('WebSocket error:', event);
+    // Wrap error handling in try-catch to prevent crashes
+    try {
     this.emit('error', { error: event });
+    } catch (error) {
+      console.error('Error emitting WebSocket error event:', error);
+    }
   }
 
   /**
    * Handle WebSocket close event
    */
   handleClose(event) {
-    console.log(`WebSocket closed: ${event.code} - ${event.reason}`);
+    // Handle premature close errors gracefully
+    const isPrematureClose = event.code === 1006 || // Abnormal closure
+                            event.code === 1001 || // Going away
+                            !event.wasClean;
+    
+    if (isPrematureClose && __DEV__) {
+      console.warn(`WebSocket closed unexpectedly: ${event.code} - ${event.reason || 'No reason provided'}`);
+    } else {
+      console.log(`WebSocket closed: ${event.code} - ${event.reason || 'Normal closure'}`);
+    }
+    
     this.isConnecting = false;
     this.stopHeartbeat();
 
-    // Notify listeners
-    this.emit('connection', { status: 'disconnected', code: event.code, reason: event.reason });
+    // Clear connection timeout
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
 
-    // Reconnect if not intentionally closed
+    // Only notify if status actually changed
+    if (this.lastConnectionStatus !== 'disconnected') {
+      console.log('Connection status changed: connected -> disconnected');
+      this.lastConnectionStatus = 'disconnected';
+      this.emit('connection', { 
+        status: 'disconnected', 
+        code: event.code, 
+        reason: event.reason,
+        wasClean: event.wasClean,
+        isPrematureClose,
+      });
+    }
+
+    // Reconnect if not intentionally closed (normal closure is 1000)
     if (this.shouldReconnect && event.code !== 1000) {
+      // Add a small delay for premature closes to avoid rapid reconnection attempts
+      const reconnectDelay = isPrematureClose ? 2000 : 0;
+      setTimeout(() => {
+        if (this.shouldReconnect) {
       this.scheduleReconnect();
+        }
+      }, reconnectDelay);
     }
   }
 
@@ -169,8 +246,12 @@ class WebSocketService {
    */
   scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      this.emit('connection', { status: 'failed', message: 'Max reconnection attempts reached' });
+      console.error('Max reconnection attempts reached - Backend WebSocket not available');
+      console.error('Staying in offline mode, will use REST API fallback');
+      if (this.lastConnectionStatus !== 'failed') {
+        this.lastConnectionStatus = 'failed';
+        this.emit('connection', { status: 'failed', message: 'Backend WebSocket not available' });
+      }
       return;
     }
 
@@ -271,14 +352,23 @@ class WebSocketService {
    * Emit event to listeners
    */
   emit(event, data) {
-    if (!this.listeners.has(event)) return;
+    if (!this.listeners.has(event)) {
+      if (process.env.NODE_ENV !== 'production' && (event === 'position_update' || event === 'initial_data' || event === 'alert')) {
+        console.warn(`⚠️ Mobile: No listeners registered for event: ${event}`);
+      }
+      return;
+    }
 
     const callbacks = this.listeners.get(event);
-    callbacks.forEach(callback => {
+    // Create a copy to avoid issues if callbacks are modified during iteration
+    const callbacksCopy = [...callbacks];
+    console.log(`📡 Mobile: Emitting ${event} to ${callbacksCopy.length} listener(s)`);
+    callbacksCopy.forEach(callback => {
       try {
         callback(data);
       } catch (error) {
         console.error(`Error in event listener for ${event}:`, error);
+        // Don't rethrow - prevent one bad listener from crashing the app
       }
     });
   }
@@ -295,11 +385,17 @@ class WebSocketService {
       this.reconnectTimer = null;
     }
 
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
       this.ws = null;
     }
 
+    this.isConnecting = false;
     this.reconnectAttempts = 0;
   }
 

@@ -10,6 +10,10 @@ import sync from './sync';
 import offlineSync from './offlineSync';
 import reports from './reports';
 import rangers from './rangers';
+import alerts from './alerts';
+import rangerTracking from './rangerTracking';
+// Don't import prioritySyncQueue at top level to prevent SSR issues
+// Import it dynamically where needed: const queue = (await import('./prioritySyncQueue')).default;
 
 export {
   api,
@@ -26,6 +30,7 @@ export {
   offlineSync,
   reports,
   rangers,
+  alerts,
 };
 
 export default {
@@ -41,4 +46,5 @@ export default {
   offlineSync,
   reports,
   rangers,
+  alerts,
 };

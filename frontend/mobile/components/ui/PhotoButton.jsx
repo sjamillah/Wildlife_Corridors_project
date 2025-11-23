@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
 import { IconSymbol } from './IconSymbol';
-import { STATUS_COLORS, BRAND_COLORS } from '../../constants/Colors';
+import { STATUS_COLORS, BRAND_COLORS } from '@constants/Colors';
 
 export function PhotoButton({ hasPhoto, onToggle }) {
   return (

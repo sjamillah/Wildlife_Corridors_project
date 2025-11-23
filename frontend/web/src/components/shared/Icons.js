@@ -62,7 +62,12 @@ export {
   Check,
   RefreshCw,
   Trash2,
-  Menu
+  Menu,
+  Siren,
+  AlertOctagon,
+  Flame,
+  Radio as RadioTower,
+  MapPin as LocationPin
 } from 'lucide-react';
 
 export const ANIMAL_ICONS = {
