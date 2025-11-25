@@ -1,19 +1,23 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, AlertTriangle, MapPin, Users, Clock, Zap, Download, CheckCircle } from '@/components/shared/Icons';
 import Sidebar from '@/components/shared/Sidebar';
 import { BRAND_COLORS, COLORS } from '@/constants/Colors';
 import { rangers, alerts as alertsService } from '@/services';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { handleNewAlert } from '@/utils/alertNotifications';
 
 const AlertHub = () => {
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterSeverity, setFilterSeverity] = useState('all'); // 'all', 'critical', 'high', 'low'
   const [searchQuery, setSearchQuery] = useState('');
   const [emergencies, setEmergencies] = useState([]);
   const [resolving, setResolving] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [updating, setUpdating] = useState(null); // Track which alert is being updated
+  const [isLoading, setIsLoading] = useState(true);
+  const notifiedAlertIdsRef = useRef(new Set()); // Track which alerts have been notified (using ref to avoid dependency issues)
   const navigate = useNavigate();
 
   // Helper function to calculate time ago
@@ -53,14 +57,35 @@ const AlertHub = () => {
     
     return {
       id: alert.id || `ALT-${Date.now()}`,
-      type: alert.alert_type || alert.type || 'general',
+      type: (() => {
+        const alertType = (alert.alert_type || alert.type || 'general').toLowerCase();
+        // Normalize equipment and poaching types
+        if (alertType.includes('equipment') || alertType.includes('device') || alertType.includes('battery') || alertType.includes('malfunction')) {
+          return 'equipment';
+        }
+        if (alertType.includes('poaching') || alertType.includes('poach')) {
+          return 'poaching';
+        }
+        return alert.alert_type || alert.type || 'general';
+      })(),
       title: alert.title || 'Wildlife Alert',
       description: alert.message || alert.description || 'Alert details not available',
       location: location,
       timestamp: timeAgo,
       status: alert.status || 'active',
-      priority: alert.severity || 'medium',
-      severity: alert.severity || 'medium',
+      // Normalize severity: critical, high, low (map medium to high)
+      severity: (() => {
+        const sev = (alert.severity || 'low').toLowerCase();
+        if (sev === 'critical' || sev === 'emergency') return 'critical';
+        if (sev === 'high' || sev === 'medium') return 'high';
+        return 'low';
+      })(),
+      priority: (() => {
+        const sev = (alert.severity || 'low').toLowerCase();
+        if (sev === 'critical' || sev === 'emergency') return 'critical';
+        if (sev === 'high' || sev === 'medium') return 'high';
+        return 'low';
+      })(),
       animalId: alert.animal || alert.animal_id,
       animalName: (alert.animal_name || 'Unknown Animal').replace(/\s*-\s*[a-f0-9-]{36}$/i, '').replace(/\s*\([a-f0-9-]{36}\)$/i, '').trim(), // Remove UUIDs from animal name
       animalSpecies: alert.animal_species || alert.species || 'Unknown',
@@ -71,9 +96,19 @@ const AlertHub = () => {
       distanceKm: metadata.distance_km,
       timeContext: metadata.time_context,
       responseTeam: alert.response_team || 'Response Team',
-      estimatedRisk: alert.severity === 'critical' ? 'High' : alert.severity === 'high' ? 'Medium' : 'Low',
+      estimatedRisk: (() => {
+        const sev = (alert.severity || 'low').toLowerCase();
+        if (sev === 'critical' || sev === 'emergency') return 'Critical';
+        if (sev === 'high' || sev === 'medium') return 'High';
+        return 'Low';
+      })(),
       story: alert.message || alert.description || 'Alert details not available',
-      riskLevel: alert.severity || 'medium',
+      riskLevel: (() => {
+        const sev = (alert.severity || 'low').toLowerCase();
+        if (sev === 'critical' || sev === 'emergency') return 'critical';
+        if (sev === 'high' || sev === 'medium') return 'high';
+        return 'low';
+      })(),
       source: alert.detected_via || alert.source || 'system',
       rawTimestamp: timestamp,
       metadata: metadata,
@@ -93,7 +128,7 @@ const AlertHub = () => {
   const { 
     alerts: wsAlerts
   } = useWebSocket({
-    autoConnect: true,
+    autoConnect: false, // CHANGED: Don't auto-connect - connection managed centrally
     onAlert: (alert) => {
       console.log('New alert received via WebSocket:', alert);
       // Add new alert to the list
@@ -105,6 +140,8 @@ const AlertHub = () => {
           console.log('🔔 Duplicate alert ignored:', transformedAlert.id);
           return prev;
         }
+        // Play sound and show notification for new alert
+        handleNewAlert(transformedAlert);
         // Add new alert at the beginning
         return [transformedAlert, ...prev];
       });
@@ -114,6 +151,7 @@ const AlertHub = () => {
   // Fetch alerts from API - get ALL alerts (not just active) to include mobile-created ones
   const fetchAlerts = useCallback(async () => {
     try {
+      setIsLoading(true);
       console.log('🔔 Fetching all alerts from API...');
       // Fetch all alerts, not just active ones, to include mobile-created alerts
       const data = await alertsService.getAll(); // No status filter to get all alerts
@@ -126,13 +164,33 @@ const AlertHub = () => {
       const transformedAlerts = alertsArray.map(transformAlert);
       console.log('🔔 Transformed alerts:', transformedAlerts.length);
       
-      // Replace alerts instead of merging to avoid duplicates
-      setAlerts(transformedAlerts);
+      // Limit to 30 alerts maximum before storing
+      const limitedAlerts = transformedAlerts.slice(0, 30);
+      console.log('🔔 Limited to', limitedAlerts.length, 'alerts for display');
+      
+      // Check for new alerts and play sounds
+      setAlerts(prev => {
+        const prevIds = new Set(prev.map(a => a.id));
+        const newAlerts = limitedAlerts.filter(a => !prevIds.has(a.id));
+        
+        // Play sound and show notification for new alerts
+        newAlerts.forEach(alert => {
+          if (!notifiedAlertIdsRef.current.has(alert.id)) {
+            console.log('🔔 New alert detected:', alert.id);
+            handleNewAlert(alert);
+            notifiedAlertIdsRef.current.add(alert.id);
+          }
+        });
+        
+        return limitedAlerts;
+      });
     } catch (error) {
       console.error('❌ Failed to fetch alerts:', error);
       console.error('Error details:', error.response?.data || error.message);
       // Set empty array if fetch fails (no static fallback)
       setAlerts([]);
+    } finally {
+      setIsLoading(false);
     }
   }, [transformAlert]);
 
@@ -158,7 +216,17 @@ const AlertHub = () => {
         const newAlerts = transformed.filter(a => !existingIds.has(a.id));
         if (newAlerts.length > 0) {
           console.log('🔔 Adding', newAlerts.length, 'new alerts from WebSocket');
-          return [...newAlerts, ...prev];
+          // Play sound and show notification for new WebSocket alerts
+          newAlerts.forEach(alert => {
+            if (!notifiedAlertIdsRef.current.has(alert.id)) {
+              console.log('🔔 New WebSocket alert detected:', alert.id);
+              handleNewAlert(alert);
+              notifiedAlertIdsRef.current.add(alert.id);
+            }
+          });
+          // Limit total alerts to 30 after merging
+          const merged = [...newAlerts, ...prev];
+          return merged.slice(0, 30);
         }
         return prev;
       });
@@ -311,7 +379,7 @@ const AlertHub = () => {
   };
 
   const filteredAlerts = useMemo(() => {
-    return combinedAlerts.filter(alert => {
+    const filtered = combinedAlerts.filter(alert => {
       const matchesSearch = (alert.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                            String(alert.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                            (alert.location || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -322,10 +390,19 @@ const AlertHub = () => {
       const matchesFilter = filterStatus === 'all' || 
                            alertStatus === filterStatusLower ||
                            (filterStatusLower === 'active' && (alertStatus === 'active' || alertStatus === 'new' || alertStatus === 'pending'));
+      
+      // Filter by severity: critical, high, low
+      const alertSeverity = (alert.severity || alert.priority || 'low').toLowerCase();
+      const normalizedSeverity = alertSeverity === 'critical' || alertSeverity === 'emergency' ? 'critical' :
+                                 alertSeverity === 'high' || alertSeverity === 'medium' ? 'high' : 'low';
+      const matchesSeverity = filterSeverity === 'all' || normalizedSeverity === filterSeverity.toLowerCase();
     
-    return matchesSearch && matchesFilter;
-  });
-  }, [combinedAlerts, searchQuery, filterStatus]);
+      return matchesSearch && matchesFilter && matchesSeverity;
+    });
+    
+    // Limit to 30 alerts maximum
+    return filtered.slice(0, 30);
+  }, [combinedAlerts, searchQuery, filterStatus, filterSeverity]);
 
   // Removed auto-select - user must click a card to open popup
 
@@ -355,19 +432,21 @@ const AlertHub = () => {
   }, [combinedAlerts]);
 
   const getSeverityColor = (priority) => {
-    switch (priority) {
+    const sev = (priority || 'low').toLowerCase();
+    switch (sev) {
       case 'critical': return COLORS.error;
       case 'high': return COLORS.ochre;
-      case 'medium': return COLORS.warning;
+      case 'low': return COLORS.success;
       default: return COLORS.success;
     }
   };
 
   const getSeverityBg = (priority) => {
-    switch (priority) {
+    const sev = (priority || 'low').toLowerCase();
+    switch (sev) {
       case 'critical': return COLORS.tintCritical;
       case 'high': return COLORS.tintWarning;
-      case 'medium': return COLORS.tintWarning;
+      case 'low': return COLORS.tintSuccess;
       default: return COLORS.tintSuccess;
     }
   };
@@ -394,6 +473,32 @@ const AlertHub = () => {
 
   return (
     <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", background: COLORS.creamBg, minHeight: '100vh' }}>
+      {isLoading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(255, 255, 255, 0.9)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: `4px solid ${COLORS.borderLight}`,
+            borderTopColor: COLORS.forestGreen,
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <div style={{ fontSize: '16px', fontWeight: 600, color: COLORS.textPrimary }}>Loading alerts...</div>
+        </div>
+      )}
       <Sidebar onLogout={handleLogout} />
       
       {/* Main Content */}
@@ -546,6 +651,87 @@ const AlertHub = () => {
                     e.currentTarget.style.boxShadow = 'none';
                   }}
                 />
+              </div>
+              
+              {/* Severity Filter */}
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '16px' }}>
+                {['all', 'critical', 'high', 'low'].map(severity => {
+                  const isActive = filterSeverity === severity;
+                  const label = severity.charAt(0).toUpperCase() + severity.slice(1);
+                  
+                  // Count alerts by severity (need to check combinedAlerts before filtering)
+                  const count = severity === 'all' ? combinedAlerts.length :
+                               combinedAlerts.filter(a => {
+                                 const sev = (a.severity || a.priority || 'low').toLowerCase();
+                                 const normalized = sev === 'critical' || sev === 'emergency' ? 'critical' :
+                                                   sev === 'high' || sev === 'medium' ? 'high' : 'low';
+                                 return normalized === severity;
+                               }).length;
+                  
+                  const bgColor = isActive ? 
+                    (severity === 'critical' ? COLORS.tintCritical :
+                     severity === 'high' ? COLORS.tintWarning :
+                     severity === 'low' ? COLORS.tintSuccess :
+                     COLORS.forestGreen) :
+                    COLORS.whiteCard;
+                  
+                  const textColor = isActive ?
+                    (severity === 'critical' ? COLORS.error :
+                     severity === 'high' ? COLORS.ochre :
+                     severity === 'low' ? COLORS.success :
+                     COLORS.white) :
+                    COLORS.textSecondary;
+
+                  return (
+                    <button
+                      key={severity}
+                      onClick={() => setFilterSeverity(severity)}
+                      style={{
+                        padding: '10px 20px',
+                        border: `2px solid ${isActive ? textColor : COLORS.borderLight}`,
+                        background: bgColor,
+                        color: textColor,
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.08)',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.borderColor = COLORS.borderMedium;
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.borderColor = COLORS.borderLight;
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }
+                      }}
+                    >
+                      <span>{label}</span>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: isActive ? 'rgba(255,255,255,0.2)' : COLORS.secondaryBg,
+                        fontSize: '12px',
+                        fontWeight: 800
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

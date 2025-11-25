@@ -37,7 +37,7 @@ const WildlifeTracking = () => {
     alerts: wsAlerts,
     animalPaths: wsAnimalPaths
   } = useWebSocket({
-    autoConnect: true,
+    autoConnect: false, // CHANGED: Don't auto-connect - connection managed centrally
     onAlert: (alert) => {
       console.log('Real-time alert received:', alert.message);
       // Update alert stats

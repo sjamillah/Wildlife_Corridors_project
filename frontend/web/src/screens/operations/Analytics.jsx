@@ -20,31 +20,29 @@ const Analytics = () => {
   const [corridorHealthData, setCorridorHealthData] = useState([]);
   const navigate = useNavigate();
 
-  // Sample analytics data
+  // Analytics data - fetched from API
   const [analyticsData, setAnalyticsData] = useState({
     wildlife: {
-      totalAnimals: 347,
-      activeTracking: 334,
-      healthAlerts: 8,
-      lowBattery: 12,
-      speciesBreakdown: [
-        { name: 'Wildebeests', count: 258, percentage: 74.4 },
-        { name: 'African Elephants', count: 89, percentage: 25.6 }
-      ]
+      totalAnimals: 0,
+      activeTracking: 0,
+      healthAlerts: 0,
+      lowBattery: 0,
+      speciesBreakdown: []
     },
     patrols: {
-      totalPatrols: 248,
-      successRate: 94.3,
-      avgDuration: '6.2h',
-      incidentsResolved: 186
+      totalPatrols: 0,
+      successRate: 0,
+      avgDuration: '0h',
+      incidentsResolved: 0
     },
     alerts: {
-      totalAlerts: 1247,
-      resolved: 1183,
-      avgResponseTime: '12.4 min',
-      criticalAlerts: 23
+      totalAlerts: 0,
+      resolved: 0,
+      avgResponseTime: '0 min',
+      criticalAlerts: 0
     }
   });
+  const [isLoading, setIsLoading] = useState(true);
 
   // Threat assessment data - will be fetched from API
   const [threats, setThreats] = useState([]);
@@ -355,38 +353,69 @@ const Analytics = () => {
     
     const fetchAnalytics = async () => {
       try {
-        const logsData = await rangers.logs.getAll({ days: 7 });
-        const logs = logsData.results || logsData || [];
+        setIsLoading(true);
+        const [animalsData, alertsData, patrolsData] = await Promise.all([
+          animals.getLiveStatus().catch(() => ({ results: [] })),
+          alerts.getAll().catch(() => ({ results: [] })),
+          rangers.teams.getAll().catch(() => ({ results: [] }))
+        ]);
         
-        const animalsData = await animals.getLiveStatus();
         const animalsList = animalsData.results || animalsData || [];
+        const allAlerts = alertsData.results || alertsData || [];
+        const allPatrols = patrolsData.results || patrolsData || [];
+
+        // Calculate species breakdown with percentages
+        const speciesCounts = {};
+        animalsList.forEach(a => {
+          const species = a.species || 'Unknown';
+          speciesCounts[species] = (speciesCounts[species] || 0) + 1;
+        });
+        const totalAnimals = animalsList.length;
+        const speciesBreakdown = Object.entries(speciesCounts).map(([name, count]) => ({
+          name: name.charAt(0).toUpperCase() + name.slice(1),
+          count,
+          percentage: totalAnimals > 0 ? Math.round((count / totalAnimals) * 100 * 10) / 10 : 0
+        }));
+
+        // Calculate patrol success rate
+        const completedPatrols = allPatrols.filter(p => p.status === 'completed').length;
+        const successRate = allPatrols.length > 0 ? Math.round((completedPatrols / allPatrols.length) * 100 * 10) / 10 : 0;
+
+        // Calculate average response time (simplified - would need actual response time data)
+        const resolvedAlerts = allAlerts.filter(a => a.status === 'resolved' || a.status === 'closed');
+        const avgResponseTime = resolvedAlerts.length > 0 ? 'Calculating...' : '0 min';
 
         setAnalyticsData({
         wildlife: {
-            totalAnimals: animalsList.length,
-            activeTracking: animalsList.filter(a => a.status === 'active').length,
-            healthAlerts: animalsList.filter(a => a.risk_level === 'High').length,
-            lowBattery: animalsList.filter(a => a.battery < 30).length,
-            speciesBreakdown: [
-              { name: 'Elephants', count: animalsList.filter(a => a.species === 'elephant').length, percentage: 0 },
-              { name: 'Wildebeest', count: animalsList.filter(a => a.species === 'wildebeest').length, percentage: 0 }
-            ]
+            totalAnimals: totalAnimals,
+            activeTracking: animalsList.filter(a => a.status === 'active' || a.status === 'Active').length,
+            healthAlerts: animalsList.filter(a => {
+              const risk = a.risk_level || a.riskLevel || '';
+              return risk === 'High' || risk === 'high' || risk === 'Critical' || risk === 'critical';
+            }).length,
+            lowBattery: animalsList.filter(a => {
+              const battery = a.collar_battery || a.battery || 100;
+              return battery < 30;
+            }).length,
+            speciesBreakdown: speciesBreakdown
           },
           patrols: {
-            totalPatrols: logs.filter(l => l.log_type === 'patrol_start').length,
-            successRate: 94.3,
-            avgDuration: '6.2h',
-            incidentsResolved: logs.filter(l => l.log_type === 'emergency' && l.is_resolved).length
+            totalPatrols: allPatrols.length,
+            successRate: successRate,
+            avgDuration: 'Calculating...', // Would need actual duration data
+            incidentsResolved: resolvedAlerts.length
           },
           alerts: {
-            totalAlerts: logs.length,
-            resolved: logs.filter(l => l.is_resolved).length,
-            avgResponseTime: '12.4 min',
-            criticalAlerts: logs.filter(l => l.priority === 'critical').length
+            totalAlerts: allAlerts.length,
+            resolved: resolvedAlerts.length,
+            avgResponseTime: avgResponseTime,
+            criticalAlerts: allAlerts.filter(a => a.severity === 'critical' || a.severity === 'Critical').length
         }
         });
+        setIsLoading(false);
       } catch (error) {
         console.error('Failed to fetch analytics:', error);
+        setIsLoading(false);
       }
     };
 
@@ -419,30 +448,38 @@ const Analytics = () => {
     URL.revokeObjectURL(url);
   };
 
-  const getThreatColor = (level) => {
-    switch (level) {
-      case 'Critical': return COLORS.error;
-      case 'High': return COLORS.ochre;
-      case 'Medium': return COLORS.info;
-      default: return COLORS.success;
-    }
-  };
-
-  const getThreatBg = (level) => {
-    switch (level) {
-      case 'Critical': return COLORS.tintCritical;
-      case 'High': return COLORS.tintWarning;
-      case 'Medium': return rgba('statusInfo', 0.1);
-      default: return COLORS.tintSuccess;
-    }
-  };
-
   return (
     <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", background: COLORS.creamBg, minHeight: '100vh' }}>
       <Sidebar onLogout={handleLogout} />
       
       {/* Main Content */}
       <div className="responsive-content">
+        {isLoading && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(255, 255, 255, 0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              border: `4px solid ${COLORS.borderLight}`,
+              borderTopColor: COLORS.forestGreen,
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <div style={{ fontSize: '16px', fontWeight: 600, color: COLORS.textPrimary }}>Loading analytics...</div>
+          </div>
+        )}
         {/* Page Header */}
         <section style={{ background: COLORS.forestGreen, padding: '28px 40px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -998,80 +1035,6 @@ const Analytics = () => {
             </div>
           )}
 
-          {/* Threat Assessment Section */}
-          <div style={{ marginTop: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '20px' }}>
-              Threat Assessment
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-              {threats.map((threat) => {
-                const threatColor = getThreatColor(threat.level);
-                const threatBg = getThreatBg(threat.level);
-
-                return (
-                  <div key={threat.id} style={{
-                    background: COLORS.whiteCard,
-                    border: `1px solid ${COLORS.borderLight}`,
-                    borderRadius: '10px',
-                    padding: '20px',
-                    position: 'relative'
-                  }}>
-                    {/* Top Accent */}
-                    <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: '4px',
-                      borderRadius: '10px 10px 0 0',
-                      background: threatColor
-                    }}></div>
-
-                    {/* Threat Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '4px' }}>
-                        {threat.name}
-                      </div>
-                      <span style={{
-                        padding: '4px 10px',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        background: threatBg,
-                        color: threatColor
-                      }}>
-                        {threat.level}
-                      </span>
-                  </div>
-
-                    {/* Threat Metrics */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                        <span style={{ color: COLORS.textSecondary }}>Incidents</span>
-                        <span style={{ fontWeight: 700, color: threat.level === 'Critical' || threat.level === 'High' ? COLORS.error : threat.level === 'Medium' ? COLORS.ochre : COLORS.success }}>
-                          {threat.incidents}
-                        </span>
-                    </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                        <span style={{ color: COLORS.textSecondary }}>Passage Blocked</span>
-                        <span style={{ fontWeight: 700, color: threat.level === 'Critical' || threat.level === 'High' ? COLORS.error : threat.level === 'Medium' ? COLORS.ochre : COLORS.success }}>
-                          {threat.passageBlocked}%
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                        <span style={{ color: COLORS.textSecondary }}>Risk Score</span>
-                        <span style={{ fontWeight: 700, color: threat.level === 'Critical' || threat.level === 'High' ? COLORS.error : threat.level === 'Medium' ? COLORS.ochre : COLORS.success }}>
-                          {threat.riskScore}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              </div>
-            </div>
-
           {/* Conservation Impact Section */}
           <div style={{ marginTop: '24px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '20px' }}>
@@ -1099,11 +1062,15 @@ const Analytics = () => {
         </section>
       </div>
 
-      {/* Add pulse animation CSS */}
+      {/* Add animations CSS */}
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>

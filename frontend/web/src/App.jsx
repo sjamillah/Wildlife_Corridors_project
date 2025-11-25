@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './App.css';
 
 import ProtectedRoute from './components/ProtectedRoute';
+import { DataProvider } from './contexts/DataContext';
 
 if (process.env.NODE_ENV === 'development') {
   import('./utils/testIntegration').then(() => {
@@ -33,9 +34,10 @@ const LoadingFallback = () => (
 function App() {
   return (
     <Router>
-      <div className="App">
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
+      <DataProvider>
+        <div className="App">
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
           <Route
             path="/"
             element={
@@ -132,9 +134,10 @@ function App() {
               <Navigate to="/auth" replace />
             }
           />
-        </Routes>
-        </Suspense>
-      </div>
+            </Routes>
+          </Suspense>
+        </div>
+      </DataProvider>
     </Router>
   );
 }

@@ -20,8 +20,9 @@ class WebSocketService {
     this.maxReconnectAttempts = 10;
     this.reconnectDelay = 3000; // Start with 3 seconds
     this.maxReconnectDelay = 30000; // Max 30 seconds
-    this.heartbeatInterval = 30000; // 30 seconds
+    this.heartbeatInterval = 90000; // 90 seconds (increased from 30s - backend rate-limits pings)
     this.lastConnectionStatus = 'disconnected'; // Track last status to prevent flickering
+    this.isSharedConnection = false; // Track if this is a shared connection
   }
 
   /**
@@ -48,16 +49,33 @@ class WebSocketService {
   }
 
   /**
-   * Connect to WebSocket server
+   * Connect to WebSocket server - SINGLE SHARED CONNECTION
    */
   connect() {
-    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
-      console.log('WebSocket already connected or connecting');
-      return;
+    // CRITICAL: Check if WebSocket is already connected (shared connection check)
+    if (this.ws) {
+      if (this.ws.readyState === WebSocket.OPEN) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('✅ WebSocket already connected - reusing shared connection');
+        }
+        this.isSharedConnection = true;
+        // Emit connection event for new listeners
+        this.emit('connection', { status: 'connected' });
+        return;
+      }
+      if (this.ws.readyState === WebSocket.CONNECTING) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('⏳ WebSocket connection in progress - waiting for shared connection');
+        }
+        return;
+      }
     }
 
+    // Prevent duplicate connection attempts
     if (this.isConnecting) {
-      console.log('Connection already in progress');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('⏳ Connection already in progress');
+      }
       return;
     }
 
@@ -200,14 +218,16 @@ class WebSocketService {
   }
 
   /**
-   * Start sending heartbeat pings
+   * Start sending heartbeat pings (90 second interval - backend rate-limits pings)
    */
   startHeartbeat() {
     this.stopHeartbeat();
 
     this.heartbeatTimer = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        console.log('Sending heartbeat ping');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('💓 Sending heartbeat ping (90s interval)');
+        }
         this.send({ type: 'ping' });
       }
     }, this.heartbeatInterval);

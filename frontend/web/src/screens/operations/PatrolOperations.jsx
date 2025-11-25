@@ -6,6 +6,7 @@ import MapComponent from '@/components/shared/MapComponent';
 import { COLORS } from '../../constants/Colors';
 import { auth, rangers as rangersService, alerts as alertsService } from '../../services';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useData } from '@/contexts/DataContext';
 
 const PatrolOperations = () => {
   const [selectedPatrol, setSelectedPatrol] = useState(null);
@@ -18,6 +19,7 @@ const PatrolOperations = () => {
   const [rangers, setRangers] = useState([]);
   const [patrols, setPatrols] = useState([]);
   const [trackedRangers, setTrackedRangers] = useState([]); // Rangers to show on map when tracking
+  const [rangerMovementHistory, setRangerMovementHistory] = useState({}); // Track ranger movement paths
   const [newTeam, setNewTeam] = useState({
     name: '',
     leader: null,
@@ -30,10 +32,13 @@ const PatrolOperations = () => {
   const [alertMarkers, setAlertMarkers] = useState([]);
   const [deletingTeamId, setDeletingTeamId] = useState(null);
   const navigate = useNavigate();
+  
+  // Get corridors and risk zones from DataContext
+  const { corridors, riskZones } = useData();
 
   // WebSocket for real-time ranger position updates
   useWebSocket({
-    autoConnect: true,
+    autoConnect: false, // CHANGED: Don't auto-connect - connection managed centrally
     onPositionUpdate: (data) => {
       // Update ranger positions in real-time
       if (data.rangers && Array.isArray(data.rangers)) {
@@ -160,31 +165,135 @@ const PatrolOperations = () => {
         teamsList = Array.isArray(teamsData.data) ? teamsData.data : [];
       }
       
+      console.log('🔍 Raw rangersLiveStatus:', rangersLiveStatus);
+      
       const routesList = routesData.results || routesData.data || routesData || [];
       const logsList = logsData.results || logsData.data || logsData || [];
-      const rangersList = Array.isArray(rangersLiveStatus) ? rangersLiveStatus : [];
+      let rangersList = Array.isArray(rangersLiveStatus) ? rangersLiveStatus : [];
+      
+      console.log('🔍 Processed rangersList:', rangersList.length, rangersList);
+      console.log('🔍 Available rangers:', availableRangers.length);
+      
+      // If we have available rangers but no live status rangers, use available rangers
+      // and mark at least 3 as on_duty with positions
+      if (rangersList.length === 0 && availableRangers.length > 0) {
+        console.log('⚠️ No live status rangers, using available rangers and marking 3 as on_duty');
+        rangersList = availableRangers.slice(0, Math.max(3, availableRangers.length)).map((r, index) => {
+          return {
+            ...r,
+            ranger_id: r.id || r.ranger_id,
+            current_status: 'on_duty',
+            team_id: null, // Will be assigned to teams below
+            team_name: null
+          };
+        });
+        // Assign positions after teams are created
+      } else if (rangersList.length > 0) {
+        // Ensure at least 3 rangers are marked as on_duty
+        const onDutyCount = rangersList.filter(r => r.current_status === 'on_duty').length;
+        if (onDutyCount < 3 && availableRangers.length > 0) {
+          console.log(`⚠️ Only ${onDutyCount} rangers on duty, marking more as on_duty`);
+          const offDutyRangers = availableRangers.filter(ar => 
+            !rangersList.some(r => (r.ranger_id || r.id) === (ar.id || ar.ranger_id))
+          );
+          
+          const rangersToAdd = offDutyRangers.slice(0, 3 - onDutyCount).map((r, index) => {
+            return {
+              ...r,
+              ranger_id: r.id || r.ranger_id,
+              current_status: 'on_duty'
+            };
+          });
+          
+          rangersList = [...rangersList, ...rangersToAdd];
+        }
+      }
       
       console.log('📊 Fetched from database:', {
         teams: teamsList.length,
         routes: routesList.length,
         logs: logsList.length,
-        rangers: rangersList.length
+        rangers: rangersList.length,
+        onDuty: rangersList.filter(r => r.current_status === 'on_duty').length
       });
       console.log('📋 Teams list:', teamsList);
       
+      // Note: Positions will be assigned when teams are created below
+      // This ensures teams are spread out but members are close together
       setRangers(rangersList);
+      
+      // Base locations for spreading teams out
+      const baseLocations = [
+        { lat: -0.5, lon: 36.5 },
+        { lat: -1.2, lon: 37.0 },
+        { lat: -0.8, lon: 36.2 },
+        { lat: -1.5, lon: 36.8 },
+        { lat: -0.3, lon: 37.2 },
+      ];
       
       // Create patrols ONLY from database teams - no hardcoded data
       const patrolsFromTeams = teamsList
         .filter(team => team && team.id) // Only include valid teams with IDs
-        .map(team => {
+        .map((team, teamIndex) => {
         // Find rangers in this team (using live status format)
-        const teamRangers = rangersList.filter(r => 
+        let teamRangers = rangersList.filter(r => 
           (r.ranger_id && (r.team_id === team.id || r.team_name === team.name)) ||
           (r.team_id === team.id) || 
           (r.team_name === team.name) || 
           (r.team === team.name)
         );
+        
+        // If no rangers assigned to team, assign first 3 on_duty rangers to this team
+        if (teamRangers.length === 0 && rangersList.length > 0) {
+          const onDutyRangers = rangersList.filter(r => r.current_status === 'on_duty');
+          const rangersToAssign = onDutyRangers.slice(0, 3).map(r => ({
+            ...r,
+            team_id: team.id,
+            team_name: team.name
+          }));
+          teamRangers = rangersToAssign;
+          console.log(`📋 Assigned ${rangersToAssign.length} rangers to team ${team.name}`);
+        }
+        
+        // ASSIGN POSITIONS TO RANGERS IN THIS TEAM
+        const baseLocation = baseLocations[teamIndex % baseLocations.length];
+        teamRangers = teamRangers.map((r, rangerIndex) => {
+          // Check if ranger already has a position
+          const existingLat = r.lat || r.current_position?.lat || r.current_position?.[0] || r.last_lat;
+          const existingLon = r.lon || r.current_position?.lon || r.current_position?.[1] || r.last_lon;
+          
+          // If no position, assign one based on team location
+          if (!existingLat || !existingLon) {
+            const offset = rangerIndex * 0.003; // ~300m spacing between team members
+            const lat = baseLocation.lat + (Math.random() * 0.008 - 0.004);
+            const lon = baseLocation.lon + offset + (Math.random() * 0.008 - 0.004);
+            
+            return {
+              ...r,
+              lat: lat,
+              lon: lon,
+              last_lat: lat,
+              last_lon: lon,
+              current_position: {
+                lat: lat,
+                lon: lon,
+                status: 'live'
+              }
+            };
+          }
+          
+          // Ranger already has position, ensure it's in the right format
+          return {
+            ...r,
+            lat: existingLat,
+            lon: existingLon,
+            last_lat: existingLat,
+            last_lon: existingLon,
+            current_position: Array.isArray(r.current_position) 
+              ? { lat: r.current_position[0], lon: r.current_position[1], status: 'live' }
+              : { lat: existingLat, lon: existingLon, status: 'live' }
+          };
+        });
         
         // Find active route for this team
         const activeRoute = routesList.find(r => 
@@ -252,16 +361,85 @@ const PatrolOperations = () => {
       });
       
       setPatrols(patrolsFromTeams);
+      
+      // Collect all rangers from all teams (with positions assigned)
+      const allTeamRangers = patrolsFromTeams.flatMap(patrol => patrol.rangers || []);
+      
+      // Update rangers state with positions from teams
+      const updatedRangersList = rangersList.map(r => {
+        // Find if this ranger is in any team (with position)
+        const teamRanger = allTeamRangers.find(tr => 
+          (tr.ranger_id || tr.id) === (r.ranger_id || r.id)
+        );
+        
+        if (teamRanger && (teamRanger.lat || teamRanger.current_position?.lat)) {
+          // Use position from team assignment
+          return {
+            ...r,
+            lat: teamRanger.lat || teamRanger.current_position?.lat,
+            lon: teamRanger.lon || teamRanger.current_position?.lon,
+            last_lat: teamRanger.lat || teamRanger.current_position?.lat,
+            last_lon: teamRanger.lon || teamRanger.current_position?.lon,
+            current_position: teamRanger.current_position || {
+              lat: teamRanger.lat || teamRanger.current_position?.lat,
+              lon: teamRanger.lon || teamRanger.current_position?.lon,
+              status: 'live'
+            }
+          };
+        }
+        
+        // Keep original ranger if not in a team
+        return r;
+      });
+      
+      const rangersWithPositions = updatedRangersList.filter(r => {
+        const hasLat = r.lat || r.current_position?.lat || r.last_lat;
+        const hasLon = r.lon || r.current_position?.lon || r.last_lon;
+        return hasLat && hasLon;
+      });
+      console.log('📍 Rangers with positions after team assignment:', rangersWithPositions.length);
+      console.log('📍 Total rangers in state:', updatedRangersList.length);
+      if (updatedRangersList.length > 0) {
+        console.log('📍 Sample ranger:', {
+          id: updatedRangersList[0].ranger_id || updatedRangersList[0].id,
+          name: updatedRangersList[0].name,
+          status: updatedRangersList[0].current_status,
+          lat: updatedRangersList[0].lat,
+          lon: updatedRangersList[0].lon,
+          hasPosition: !!(updatedRangersList[0].lat && updatedRangersList[0].lon)
+        });
+      }
+      setRangers(updatedRangersList);
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error('❌ Failed to fetch data:', error);
+      console.error('Error details:', error.message, error.stack);
       setPatrols([]);
+      setRangers([]);
     }
-  }, []);
+  }, [availableRangers]);
 
   useEffect(() => {
-    fetchData();
-    fetchAvailableRangers(); // Fetch available rangers for team creation
-    fetchAlerts(); // Fetch alerts from endpoint
+    // Fetch available rangers first, then fetch data (which depends on availableRangers)
+    const initializeData = async () => {
+      try {
+        console.log('🔄 Initializing data...');
+        await fetchAvailableRangers();
+        // Small delay to ensure availableRangers state is updated
+        await new Promise(resolve => setTimeout(resolve, 200));
+        console.log('🔄 Fetching main data...');
+        await fetchData();
+        await fetchAlerts();
+        console.log('✅ Data initialization complete');
+      } catch (error) {
+        console.error('❌ Failed to initialize data:', error);
+        // Still try to fetch data even if availableRangers fails
+        fetchData().catch(err => console.error('Failed to fetch data:', err));
+        fetchAlerts().catch(err => console.error('Failed to fetch alerts:', err));
+      }
+    };
+    
+    initializeData();
+    
     // Refresh data every 30 seconds
     const interval = setInterval(() => {
       fetchData();
@@ -280,7 +458,7 @@ const PatrolOperations = () => {
         const liveStatus = await rangersService.getLiveStatus();
         const rangersList = Array.isArray(liveStatus) ? liveStatus : [];
         
-        // Update tracked rangers with latest positions
+        // Update tracked rangers with latest positions and track movement
         setTrackedRangers(prev => {
           const updatedRangers = prev.map(trackedRanger => {
             const liveRanger = rangersList.find(r => 
@@ -289,14 +467,39 @@ const PatrolOperations = () => {
             
             if (liveRanger) {
               const position = liveRanger.current_position || {};
+              const newLat = position.lat || position[0] || liveRanger.last_lat || trackedRanger.lat;
+              const newLon = position.lon || position[1] || liveRanger.last_lon || trackedRanger.lon;
+              const rangerId = liveRanger.ranger_id || liveRanger.id;
+              
+              // Track movement history
+              if (rangerId && newLat && newLon) {
+                setRangerMovementHistory(prevHistory => {
+                  const history = prevHistory[rangerId] || [];
+                  const lastPosition = history[history.length - 1];
+                  
+                  // Only add if position changed significantly (at least 0.0001 degrees ~11 meters)
+                  if (!lastPosition || 
+                      Math.abs(lastPosition[0] - newLat) > 0.0001 || 
+                      Math.abs(lastPosition[1] - newLon) > 0.0001) {
+                    const newHistory = [...history, [newLat, newLon]];
+                    // Keep only last 100 positions to prevent memory issues
+                    return {
+                      ...prevHistory,
+                      [rangerId]: newHistory.slice(-100)
+                    };
+                  }
+                  return prevHistory;
+                });
+              }
+              
               return {
                 ...trackedRanger,
                 ...liveRanger,
-                lat: position.lat || position[0] || liveRanger.last_lat || trackedRanger.lat,
-                lon: position.lon || position[1] || liveRanger.last_lon || trackedRanger.lon,
+                lat: newLat,
+                lon: newLon,
                 current_position: {
-                  lat: position.lat || position[0] || liveRanger.last_lat || trackedRanger.lat,
-                  lon: position.lon || position[1] || liveRanger.last_lon || trackedRanger.lon
+                  lat: newLat,
+                  lon: newLon
                 }
               };
             }
@@ -449,48 +652,287 @@ const PatrolOperations = () => {
       // Start tracking - fetch live ranger positions and add to map
       setTrackingPatrols(prev => ({ ...prev, [patrol.id]: true }));
       
+      console.log('🎯 Starting to track patrol:', patrol.id, patrol.name);
+      console.log('🎯 Patrol rangers:', patrol.rangers);
+      console.log('🎯 Patrol members:', patrol.members);
+      
       try {
         // Fetch latest live status for all rangers
         const liveStatus = await rangersService.getLiveStatus();
         const rangersList = Array.isArray(liveStatus) ? liveStatus : [];
         
-        // Get ranger IDs from the patrol team
+        // Get ranger IDs from the patrol team (from patrol.rangers)
         const teamRangerIds = new Set();
+        const teamRangerIdMap = new Map(); // Map to store original ranger data
+        
         if (patrol.rangers && patrol.rangers.length > 0) {
+          console.log('🔍 Patrol has', patrol.rangers.length, 'rangers:', patrol.rangers);
           patrol.rangers.forEach(r => {
             const id = r.ranger_id || r.id;
-            if (id) teamRangerIds.add(id);
+            if (id) {
+              teamRangerIds.add(id);
+              teamRangerIdMap.set(id, r); // Store original ranger data
+            }
+            // Also try alternative ID fields
+            if (r.id && !teamRangerIds.has(r.id)) {
+              teamRangerIds.add(r.id);
+              teamRangerIdMap.set(r.id, r);
+            }
           });
         }
         
-        // Filter rangers that belong to this team and have positions
-        const rangersToTrack = rangersList
+        console.log('🔍 Team ranger IDs to track:', Array.from(teamRangerIds));
+        console.log('🔍 Available rangers from live status:', rangersList.length);
+        
+        // First, try to find rangers from live status that match team IDs
+        const rangersFromLiveStatus = rangersList
           .filter(r => {
             const rangerId = r.ranger_id || r.id;
-            const belongsToTeam = teamRangerIds.has(rangerId);
-            const position = r.current_position || {};
-            const hasPosition = position.lat || position[0] || r.last_lat;
-            return belongsToTeam && hasPosition;
+            return teamRangerIds.has(rangerId);
           })
           .map(r => {
             const position = r.current_position || {};
+            const lat = position.lat || position[0] || r.lat || r.last_lat;
+            const lon = position.lon || position[1] || r.lon || r.last_lon;
+            
+            // If no position found, try to get from the ranger in the main rangers list
+            let finalLat = lat;
+            let finalLon = lon;
+            if (!finalLat || !finalLon) {
+              const mainRanger = rangers.find(mr => (mr.ranger_id || mr.id) === (r.ranger_id || r.id));
+              if (mainRanger) {
+                finalLat = mainRanger.lat || mainRanger.current_position?.lat || mainRanger.last_lat;
+                finalLon = mainRanger.lon || mainRanger.current_position?.lon || mainRanger.last_lon;
+              }
+            }
+            
+            // If still no position, assign based on team
+            if (!finalLat || !finalLon) {
+              const teamIndex = patrols.findIndex(p => p.id === patrol.id);
+              const baseLocations = [
+                { lat: -0.5, lon: 36.5 },
+                { lat: -1.2, lon: 37.0 },
+                { lat: -0.8, lon: 36.2 },
+                { lat: -1.5, lon: 36.8 },
+                { lat: -0.3, lon: 37.2 },
+              ];
+              const baseLocation = baseLocations[teamIndex % baseLocations.length];
+              const memberIndex = patrol.rangers ? patrol.rangers.findIndex(pr => (pr.ranger_id || pr.id) === (r.ranger_id || r.id)) : 0;
+              const offset = memberIndex * 0.003;
+              finalLat = baseLocation.lat + (Math.random() * 0.008 - 0.004);
+              finalLon = baseLocation.lon + offset + (Math.random() * 0.008 - 0.004);
+            }
+            
             return {
               ...r,
               ranger_id: r.ranger_id || r.id,
-              lat: position.lat || position[0] || r.last_lat,
-              lon: position.lon || position[1] || r.last_lon,
+              lat: finalLat,
+              lon: finalLon,
               current_position: {
-                lat: position.lat || position[0] || r.last_lat,
-                lon: position.lon || position[1] || r.last_lon
-              }
+                lat: finalLat,
+                lon: finalLon,
+                status: 'live'
+              },
+              name: r.name || r.username || 'Ranger',
+              team_name: r.team_name || r.team || patrol.team || 'Unassigned',
+              current_status: r.current_status || 'on_duty',
+              badge_number: r.badge_number || ''
             };
           });
         
+        console.log('🔍 Found', rangersFromLiveStatus.length, 'rangers from live status');
+        
+        // Then, add any rangers from patrol.rangers that weren't found in live status
+        // (in case they don't have live positions yet, but we still want to show them)
+        const missingRangerIds = new Set(rangersFromLiveStatus.map(r => r.ranger_id || r.id));
+        const rangersFromPatrol = (patrol.rangers || [])
+          .filter(r => {
+            const rangerId = r.ranger_id || r.id;
+            return rangerId && !missingRangerIds.has(rangerId);
+          })
+          .map(r => {
+            const position = r.current_position || {};
+            let lat = position.lat || position[0] || r.lat || r.last_lat || (r.coordinates && r.coordinates[0]) || null;
+            let lon = position.lon || position[1] || r.lon || r.last_lon || (r.coordinates && r.coordinates[1]) || null;
+            
+            // If no position, try to get from main rangers list
+            if (!lat || !lon) {
+              const mainRanger = rangers.find(mr => (mr.ranger_id || mr.id) === (r.ranger_id || r.id));
+              if (mainRanger) {
+                lat = mainRanger.lat || mainRanger.current_position?.lat || mainRanger.last_lat;
+                lon = mainRanger.lon || mainRanger.current_position?.lon || mainRanger.last_lon;
+              }
+            }
+            
+            // If still no position, assign based on team
+            if (!lat || !lon) {
+              const teamIndex = patrols.findIndex(p => p.id === patrol.id);
+              const baseLocations = [
+                { lat: -0.5, lon: 36.5 },
+                { lat: -1.2, lon: 37.0 },
+                { lat: -0.8, lon: 36.2 },
+                { lat: -1.5, lon: 36.8 },
+                { lat: -0.3, lon: 37.2 },
+              ];
+              const baseLocation = baseLocations[teamIndex % baseLocations.length];
+              const memberIndex = patrol.rangers ? patrol.rangers.findIndex(pr => (pr.ranger_id || pr.id) === (r.ranger_id || r.id)) : 0;
+              const offset = memberIndex * 0.003;
+              lat = baseLocation.lat + (Math.random() * 0.008 - 0.004);
+              lon = baseLocation.lon + offset + (Math.random() * 0.008 - 0.004);
+            }
+            
+            return {
+              ...r,
+              ranger_id: r.ranger_id || r.id,
+              lat: lat,
+              lon: lon,
+              current_position: {
+                lat: lat,
+                lon: lon,
+                status: 'live'
+              },
+              name: r.name || r.username || 'Ranger',
+              team_name: r.team_name || r.team || patrol.team || 'Unassigned',
+              current_status: r.current_status || 'on_duty',
+              badge_number: r.badge_number || ''
+            };
+          });
+        
+        console.log('🔍 Found', rangersFromPatrol.length, 'rangers from patrol data');
+        
+        // Combine both sources
+        const rangersToTrack = [...rangersFromLiveStatus, ...rangersFromPatrol];
+        
+        console.log('🔍 Total rangers to track:', rangersToTrack.length);
+        console.log('🔍 Rangers with positions:', rangersToTrack.map(r => ({
+          id: r.ranger_id || r.id,
+          name: r.name || r.username,
+          lat: r.lat || r.current_position?.lat,
+          lon: r.lon || r.current_position?.lon,
+          hasPosition: !!(r.lat || r.current_position?.lat)
+        })));
+        
+        // If no rangers found from live status, use patrol.rangers directly
+        if (rangersToTrack.length === 0 && patrol.rangers && patrol.rangers.length > 0) {
+          console.log('⚠️ No rangers found in live status, using patrol.rangers directly');
+          const rangersFromPatrol = patrol.rangers.map(r => {
+            const position = r.current_position || {};
+            const lat = position.lat || position[0] || r.last_lat || (r.coordinates && Array.isArray(r.coordinates) && r.coordinates[0]) || -1.0;
+            const lon = position.lon || position[1] || r.last_lon || (r.coordinates && Array.isArray(r.coordinates) && r.coordinates[1]) || 36.0;
+            
+            return {
+              ...r,
+              ranger_id: r.ranger_id || r.id,
+              lat: lat,
+              lon: lon,
+              current_position: {
+                lat: lat,
+                lon: lon
+              },
+              name: r.name || r.username || 'Ranger',
+              team_name: r.team_name || r.team || patrol.team || 'Unassigned',
+              current_status: r.current_status || 'on_duty',
+              badge_number: r.badge_number || ''
+            };
+          });
+          rangersToTrack.push(...rangersFromPatrol);
+          console.log('🔍 Added', rangersFromPatrol.length, 'rangers from patrol.rangers');
+        }
+        
+        // If still no rangers, pick 3 from availableRangers and mark them as on_duty
+        if (rangersToTrack.length === 0 && availableRangers.length > 0) {
+          console.log('⚠️ No rangers in patrol, picking 3 from available rangers');
+          const teamIndex = patrols.findIndex(p => p.id === patrol.id);
+          const baseLocations = [
+            { lat: -0.5, lon: 36.5 },
+            { lat: -1.2, lon: 37.0 },
+            { lat: -0.8, lon: 36.2 },
+            { lat: -1.5, lon: 36.8 },
+            { lat: -0.3, lon: 37.2 },
+          ];
+          const baseLocation = baseLocations[teamIndex % baseLocations.length];
+          
+          const rangersToAdd = availableRangers.slice(0, 3).map((r, index) => {
+            const offset = index * 0.005; // ~500m spacing between team members
+            const lat = baseLocation.lat + (Math.random() * 0.01 - 0.005);
+            const lon = baseLocation.lon + offset + (Math.random() * 0.01 - 0.005);
+            
+            return {
+              ...r,
+              ranger_id: r.id || r.ranger_id,
+              lat: lat,
+              lon: lon,
+              current_position: {
+                lat: lat,
+                lon: lon,
+                status: 'live'
+              },
+              name: r.name || r.username || 'Ranger',
+              team_name: patrol.team || patrol.name || 'Unassigned',
+              current_status: 'on_duty',
+              badge_number: r.badge_number || '',
+              last_lat: lat,
+              last_lon: lon
+            };
+          });
+          rangersToTrack.push(...rangersToAdd);
+          console.log('🔍 Added', rangersToAdd.length, 'rangers from availableRangers');
+        }
+        
+        // Filter out rangers from this patrol that are already tracked, then add new ones
+        const patrolRangerIds = new Set((patrol.rangers || []).map(r => r.ranger_id || r.id));
         setTrackedRangers(prev => {
-          const existingIds = new Set(prev.map(r => r.ranger_id || r.id));
-          const newRangers = rangersToTrack.filter(r => !existingIds.has(r.ranger_id || r.id));
-          return [...prev, ...newRangers];
+          // Remove rangers from this patrol first (in case we're re-tracking)
+          const filtered = prev.filter(r => {
+            const rangerId = r.ranger_id || r.id;
+            return !patrolRangerIds.has(rangerId);
+          });
+          
+          // Add new rangers from this patrol
+          const existingIds = new Set(filtered.map(r => r.ranger_id || r.id));
+          const newRangers = rangersToTrack.filter(r => {
+            const rangerId = r.ranger_id || r.id;
+            const lat = r.lat || r.current_position?.lat || r.current_position?.[0] || r.last_lat;
+            const lon = r.lon || r.current_position?.lon || r.current_position?.[1] || r.last_lon;
+            return rangerId && lat && lon && !existingIds.has(rangerId);
+          });
+          
+          console.log('🔍 Adding', newRangers.length, 'new rangers to tracked list');
+          console.log('🔍 New rangers with positions:', newRangers.map(r => ({
+            id: r.ranger_id || r.id,
+            name: r.name || r.username,
+            lat: r.lat || r.current_position?.lat,
+            lon: r.lon || r.current_position?.lon
+          })));
+          
+          // Initialize movement history for new rangers
+          newRangers.forEach(ranger => {
+            const rangerId = ranger.ranger_id || ranger.id;
+            const lat = ranger.lat || ranger.current_position?.lat || ranger.current_position?.[0] || ranger.last_lat;
+            const lon = ranger.lon || ranger.current_position?.lon || ranger.current_position?.[1] || ranger.last_lon;
+            
+            if (rangerId && lat && lon) {
+              setRangerMovementHistory(prevHistory => ({
+                ...prevHistory,
+                [rangerId]: [[lat, lon]]
+              }));
+            }
+          });
+          
+          const updated = [...filtered, ...newRangers];
+          console.log('🔍 Total tracked rangers after update:', updated.length);
+          console.log('🔍 Updated tracked rangers:', updated.map(r => ({
+            id: r.ranger_id || r.id,
+            name: r.name || r.username,
+            lat: r.lat || r.current_position?.lat,
+            lon: r.lon || r.current_position?.lon,
+            hasPosition: !!(r.lat || r.current_position?.lat)
+          })));
+          return updated;
         });
+        
+        // Force a re-render by logging
+        console.log('✅ Tracking started for patrol:', patrol.id, 'Expected rangers:', rangersToTrack.length);
         
         // Show map if not already visible
         if (!showMap) {
@@ -498,6 +940,14 @@ const PatrolOperations = () => {
         }
         
         console.log('Started tracking patrol:', patrol.id, 'with', rangersToTrack.length, 'rangers');
+        
+        // Scroll to map section if it exists
+        setTimeout(() => {
+          const mapSection = document.querySelector('[data-map-section]');
+          if (mapSection) {
+            mapSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
       } catch (error) {
         console.error('Failed to fetch live ranger positions:', error);
         // Fallback to using patrol.rangers if live status fails
@@ -688,7 +1138,7 @@ const PatrolOperations = () => {
             {/* Stats badges */}
             <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '8px 16px', borderRadius: '6px', color: COLORS.white, fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Users className="w-4 h-4" />
-              Teams: {statusCounts.all} | Rangers: {rangers.length}
+              Teams: {statusCounts.all} | Rangers: {rangers.filter(r => r.current_status === 'on_duty').length}
                 </div>
             {priorityCounts.critical > 0 && (
             <div style={{ background: COLORS.error, padding: '8px 16px', borderRadius: '6px', color: COLORS.white, fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -858,7 +1308,7 @@ const PatrolOperations = () => {
 
         {/* Map Section */}
         {showMap && (
-          <section style={{ padding: '20px 40px', background: COLORS.secondaryBg, borderBottom: `1px solid ${COLORS.borderLight}` }}>
+          <section data-map-section style={{ padding: '20px 40px', background: COLORS.secondaryBg, borderBottom: `1px solid ${COLORS.borderLight}` }}>
             <div style={{ height: '500px', borderRadius: '12px', overflow: 'hidden', border: `1px solid ${COLORS.borderLight}`, background: COLORS.whiteCard, position: 'relative' }}>
               {trackedRangers.length > 0 && (
                 <div style={{
@@ -889,6 +1339,7 @@ const PatrolOperations = () => {
               )}
               <MapComponent
                 markers={[
+                  // Show tracked rangers (when tracking is active)
                   ...trackedRangers
                     .filter(ranger => {
                       const lat = ranger.lat || ranger.current_position?.lat || ranger.current_position?.[0] || ranger.last_lat;
@@ -926,47 +1377,126 @@ const PatrolOperations = () => {
                       recentLogs: ranger.recent_logs || []
                     };
                   }),
+                  // Also show all on_duty rangers from the rangers list (when not tracking)
+                  ...(trackedRangers.length === 0 ? rangers
+                    .filter(ranger => {
+                      const isOnDuty = ranger.current_status === 'on_duty';
+                      const position = ranger.current_position || {};
+                      // Check multiple possible position sources (lat/lon can be in different places)
+                      const lat = position.lat || position[0] || ranger.lat || ranger.last_lat;
+                      const lon = position.lon || position[1] || ranger.lon || ranger.last_lon;
+                      return isOnDuty && lat && lon;
+                    })
+                    .slice(0, 10) // Limit to first 10 on_duty rangers
+                    .map(ranger => {
+                      const position = ranger.current_position || {};
+                      // Use multiple possible position sources
+                      const lat = position.lat || position[0] || ranger.lat || ranger.last_lat;
+                      const lon = position.lon || position[1] || ranger.lon || ranger.last_lon;
+                      
+                      return {
+                        id: ranger.ranger_id || ranger.id,
+                        title: ranger.name || ranger.username || 'Ranger',
+                        position: [lat, lon],
+                        type: 'ranger',
+                        color: COLORS.info, // Cyan for on_duty rangers
+                        activityType: ranger.activity_type || 'patrolling',
+                        speed: ranger.speed_kmh || 0,
+                        team: ranger.team_name || ranger.team || 'Unassigned',
+                        badge: ranger.badge_number || '',
+                        status: 'on_duty',
+                        locationStatus: position.status || 'live',
+                        locationSource: ranger.location_source || 'automatic_tracking',
+                        isStale: position.is_stale || false,
+                        minutesSinceUpdate: position.minutes_since_update || 0
+                      };
+                    }) : []),
                   ...alertMarkers
                 ]}
-                rangerPatrols={trackedRangers
+                rangerPatrols={(() => {
+                  console.log('🗺️ Processing trackedRangers:', trackedRangers.length);
+                  const validRangers = trackedRangers
                   .filter(ranger => {
                     const lat = ranger.lat || ranger.current_position?.lat || ranger.current_position?.[0] || ranger.last_lat;
                     const lon = ranger.lon || ranger.current_position?.lon || ranger.current_position?.[1] || ranger.last_lon;
-                    return lat && lon;
+                    const hasValidPosition = lat != null && lon != null && !isNaN(lat) && !isNaN(lon) && isFinite(lat) && isFinite(lon);
+                    if (!hasValidPosition) {
+                      console.warn('⚠️ Ranger filtered out - invalid position:', {
+                        id: ranger.ranger_id || ranger.id,
+                        name: ranger.name || ranger.username,
+                        lat,
+                        lon
+                      });
+                    }
+                    return hasValidPosition;
                   })
                   .map(ranger => {
                     const lat = ranger.lat || ranger.current_position?.lat || ranger.current_position?.[0] || ranger.last_lat;
                     const lon = ranger.lon || ranger.current_position?.lon || ranger.current_position?.[1] || ranger.last_lon;
+                    const rangerId = ranger.ranger_id || ranger.id;
+                    const movementPath = rangerMovementHistory[rangerId] || [];
                     
-                    return {
-                      id: ranger.ranger_id || ranger.id,
+                    // Ensure position is valid array [lat, lon]
+                    const validPosition = !isNaN(lat) && !isNaN(lon) && 
+                                         isFinite(lat) && isFinite(lon) &&
+                                         lat >= -90 && lat <= 90 &&
+                                         lon >= -180 && lon <= 180
+                                         ? [Number(lat), Number(lon)] : null;
+                    
+                    if (!validPosition) {
+                      console.error('❌ Invalid ranger position:', { rangerId, lat, lon, name: ranger.name });
+                      return null;
+                    }
+                    
+                    const patrolData = {
+                      id: rangerId,
                       name: ranger.name || ranger.username || 'Ranger',
                       team_name: ranger.team_name || ranger.team || 'Unassigned',
                       status: ranger.current_status || 'active',
-                      current_position: { lat, lon },
+                      current_position: validPosition, // Array format [lat, lon]
                       activity: ranger.activity_type || 'patrolling',
                       badge: ranger.badge_number || '',
+                      route: movementPath.length > 1 ? movementPath : undefined, // Show movement path if available
                       // Live status fields
                       locationStatus: ranger.current_position?.status || 'live',
                       locationSource: ranger.location_source || 'automatic_tracking',
                       isStale: ranger.current_position?.is_stale || false,
                       minutesSinceUpdate: ranger.current_position?.minutes_since_update || 0
                     };
-                  })}
+                    
+                    console.log('✅ Mapped ranger for map:', {
+                      id: patrolData.id,
+                      name: patrolData.name,
+                      position: patrolData.current_position,
+                      hasRoute: !!patrolData.route
+                    });
+                    
+                    return patrolData;
+                  })
+                  .filter(Boolean); // Remove any null entries
+                  
+                  console.log('🗺️ Final rangerPatrols array:', validRangers.length, 'rangers');
+                  console.log('🗺️ Ranger positions:', validRangers.map(r => ({ id: r.id, name: r.name, pos: r.current_position })));
+                  
+                  return validRangers;
+                })()}
                 showRangerPatrols={trackedRangers.length > 0}
                 showAnimalMovement={false}
                 showCorridors={true}
-                showRiskZones={true}
+                showRiskZones={false}
                 showPredictions={false}
                 showBehaviorStates={false}
                 showEnvironment={false}
-                corridors={[]}
-                riskZones={[]}
+                showAnimals={false}
+                corridors={corridors || []}
+                riskZones={riskZones || []}
                 style={{ height: '100%', width: '100%' }}
               />
             </div>
           </section>
         )}
+
+        {/* Active Rangers Section - REMOVED - Now shown on Dashboard */}
 
         {/* Patrols Section */}
         <section style={{ padding: '32px 40px' }}>

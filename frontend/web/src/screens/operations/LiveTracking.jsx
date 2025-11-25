@@ -16,7 +16,7 @@ const LiveTracking = () => {
     isConnected,
     alerts: wsAlerts
   } = useWebSocket({
-    autoConnect: true,
+    autoConnect: false, // CHANGED: Don't auto-connect - connection managed centrally
     onAlert: (alert) => {
       console.log('Alert received:', alert);
       // Show browser notification if supported
@@ -38,6 +38,8 @@ const LiveTracking = () => {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [devices, setDevices] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all'); // 'all', 'animal', 'ranger'
+  const [isLoading, setIsLoading] = useState(true);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -55,7 +57,7 @@ const LiveTracking = () => {
     const animalDevices = (animalsData || [])
       .filter(animal => animal.status === 'active')
       .map((animal) => {
-        const activity = animal.movement?.activity_type || animal.behavior_state || 'unknown';
+        const activity = animal.activity_type || animal.movement?.activity_type || animal.behavior_state || animal.activity || 'unknown';
         const riskLevel = animal.risk_level || 'low';
         const speed = animal.movement?.speed_kmh || animal.speed || 0;
         
@@ -84,6 +86,8 @@ const LiveTracking = () => {
           location: animal.current_position?.lat && animal.current_position?.lon ? 
             `${animal.current_position.lat.toFixed(4)}°, ${animal.current_position.lon.toFixed(4)}°` : 
             animal.last_known_location || 'No GPS Data',
+          lat: animal.current_position?.lat || animal.last_lat,
+          lon: animal.current_position?.lon || animal.last_lon,
           type: 'GPS Collar',
           category: 'animal',
           species: animal.species || 'Unknown',
@@ -110,6 +114,8 @@ const LiveTracking = () => {
         location: ranger.last_lat && ranger.last_lon ? 
           `${ranger.last_lat.toFixed(4)}°, ${ranger.last_lon.toFixed(4)}°` : 
           'No GPS Data',
+        lat: ranger.last_lat || ranger.current_position?.lat || ranger.current_position?.[0],
+        lon: ranger.last_lon || ranger.current_position?.lon || ranger.current_position?.[1],
         type: 'Ranger Device',
         category: 'ranger',
         team: ranger.team_name || 'Unassigned'
@@ -122,6 +128,7 @@ const LiveTracking = () => {
   useEffect(() => {
     const fetchAndMergeData = async () => {
       try {
+        setIsLoading(true);
         // Fetch rangers (always needed)
         const rangersResponse = await rangersService.getAll().catch(err => {
           console.log('Rangers fetch error:', err);
@@ -142,11 +149,13 @@ const LiveTracking = () => {
         // Transform and set devices
         const allDevices = transformDevices(animalsData, rangersList);
         setDevices(allDevices);
+        setIsLoading(false);
         
         console.log(`Displaying ${allDevices.filter(d => d.category === 'animal').length} animals + ${allDevices.filter(d => d.category === 'ranger').length} rangers`);
       } catch (err) {
         console.error('Error fetching tracking data:', err);
         setDevices([]);
+        setIsLoading(false);
       }
     };
 
@@ -177,7 +186,11 @@ const LiveTracking = () => {
     const matchesSearch = device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          device.deviceId.toLowerCase().includes(searchQuery.toLowerCase());
     
-    return matchesSearch;
+    const matchesCategory = filterCategory === 'all' || 
+                           (filterCategory === 'animal' && device.category === 'animal') ||
+                           (filterCategory === 'ranger' && device.category === 'ranger');
+    
+    return matchesSearch && matchesCategory;
   });
 
   // Calculate stats based on filtered devices (what's actually displayed on screen)
@@ -217,6 +230,32 @@ const LiveTracking = () => {
       <Sidebar onLogout={handleLogout} />
       
       <div className="responsive-content">
+        {isLoading && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(255, 255, 255, 0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              border: `4px solid ${COLORS.borderLight}`,
+              borderTopColor: COLORS.forestGreen,
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <div style={{ fontSize: '16px', fontWeight: 600, color: COLORS.textPrimary }}>Loading devices...</div>
+          </div>
+        )}
         <section style={{ background: COLORS.forestGreen, padding: '28px 40px', borderBottom: `2px solid ${COLORS.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'white', marginBottom: '6px', letterSpacing: '-0.6px' }}>
@@ -357,7 +396,89 @@ const LiveTracking = () => {
         <section style={{ padding: '32px 40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: COLORS.textPrimary }}>Devices</h2>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, maxWidth: '600px', marginLeft: 'auto' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, maxWidth: '700px', marginLeft: 'auto' }}>
+              {/* Filter Buttons */}
+              <div style={{ display: 'flex', gap: '6px', background: COLORS.borderLight, borderRadius: '6px', padding: '4px' }}>
+                <button
+                  onClick={() => setFilterCategory('all')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    background: filterCategory === 'all' ? COLORS.forestGreen : 'transparent',
+                    color: filterCategory === 'all' ? 'white' : COLORS.textSecondary
+                  }}
+                  onMouseEnter={(e) => {
+                    if (filterCategory !== 'all') {
+                      e.currentTarget.style.background = COLORS.creamBg;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (filterCategory !== 'all') {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setFilterCategory('animal')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    background: filterCategory === 'animal' ? COLORS.forestGreen : 'transparent',
+                    color: filterCategory === 'animal' ? 'white' : COLORS.textSecondary
+                  }}
+                  onMouseEnter={(e) => {
+                    if (filterCategory !== 'animal') {
+                      e.currentTarget.style.background = COLORS.creamBg;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (filterCategory !== 'animal') {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  Animals
+                </button>
+                <button
+                  onClick={() => setFilterCategory('ranger')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    background: filterCategory === 'ranger' ? COLORS.forestGreen : 'transparent',
+                    color: filterCategory === 'ranger' ? 'white' : COLORS.textSecondary
+                  }}
+                  onMouseEnter={(e) => {
+                    if (filterCategory !== 'ranger') {
+                      e.currentTarget.style.background = COLORS.creamBg;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (filterCategory !== 'ranger') {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  Rangers
+                </button>
+              </div>
+              {/* Search Input */}
               <div style={{ flex: 1, maxWidth: '400px', position: 'relative' }}>
                 <Search className="w-4 h-4" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: COLORS.textSecondary }} />
                 <input
@@ -481,6 +602,21 @@ const LiveTracking = () => {
                     </span>
                   </div>
 
+                  {/* Location Display - Prominent */}
+                  {device.lat && device.lon && (
+                    <div style={{ marginBottom: '16px', padding: '12px', background: COLORS.creamBg, borderRadius: '8px', border: `1px solid ${COLORS.borderLight}` }}>
+                      <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Location
+                      </div>
+                      <div style={{ fontSize: '14px', color: COLORS.textPrimary, fontWeight: 700, fontFamily: 'monospace' }}>
+                        {device.lat.toFixed(4)}°, {device.lon.toFixed(4)}°
+                      </div>
+                      <div style={{ fontSize: '12px', color: COLORS.textSecondary, marginTop: '4px' }}>
+                        {device.location}
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                     <div>
                       <div style={{ fontSize: '11px', color: COLORS.textSecondary, fontWeight: 500, marginBottom: '4px' }}>
@@ -570,6 +706,10 @@ const LiveTracking = () => {
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Wifi, AlertTriangle, Activity, TrendingUp, Settings, LogOut, Shield, Menu, X, ChevronLeft, ChevronRight } from '@/components/shared/Icons';
 import { COLORS } from '../../constants/Colors';
-import { auth } from '../../services';
+import { auth, alerts as alertsService } from '../../services';
 const AureynxLogo = '/assets/Aureynx_Logo.webp';
 
 // Close dropdown when clicking outside
@@ -35,6 +35,7 @@ const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
     role: 'Manager',
     initials: 'U'
   });
+  const [activeAlertsCount, setActiveAlertsCount] = useState(0);
 
   // Close dropdown when clicking outside
   useClickOutside(profileDropdownRef, () => {
@@ -60,6 +61,27 @@ const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
     };
 
     loadProfile();
+  }, []);
+
+  // Fetch active alerts count for badge
+  useEffect(() => {
+    const fetchAlertsCount = async () => {
+      try {
+        const data = await alertsService.getAll();
+        const alertsArray = Array.isArray(data) ? data : (data.results || data || []);
+        const activeCount = alertsArray.filter(a => 
+          a.status === 'active' || a.status === 'pending' || !a.status
+        ).length;
+        setActiveAlertsCount(activeCount);
+      } catch (error) {
+        console.log('Failed to fetch alerts count:', error);
+        setActiveAlertsCount(0);
+      }
+    };
+
+    fetchAlertsCount();
+    const interval = setInterval(fetchAlertsCount, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -215,7 +237,7 @@ const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
           { icon: Home, label: 'Dashboard', route: '/dashboard' },
           { icon: Wifi, label: 'Live Devices', route: '/tracking' },
           { icon: Activity, label: 'Wildlife', route: '/wildlife-tracking' },
-          { icon: AlertTriangle, label: 'Alerts', route: '/alerts' },
+          { icon: AlertTriangle, label: 'Alerts', route: '/alerts', badge: activeAlertsCount, hasGlow: activeAlertsCount > 0 },
           { icon: Shield, label: 'Patrol Operations', route: '/patrol-operations' },
           { icon: TrendingUp, label: 'Analytics', route: '/analytics' },
           { icon: Settings, label: 'Settings', route: '/settings' }
@@ -285,25 +307,36 @@ const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
               }}
               title={isCollapsed ? item.label : ''}
             >
-              <item.icon style={{ fontSize: '18px', marginRight: isCollapsed ? '0' : '12px' }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <item.icon style={{ 
+                  fontSize: '18px', 
+                  marginRight: isCollapsed ? '0' : '12px',
+                  filter: item.hasGlow ? 'drop-shadow(0 0 8px rgba(220, 38, 38, 0.8))' : 'none',
+                  animation: item.hasGlow ? 'glow 2s ease-in-out infinite' : 'none'
+                }} />
+                {item.badge && item.badge > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: isCollapsed ? '-4px' : '8px',
+                    background: COLORS.error,
+                    color: COLORS.white,
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    minWidth: '18px',
+                    textAlign: 'center',
+                    border: `2px solid ${COLORS.beigeSidebar}`,
+                    zIndex: 1
+                  }}>
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </div>
               {!isCollapsed && (
                 <>
                   {item.label}
-                  {item.badge && (
-                    <span style={{
-                      marginLeft: 'auto',
-                      background: COLORS.terracotta,
-                      color: COLORS.white,
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '3px 8px',
-                      borderRadius: '10px',
-                      minWidth: '22px',
-                      textAlign: 'center'
-                    }}>
-                      {item.badge}
-                    </span>
-                  )}
                 </>
               )}
             </button>
@@ -425,6 +458,20 @@ const Sidebar = ({ sidebarOpen = true, setSidebarOpen, onLogout }) => {
         )}
       </div>
       </div>
+
+      {/* Add glow animation CSS */}
+      <style>{`
+        @keyframes glow {
+          0%, 100% { 
+            filter: drop-shadow(0 0 8px rgba(220, 38, 38, 0.8));
+            opacity: 1;
+          }
+          50% { 
+            filter: drop-shadow(0 0 12px rgba(220, 38, 38, 1));
+            opacity: 0.9;
+          }
+        }
+      `}</style>
     </>
   );
 };

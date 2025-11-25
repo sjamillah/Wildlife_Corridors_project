@@ -383,35 +383,44 @@ export const useWebSocket = (options = {}) => {
       unsubError,
     ];
 
-    // Auto-connect if enabled
+    // Auto-connect if explicitly enabled (default is false now)
+    // Check if already connected before creating new connection (shared connection)
     if (autoConnect) {
-      try {
-      connect();
-      } catch (error) {
-        console.error('Failed to connect WebSocket:', error);
-        setError('Failed to connect to real-time updates');
+      // Check if already connected - reuse shared connection
+      if (websocketService.isConnected()) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('✅ WebSocket already connected - reusing shared connection');
+        }
+        // Connection already exists, just subscribe to events
+      } else if (!websocketService.isConnecting) {
+        // Only connect if not already connecting
+        try {
+          connect();
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Failed to connect WebSocket:', error);
+          }
+          setError('Failed to connect to real-time updates');
+        }
       }
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount - DON'T disconnect shared connection, just unsubscribe
     return () => {
       unsubscribers.current.forEach(unsub => {
         try {
           unsub();
         } catch (error) {
-          console.warn('Error unsubscribing from WebSocket:', error);
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('Error unsubscribing from WebSocket:', error);
+          }
         }
       });
-      if (autoConnect) {
-        try {
-        disconnect();
-        } catch (error) {
-          console.warn('Error disconnecting WebSocket:', error);
-        }
-      }
+      // NOTE: We don't disconnect here because it's a shared connection
+      // Only disconnect when explicitly requested or app closes
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoConnect]); // Only depend on autoConnect to prevent unnecessary re-renders
+  }, [autoConnect]); // REMOVED: Network status dependency - don't reconnect on network changes
 
   /**
    * Clear paths for all animals

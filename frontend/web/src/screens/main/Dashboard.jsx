@@ -1,16 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Shield } from '@/components/shared/Icons';
 import Sidebar from '@/components/shared/Sidebar';
 import MapComponent from '@/components/shared/MapComponent';
 import { COLORS } from '@/constants/Colors';
-import { auth, corridors as corridorsService, animals as animalsService, rangers as rangersService, predictions as predictionsService, alerts as alertsService } from '@/services';
-import api from '@/services/api';
+import { auth, predictions as predictionsService } from '@/services';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useData } from '@/contexts/DataContext';
+import { handleNewAlert } from '@/utils/alertNotifications';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [alertMessage, setAlertMessage] = useState('');
+  const notifiedAlertIdsRef = useRef(new Set()); // Track which alerts have been notified
+  const previousAlertsRef = useRef([]); // Track previous alerts to detect new ones
 
   // WebSocket integration for real-time animal tracking
   const { 
@@ -18,27 +21,67 @@ const Dashboard = () => {
     isConnected,
     alerts: wsAlerts
   } = useWebSocket({
-    autoConnect: true,
+    autoConnect: false, // CHANGED: Don't auto-connect - connection managed centrally
     onAlert: (alert) => {
       // Show toast notification for dashboard alerts
       setAlertMessage(`${alert.icon} ${alert.message}`);
       setTimeout(() => setAlertMessage(''), 5000);
+      
+      // Play sound and show notification for new WebSocket alerts
+      const alertId = alert.id || `ws-${alert.timestamp || Date.now()}`;
+      if (!notifiedAlertIdsRef.current.has(alertId)) {
+        console.log('🔔 Dashboard: New WebSocket alert detected:', alertId);
+        const alertForNotification = {
+          id: alertId,
+          title: alert.title || alert.type || 'Wildlife Alert',
+          message: alert.message || alert.description || '',
+          severity: alert.severity || 'medium',
+          type: alert.alert_type || alert.type || 'general',
+          animalName: alert.animalName || 'Unknown Animal',
+          animalSpecies: alert.animalSpecies || alert.species || 'Unknown',
+          animalId: alert.animalId || alert.animal,
+        };
+        handleNewAlert(alertForNotification).catch(err => {
+          console.warn('Failed to show alert notification:', err);
+        });
+        notifiedAlertIdsRef.current.add(alertId);
+      }
     }
   });
 
   // Transform animals for map markers
   const [mapMarkers, setMapMarkers] = useState([]);
   
-  // All map data (overview of main map screen)
-  const [corridors, setCorridors] = useState([]);
-  const [riskZones, setRiskZones] = useState([]);
-  const [rangers, setRangers] = useState([]);
+  // Use DataContext for all data (prevents duplicate API calls)
+  const { 
+    corridors, 
+    riskZones, 
+    rangers, 
+    alerts: apiAlerts 
+  } = useData();
+  
+  // Local state for computed data
   const [predictions, setPredictions] = useState({});
   const [environmentData, setEnvironmentData] = useState({});
   const [alertMarkers, setAlertMarkers] = useState([]);
   const [allAlerts, setAllAlerts] = useState([]); // Store all alerts for display
   // Alert statistics - counts by status and severity (updated from database alerts including mobile-created ones)
   const [alertStats, setAlertStats] = useState({ active: 0, critical: 0, high: 0, medium: 0, total: 0 });
+  
+  // Get rangers on duty with their names
+  const rangersOnDuty = React.useMemo(() => {
+    if (!rangers || !Array.isArray(rangers)) return [];
+    return rangers.filter(r => {
+      const status = r.status || r.current_status || '';
+      return status === 'active' || status === 'on_duty' || status === 'patrolling' || 
+             (typeof status === 'string' && status.toLowerCase() === 'on_duty');
+    }).map(r => ({
+      id: r.id || r.ranger_id,
+      name: r.name || r.username || r.user_name || 'Ranger',
+      team: r.team_name || r.team || 'Unassigned',
+      status: r.status || r.current_status || 'on_duty'
+    }));
+  }, [rangers]);
 
   const handleLogout = async () => {
     try {
@@ -124,70 +167,9 @@ const Dashboard = () => {
     }
   }, [wsAnimals, wsAlerts, isConnected]);
 
-  // Fetch all overview data (same as main map screen)
-  const fetchCorridors = useCallback(async () => {
-    try {
-      // Fetch ALL corridors from database (not just active ones)
-      const data = await corridorsService.getAll();
-      const corridorsData = data.results || data || [];
-      console.log(`📊 Dashboard: Fetched ${corridorsData.length} corridors from database (all corridors)`);
-      setCorridors(corridorsData);
-    } catch (error) {
-      console.error('❌ Dashboard: Failed to fetch corridors:', error);
-      setCorridors([]);
-    }
-  }, []);
-
-  const fetchRiskZones = useCallback(async () => {
-    try {
-      const response = await api.get('/api/v1/conflict-zones/?is_active=true');
-      const zones = response.data.results || response.data || [];
-      console.log('Dashboard: Fetched risk zones:', zones.length);
-      setRiskZones(zones);
-    } catch (error) {
-      console.warn('Dashboard: Conflict zones unavailable:', error.message);
-      setRiskZones([]);
-    }
-  }, []);
-
-  const fetchRangers = useCallback(async () => {
-    try {
-      const data = await rangersService.getLiveStatus();
-      const transformedRangers = (data || []).map(ranger => ({
-        id: ranger.ranger_id,
-        name: ranger.name,
-        badgeNumber: ranger.badge_number,
-        team: ranger.team_name,
-        status: ranger.current_status,
-        coordinates: [
-          ranger.current_position?.lat || 0,
-          ranger.current_position?.lon || 0
-        ],
-        activity: ranger.activity_type || 'patrolling',
-        battery: ranger.battery_level || '100%',
-        lastSeen: ranger.current_position?.timestamp || ranger.last_active,
-      }));
-      console.log('Dashboard: Fetched rangers:', transformedRangers.length);
-      setRangers(transformedRangers);
-    } catch (error) {
-      console.warn('Dashboard: Rangers data unavailable:', error.message);
-      setRangers([]);
-    }
-  }, []);
-
-  const fetchAnimals = useCallback(async () => {
-    try {
-      // Fallback: fetch animals if WebSocket hasn't loaded them yet
-      if (!wsAnimals || wsAnimals.length === 0) {
-        const data = await animalsService.getLiveStatus();
-        const animalsData = data.results || data || [];
-        console.log('Dashboard: Fetched animals (fallback):', animalsData.length);
-        // Animals are handled via WebSocket, this is just for logging
-      }
-    } catch (error) {
-      console.warn('Dashboard: Animals data unavailable:', error.message);
-    }
-  }, [wsAnimals]);
+  // REMOVED: fetchCorridors, fetchRiskZones, fetchRangers, fetchAnimals
+  // These are now handled by DataContext to prevent duplicate API requests
+  // DataContext provides: corridors, riskZones, rangers, alerts via useData() hook
 
   const fetchPredictions = useCallback(async () => {
     try {
@@ -266,11 +248,11 @@ const Dashboard = () => {
     }
   }, []);
 
-  const fetchAlerts = useCallback(async () => {
+  // Process alerts from DataContext and WebSocket (no duplicate API calls)
+  const processAlerts = useCallback(() => {
     try {
-      // Fetch ALL alerts from API (not just active) to include mobile-created alerts
-      const data = await alertsService.getAll(); // No status filter to get all alerts
-      const alertsData = data.results || data || [];
+      // Use alerts from DataContext (already fetched)
+      const alertsData = apiAlerts || [];
       
       // Filter out alerts that just repeat information already visible on map
       // Only keep alerts with unique/new actionable information (not just animal location)
@@ -443,6 +425,38 @@ const Dashboard = () => {
       setAlertMarkers(Array.from(finalDedupMap.values()));
       setAllAlerts(uniqueAlerts); // Store all alerts for display in Security Operations
       
+      // Detect new alerts and play sounds
+      const previousAlertIds = new Set(previousAlertsRef.current.map(a => a.id || a.alert_id).filter(Boolean));
+      const newAlerts = uniqueAlerts.filter(alert => {
+        const alertId = alert.id || alert.alert_id;
+        return alertId && !previousAlertIds.has(alertId) && !notifiedAlertIdsRef.current.has(alertId);
+      });
+      
+      // Play sound and show notification for new alerts
+      newAlerts.forEach(alert => {
+        const alertId = alert.id || alert.alert_id;
+        if (alertId && !notifiedAlertIdsRef.current.has(alertId)) {
+          console.log('🔔 Dashboard: New alert detected:', alertId);
+          const alertForNotification = {
+            id: alertId,
+            title: alert.title || alert.alert_type || 'Wildlife Alert',
+            message: alert.message || alert.description || '',
+            severity: alert.severity || 'medium',
+            type: alert.alert_type || alert.type || 'general',
+            animalName: alert.animal_name || 'Unknown Animal',
+            animalSpecies: alert.animal_species || alert.species || 'Unknown',
+            animalId: alert.animal_id || alert.animal,
+          };
+          handleNewAlert(alertForNotification).catch(err => {
+            console.warn('Failed to show alert notification:', err);
+          });
+          notifiedAlertIdsRef.current.add(alertId);
+        }
+      });
+      
+      // Update previous alerts reference
+      previousAlertsRef.current = uniqueAlerts;
+      
       // Calculate alert statistics from ALL unique alerts (including mobile-created ones and WebSocket)
       // Use uniqueAlerts which includes both API and WebSocket alerts after deduplication
       const activeAlerts = uniqueAlerts.filter(a => {
@@ -501,7 +515,7 @@ const Dashboard = () => {
       // Reset stats to 0 if fetch fails
       setAlertStats({ active: 0, critical: 0, high: 0, medium: 0, total: 0 });
     }
-  }, [wsAlerts]); // Only depend on wsAlerts - unnecessary deps cause performance issues
+  }, [wsAlerts, apiAlerts]); // Depend on both WebSocket and API alerts
 
   // Update predictions when animals change (lazy load - don't block)
   useEffect(() => {
@@ -515,110 +529,33 @@ const Dashboard = () => {
     }
   }, [wsAnimals, isConnected, fetchPredictions]);
 
-  // Update alerts when WebSocket alerts change and refresh frequently to catch mobile-created alerts
+  // Process alerts when DataContext alerts or WebSocket alerts change
   useEffect(() => {
-    fetchAlerts();
-    
-    // Refresh alerts every 30 seconds to catch mobile-created alerts
-    const alertInterval = setInterval(() => {
-      fetchAlerts().catch(err => console.warn('Failed to refresh alerts:', err.message));
-    }, 30000); // 30 seconds
-    
-    return () => clearInterval(alertInterval);
-  }, [fetchAlerts]);
+    processAlerts();
+  }, [processAlerts]);
 
-  // Fetch all overview data on mount (optimized for fast loading - parallel, non-blocking, timeout protected)
+  // REMOVED: All fetch functions and useEffect hooks that made duplicate API calls
+  // DataContext handles all data fetching automatically
+  
+  // Only load predictions and environment data (not in DataContext)
   useEffect(() => {
     let mounted = true;
     let timeoutIds = [];
     
-    const loadOverviewData = async () => {
-      try {
-        // Load critical data first in parallel with timeout protection (8s per request)
-        const criticalPromises = [
-          Promise.race([
-            fetchAlerts(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-          ]).catch(err => { 
-            if (mounted) console.warn('Failed alerts:', err.message); 
-            return null; 
-          }),
-          Promise.race([
-            fetchCorridors(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-          ]).catch(err => { 
-            if (mounted) console.warn('Failed corridors:', err.message); 
-            return null; 
-          }),
-          Promise.race([
-            fetchRiskZones(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-          ]).catch(err => { 
-            if (mounted) console.warn('Failed risk zones:', err.message); 
-            return null; 
-          }),
-        ];
-        
-        // Don't block - use allSettled so one failure doesn't stop others
-        Promise.allSettled(criticalPromises).then(() => {
-          if (!mounted) return;
-          
-          // Load secondary data after initial render (lazy load - 200ms delay)
-          const timeout1 = setTimeout(() => {
-            if (mounted) {
-              Promise.race([
-                fetchRangers(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-              ]).catch(err => console.warn('Failed rangers:', err.message));
-            }
-          }, 200);
-          timeoutIds.push(timeout1);
-          
-          // Load heavy data after 800ms (predictions, environment, animals)
-          const timeout2 = setTimeout(() => {
-            if (mounted) {
-              Promise.race([
-                fetchPredictions(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-              ]).catch(err => console.warn('Failed predictions:', err.message));
-              
-              Promise.race([
-                fetchEnvironmentData(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-              ]).catch(err => console.warn('Failed environment:', err.message));
-              
-              Promise.race([
-                fetchAnimals(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-              ]).catch(err => console.warn('Failed animals:', err.message));
-            }
-          }, 800);
-          timeoutIds.push(timeout2);
-        });
-      } catch (error) {
-        if (mounted) console.error('Dashboard: Error loading overview data:', error);
-      }
-    };
-
-    loadOverviewData();
-    
-    // Refresh critical data every 5 minutes (non-blocking, light refresh)
-    const interval = setInterval(() => {
+    // Load heavy data after 2 seconds (predictions, environment)
+    const timeout = setTimeout(() => {
       if (mounted) {
-        fetchAlerts().catch(() => {});
-        fetchCorridors().catch(() => {});
-        fetchRiskZones().catch(() => {});
-        fetchRangers().catch(() => {});
+        fetchPredictions().catch(err => console.warn('Failed predictions:', err));
+        fetchEnvironmentData().catch(err => console.warn('Failed environment:', err));
       }
-    }, 300000);
+    }, 2000);
+    timeoutIds.push(timeout);
     
     return () => {
       mounted = false;
-      clearInterval(interval);
       timeoutIds.forEach(id => clearTimeout(id));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchPredictions, fetchEnvironmentData]);
 
   // Transform alerts to incidents format for Security Operations
   const incidents = React.useMemo(() => {
@@ -895,8 +832,24 @@ const Dashboard = () => {
             onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.zIndex = 1; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
             >
-              <div style={{ fontSize: '32px', fontWeight: 800, marginBottom: '6px', color: COLORS.forestGreen }}>{rangers.filter(r => r.status === 'active' || r.status === 'on_duty' || r.status === 'patrolling').length}</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, marginBottom: '6px', color: COLORS.forestGreen }}>{rangersOnDuty.length}</div>
               <div style={{ fontSize: '11px', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>Rangers On Duty</div>
+              {rangersOnDuty.length > 0 && (
+                <div style={{ 
+                  marginTop: '4px', 
+                  fontSize: '9px', 
+                  color: COLORS.textSecondary,
+                  textAlign: 'center',
+                  maxWidth: '100%',
+                  padding: '0 8px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {rangersOnDuty.slice(0, 2).map(r => r.name).join(', ')}
+                  {rangersOnDuty.length > 2 && ` +${rangersOnDuty.length - 2}`}
+                </div>
+              )}
             </div>
             <div style={{ 
               flex: 1, 
@@ -993,9 +946,70 @@ const Dashboard = () => {
                     letterSpacing: '0.5px',
                     background: COLORS.forestGreen,
                     color: COLORS.white
-                  }}>{rangers.filter(r => r.status === 'active' || r.status === 'on_duty' || r.status === 'patrolling').length} Rangers</span>
+                  }}>{rangersOnDuty.length} Rangers</span>
                 </div>
               </div>
+              
+              {/* Rangers On Duty List */}
+              {rangersOnDuty.length > 0 && (
+                <div style={{ 
+                  padding: '0 26px 22px 26px',
+                  borderBottom: `1px solid ${COLORS.borderLight}`,
+                  marginBottom: '22px'
+                }}>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    fontWeight: 700, 
+                    color: COLORS.textSecondary, 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.5px',
+                    marginBottom: '12px'
+                  }}>
+                    Active Rangers ({rangersOnDuty.length})
+                  </div>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: '8px' 
+                  }}>
+                    {rangersOnDuty.map((ranger, idx) => (
+                      <div
+                        key={ranger.id || idx}
+                        style={{
+                          padding: '8px 12px',
+                          background: COLORS.tintRangers,
+                          borderRadius: '6px',
+                          border: `1px solid ${COLORS.borderLight}`,
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: COLORS.textPrimary,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <div style={{
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          background: COLORS.success,
+                          animation: 'pulse 2s infinite'
+                        }}></div>
+                        <span>{ranger.name}</span>
+                        {ranger.team && ranger.team !== 'Unassigned' && (
+                          <span style={{
+                            fontSize: '11px',
+                            color: COLORS.textSecondary,
+                            fontWeight: 500
+                          }}>
+                            • {ranger.team}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Severity Summary */}
               <div style={{ 
@@ -1269,39 +1283,6 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', 
-                  gap: '2px', 
-                  background: COLORS.borderMedium, 
-                  borderRadius: '8px', 
-                  overflow: 'hidden' 
-                }}>
-                  <div style={{ background: COLORS.secondaryBg, padding: '18px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '6px', color: COLORS.success }}>
-                      {wsAnimals?.filter(a => a.risk_level === 'low').length || 0}
-                    </div>
-                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Safe</div>
-                  </div>
-                  <div style={{ background: COLORS.secondaryBg, padding: '18px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '6px', color: COLORS.burntOrange }}>
-                      {wsAnimals?.filter(a => a.movement?.activity_type === 'moving').length || 0}
-                    </div>
-                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Moving</div>
-                  </div>
-                  <div style={{ background: COLORS.secondaryBg, padding: '18px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '6px', color: COLORS.ochre }}>
-                      {wsAnimals?.filter(a => (a.risk_level === 'medium' || a.risk_level === 'high')).length || 0}
-                    </div>
-                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>At Risk</div>
-                  </div>
-                  <div style={{ background: COLORS.secondaryBg, padding: '18px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '6px', color: COLORS.textSecondary }}>
-                      {wsAnimals?.length || 0}
-                    </div>
-                    <div style={{ fontSize: '11px', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Total</div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -1382,18 +1363,59 @@ const Dashboard = () => {
                       {patrol.location}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: COLORS.forestGreen, marginBottom: '5px' }}>
-                      {patrol.rangers} Rangers
-                    </div>
-                    <div style={{ fontSize: '11px', color: COLORS.textSecondary }}>
-                      Check: {patrol.nextCheck}
-                    </div>
-            </div>
-          </div>
+                </div>
               ))}
             </div>
-
+            
+            {/* Active Rangers List */}
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${COLORS.borderLight}` }}>
+              <h4 style={{ fontSize: '15px', fontWeight: 700, color: COLORS.textPrimary, marginBottom: '16px' }}>Active Rangers</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+                {rangersOnDuty.slice(0, 6).map((ranger) => (
+                  <div
+                    key={ranger.id}
+                    style={{
+                      background: COLORS.whiteCard,
+                      border: `1px solid ${COLORS.borderLight}`,
+                      borderRadius: '8px',
+                      padding: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = COLORS.borderMedium;
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = COLORS.borderLight;
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: COLORS.tintRangers
+                    }}>
+                      <Shield className="w-5 h-5" style={{ color: COLORS.forestGreen }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: COLORS.textPrimary }}>
+                        {ranger.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: COLORS.textSecondary }}>
+                        {ranger.team}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       </div>

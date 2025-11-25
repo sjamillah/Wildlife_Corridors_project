@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { COLORS } from '../../constants/Colors';
 import ReactDOMServer from 'react-dom/server';
-import { MapPin, Shield, AlertTriangle, Battery, Signal, Activity, Clock, Users, AlertCircle, AlertOctagon, Siren, Flame, ANIMAL_ICONS } from './Icons';
+import { MapPin, Shield, AlertTriangle, Battery, Signal, Activity, Clock, AlertCircle, AlertOctagon, Siren, Flame, ANIMAL_ICONS } from './Icons';
 
 const MovementTrailLayer = ({ trail, isPlaying, onComplete }) => {
   const map = useMap();
@@ -645,6 +645,16 @@ const createCustomIcon = (color, type, alertType = null) => {
       case 'wildlife':
       iconContent = ANIMAL_ICONS.WILDLIFE;
         break;
+      case 'ranger':
+      case 'patrol':
+        iconContent = ReactDOMServer.renderToString(
+          React.createElement(Shield, {
+            size: 20,
+            color: 'white',
+            style: { filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }
+          })
+        );
+        break;
       case 'alert':
         // Use different icons based on alert_type
         const IconComponent = (() => {
@@ -695,16 +705,6 @@ const createCustomIcon = (color, type, alertType = null) => {
         
         iconContent = ReactDOMServer.renderToString(
           React.createElement(IconComponent, {
-            size: 20,
-            color: 'white',
-            strokeWidth: 2.5
-          })
-        );
-        break;
-      case 'patrol':
-      case 'ranger':
-        iconContent = ReactDOMServer.renderToString(
-          React.createElement(Users, {
             size: 20,
             color: 'white',
             strokeWidth: 2.5
@@ -1310,10 +1310,10 @@ const MapComponent = ({
               iconSize = 19;
             }
             
-            // Create simple, clean alert marker - no flickering, minimal design
+            // Create alert marker with bounce and glow animation
             const alertIconHtml = `
               <div style="display: flex; align-items: center; justify-content: center;">
-                <div style="
+                <div class="alert-marker-bounce" style="
                   width: 28px; 
                   height: 28px; 
                   background: ${alertColor}; 
@@ -1322,8 +1322,9 @@ const MapComponent = ({
                   display: flex; 
                   align-items: center; 
                   justify-content: center;
-                  box-shadow: 0 2px 6px ${alertColor}80;
+                  box-shadow: 0 0 0 0 ${alertColor}80, 0 2px 6px ${alertColor}80;
                   cursor: pointer;
+                  animation: alertBounce 1s ease-in-out infinite, alertGlow 2s ease-in-out infinite;
                 ">
                   ${ReactDOMServer.renderToString(
                     React.createElement(AlertIcon, {
@@ -1334,6 +1335,16 @@ const MapComponent = ({
                     })
                   )}
                 </div>
+                <style>
+                  @keyframes alertBounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-4px); }
+                  }
+                  @keyframes alertGlow {
+                    0%, 100% { box-shadow: 0 0 0 0 ${alertColor}80, 0 2px 6px ${alertColor}80; }
+                    50% { box-shadow: 0 0 0 8px ${alertColor}40, 0 2px 6px ${alertColor}80; }
+                  }
+                </style>
               </div>
             `;
             
@@ -1469,10 +1480,10 @@ const MapComponent = ({
               iconSize = 21;
             }
             
-            // Create simple, clean alert marker - no flickering, minimal design
+            // Create alert marker with bounce and glow animation
             const alertIconHtml = `
               <div style="display: flex; align-items: center; justify-content: center;">
-                <div style="
+                <div class="alert-marker-bounce" style="
                   width: 30px; 
                   height: 30px; 
                   background: ${alertColor}; 
@@ -1481,8 +1492,9 @@ const MapComponent = ({
                   display: flex; 
                   align-items: center; 
                   justify-content: center;
-                  box-shadow: 0 2px 6px ${alertColor}80;
+                  box-shadow: 0 0 0 0 ${alertColor}80, 0 2px 6px ${alertColor}80;
                   cursor: pointer;
+                  animation: alertBounce 1s ease-in-out infinite, alertGlow 2s ease-in-out infinite;
                 ">
                   ${ReactDOMServer.renderToString(
                     React.createElement(AlertIcon, {
@@ -1493,6 +1505,16 @@ const MapComponent = ({
                     })
                   )}
                 </div>
+                <style>
+                  @keyframes alertBounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-4px); }
+                  }
+                  @keyframes alertGlow {
+                    0%, 100% { box-shadow: 0 0 0 0 ${alertColor}80, 0 2px 6px ${alertColor}80; }
+                    50% { box-shadow: 0 0 0 8px ${alertColor}40, 0 2px 6px ${alertColor}80; }
+                  }
+                </style>
               </div>
             `;
             
@@ -2218,9 +2240,32 @@ const MapComponent = ({
           {showRangerPatrols && rangerPatrols && Array.isArray(rangerPatrols) && rangerPatrols.map((patrol, idx) => {
             // Check if this is a route with polyline or just a position marker
             const hasRoute = patrol.route && isValidPath(patrol.route);
-            const hasPosition = patrol.current_position && isValidCoordinate(patrol.current_position);
             
-            if (!hasRoute && !hasPosition) return null;
+            // Handle position - can be array [lat, lon] or object {lat, lon}
+            let position = null;
+            if (patrol.current_position) {
+              if (Array.isArray(patrol.current_position) && patrol.current_position.length === 2) {
+                position = patrol.current_position;
+              } else if (patrol.current_position.lat !== undefined && patrol.current_position.lon !== undefined) {
+                position = [patrol.current_position.lat, patrol.current_position.lon];
+              }
+            }
+            
+            const hasPosition = position && isValidCoordinate(position);
+            
+            console.log('🗺️ Rendering ranger patrol:', {
+              id: patrol.id,
+              name: patrol.name,
+              hasRoute,
+              hasPosition,
+              position,
+              current_position: patrol.current_position
+            });
+            
+            if (!hasRoute && !hasPosition) {
+              console.warn('⚠️ Skipping ranger - no valid route or position:', patrol);
+              return null;
+            }
             
             return (
               <React.Fragment key={`patrol-${patrol.id || idx}`}>
@@ -2255,11 +2300,8 @@ const MapComponent = ({
                 )}
                 
                 {/* Ranger current position marker (always show if position exists) */}
-                {hasPosition && (() => {
-                  // Handle both array and object position formats
-                  const position = Array.isArray(patrol.current_position) 
-                    ? patrol.current_position 
-                    : [patrol.current_position.lat, patrol.current_position.lon];
+                {hasPosition && position && (() => {
+                  console.log('📍 Creating ranger marker at position:', position, 'for', patrol.name);
                   
                   return (
                     <React.Fragment key={`ranger-${patrol.id}`}>

@@ -27,24 +27,27 @@ const alerts = {
    */
   getAll: async (filters = {}) => {
     try {
-      // Use the active alerts endpoint to get all active alerts
-      const response = await api.get('/api/v1/alerts/active/');
+      // Use the active alerts endpoint with pagination to limit to 30 alerts
+      const params = new URLSearchParams({ page_size: 30, ...filters }).toString();
+      const response = await api.get(`/api/v1/alerts/active/?${params}`);
       // Handle both array response and paginated response
       const data = response.data;
       if (Array.isArray(data)) {
-        return data;
+        return data.slice(0, 30); // Ensure max 30 even if array
       }
       // Fallback for paginated responses
-      return data.results || data || [];
+      const results = data.results || data || [];
+      return results.slice(0, 30); // Ensure max 30
     } catch (error) {
       console.warn('Active alerts endpoint not available, trying alternative:', error.message);
       // Fallback to regular alerts endpoint if active endpoint fails
       try {
-        const params = new URLSearchParams(filters).toString();
-        const url = `/api/v1/alerts/${params ? `?${params}` : ''}`;
+        const params = new URLSearchParams({ page_size: 30, ...filters }).toString();
+        const url = `/api/v1/alerts/?${params}`;
         const fallbackResponse = await api.get(url);
         const fallbackData = fallbackResponse.data;
-        return Array.isArray(fallbackData) ? fallbackData : (fallbackData.results || fallbackData || []);
+        const results = Array.isArray(fallbackData) ? fallbackData : (fallbackData.results || fallbackData || []);
+        return results.slice(0, 30); // Ensure max 30
       } catch (fallbackError) {
         console.warn('Alerts endpoint not available:', fallbackError.message);
         return [];

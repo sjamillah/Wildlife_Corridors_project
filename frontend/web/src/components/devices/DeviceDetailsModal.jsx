@@ -5,26 +5,6 @@ import { COLORS } from '@/constants/Colors';
 const DeviceDetailsModal = ({ device, onClose }) => {
   if (!device) return null;
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Active': return COLORS.success;
-      case 'Warning': return COLORS.ochre;
-      case 'Critical': return COLORS.error;
-      case 'Low Battery': return COLORS.ochre;
-      default: return COLORS.textSecondary;
-    }
-  };
-
-  const getStatusBg = (status) => {
-    switch (status) {
-      case 'Active': return COLORS.tintSuccess;
-      case 'Warning': return COLORS.tintWarning;
-      case 'Critical': return COLORS.tintCritical;
-      case 'Low Battery': return COLORS.tintWarning;
-      default: return COLORS.creamBg;
-    }
-  };
-
   const getBatteryColor = (battery) => {
     if (battery > 70) return COLORS.success;
     if (battery > 30) return COLORS.ochre;
@@ -43,8 +23,6 @@ const DeviceDetailsModal = ({ device, onClose }) => {
     return `${days}d ago`;
   };
 
-  const statusColor = getStatusColor(device.status);
-  const statusBg = getStatusBg(device.status);
   const batteryColor = getBatteryColor(device.battery);
 
   return (
@@ -247,7 +225,7 @@ const DeviceDetailsModal = ({ device, onClose }) => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '13px', color: COLORS.textSecondary }}>Activity:</span>
                     <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, textTransform: 'capitalize' }}>
-                      {device.activity}
+                      {device.activity === 'unknown' ? 'Not Available' : device.activity}
                     </span>
                   </div>
                 )}
@@ -302,6 +280,22 @@ const DeviceDetailsModal = ({ device, onClose }) => {
                     </div>
                   </div>
                 </div>
+                {device.lat !== undefined && device.lon !== undefined && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: COLORS.textSecondary }}>Latitude:</span>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, fontFamily: 'monospace' }}>
+                        {device.lat.toFixed(6)}°
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: COLORS.textSecondary }}>Longitude:</span>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, fontFamily: 'monospace' }}>
+                        {device.lon.toFixed(6)}°
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '13px', color: COLORS.textSecondary }}>Last Update:</span>
                   <span style={{ fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary }}>
